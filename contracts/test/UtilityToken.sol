@@ -34,8 +34,8 @@ contract UtilityToken is ERC721 {
 	}
 
 
-	function mint(uint256 tokenId) external {
-		_mint(msg.sender, tokenId);
+	function mint(address owner, uint256 tokenId) external {
+		_mint(owner, tokenId);
 	}
 
 }
