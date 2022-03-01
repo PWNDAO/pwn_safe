@@ -65,26 +65,21 @@ contract PWNWallet is Ownable, ERC721, IERC721Receiver {
 			require(_isTokenised[target][tokenId] == false, "Cannot approve token while having transfer right token minted");
 		}
 
-		// transferFrom
-		else if (funcSelector == 0x23b872dd) {
+		// transferFrom || safeTransferFrom
+		else if (funcSelector == 0x23b872dd || funcSelector == 0x42842e0e) {
+			(, , uint256 tokenId) = abi.decode(data[4:], (address, address, uint256));
 
-		}
-
-		// safeTransferFrom
-		else if (funcSelector == 0x42842e0e) {
-
+			require(_isTokenised[target][tokenId] == false, "Cannot transfer asset with minted transfer rights token. Use dedicated function instead");
 		}
 
 		// safeTransferFrom with data
 		else if (funcSelector == 0xb88d4fde) {
+			(, , uint256 tokenId, ) = abi.decode(data[4:], (address, address, uint256, bytes));
 
+			require(_isTokenised[target][tokenId] == false, "Cannot transfer asset with minted transfer rights token. Use dedicated function instead");
 		}
 
-
-		// TODO: Restrict transferring assets without TR tokens
-
 		// Execute call
-
 		(bool success, bytes memory output) = target.call{ value: msg.value }(data);
 
 		// TODO: Parse error message from output data
@@ -139,6 +134,35 @@ contract PWNWallet is Ownable, ERC721, IERC721Receiver {
 		for (uint256 i = 0; i < operators.length(); ++i) {
 			IERC721(tokenAddress).setApprovalForAll(operators.at(i), false);
 		}
+	}
+
+	// Is it a problem that it's not standard function?
+	function transferTokenFrom(address from, address to, address tokenAddress, uint256 tokenId, uint256 trTokenId) external {
+		_checkTRToken(tokenAddress, tokenId, trTokenId);
+
+		IERC721(tokenAddress).transferFrom(from, to, tokenId);
+	}
+
+	// Is it a problem that it's not standard function?
+	function safeTransferTokenFrom(address from, address to, address tokenAddress, uint256 tokenId, uint256 trTokenId) external {
+		_checkTRToken(tokenAddress, tokenId, trTokenId);
+
+		IERC721(tokenAddress).safeTransferFrom(from, to, tokenId);
+	}
+
+	// Is it a problem that it's not standard function?
+	function safeTransferTokenFrom(address from, address to, address tokenAddress, uint256 tokenId, uint256 trTokenId, bytes calldata data) external {
+		_checkTRToken(tokenAddress, tokenId, trTokenId);
+
+		IERC721(tokenAddress).safeTransferFrom(from, to, tokenId, data);
+	}
+
+	function _checkTRToken(address tokenAddress, uint256 tokenId, uint256 trTokenId) internal view {
+		require(_isTokenised[tokenAddress][tokenId] == true, "Transfer rights are not tokenized");
+		require(ownerOf(trTokenId) == msg.sender, "Sender is not owner of TR token");
+
+		Token memory token = _tokens[trTokenId];
+		require(token.tokenAddress == tokenAddress && token.tokenId == tokenId, "TR token id did not tokenized given asset");
 	}
 
 

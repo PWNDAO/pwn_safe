@@ -17,6 +17,9 @@ describe("PWNWallet", function() {
 	const IERC721 = new utils.Interface([
 		"function approve(address to, uint256 tokenId) external",
 		"function setApprovalForAll(address operator, bool _approved) external",
+		"function transferFrom(address from, address to, uint256 tokenId) external",
+		"function safeTransferFrom(address from, address to, uint256 tokenId) external",
+		"function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external",
 	]);
 
 	before(async function() {
@@ -36,17 +39,15 @@ describe("PWNWallet", function() {
 
 	describe("Execute", function() {
 
-		it("Should fail if sender is not wallet owner", async function() {
+		it("Should fail when sender is not wallet owner", async function() {
 			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
-
 			await expect(
 				wallet.connect(other).execute(token.address, calldata)
 			).to.be.reverted;
 		});
 
-		it("Should succeed if sender is wallet owner", async function() {
+		it("Should succeed when sender is wallet owner", async function() {
 			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
-
 			await expect(
 				wallet.connect(owner).execute(token.address, calldata)
 			).to.not.be.reverted;
@@ -70,7 +71,7 @@ describe("PWNWallet", function() {
 		});
 
 
-		it("Should fail if token is already tokenised", async function() {
+		it("Should fail when token is already tokenised", async function() {
 			await wallet.mintTransferRightToken(token.address, tokenId);
 
 			await expect(
@@ -78,7 +79,7 @@ describe("PWNWallet", function() {
 			).to.be.revertedWith("Token transfer rights are already tokenised");
 		});
 
-		it("Should fail if token is not in wallet", async function() {
+		it("Should fail when token is not in wallet", async function() {
 			await token.mint(owner.address, 3232);
 
 			await expect(
@@ -86,7 +87,7 @@ describe("PWNWallet", function() {
 			).to.be.revertedWith("Token is not in wallet");
 		});
 
-		it("Should fail if token is approved to another address", async function() {
+		it("Should fail when token is approved to another address", async function() {
 			const calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
 			await wallet.execute(token.address, calldata);
 
@@ -95,7 +96,7 @@ describe("PWNWallet", function() {
 			).to.be.revertedWith("Token must not be approved to other address");
 		});
 
-		it("Should fail if token has operator", async function() {
+		it("Should fail when token has operator", async function() {
 			let calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 			await wallet.execute(token.address, calldata);
 
@@ -131,9 +132,8 @@ describe("PWNWallet", function() {
 		});
 
 
-		it("Should set approved address if asset is not tokenised", async function() {
+		it("Should set approved address when asset is not tokenised", async function() {
 			const calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-
 			await expect(
 				wallet.execute(token.address, calldata)
 			).to.not.be.reverted;
@@ -141,11 +141,10 @@ describe("PWNWallet", function() {
 			expect(await token.getApproved(tokenId)).to.equal(other.address);
 		});
 
-		it("Should fail if asset is tokenised", async function() {
+		it("Should fail when asset is tokenised", async function() {
 			await wallet.mintTransferRightToken(token.address, tokenId);
 
 			const calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-
 			await expect(
 				wallet.execute(token.address, calldata)
 			).to.be.revertedWith("Cannot approve token while having transfer right token minted");
@@ -163,9 +162,8 @@ describe("PWNWallet", function() {
 		});
 
 
-		it("Should set operator if any asset from collection is not tokenised", async function() {
-			let calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-
+		it("Should set operator when any asset from collection is not tokenised", async function() {
+			const calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 			await expect(
 				wallet.execute(token.address, calldata)
 			).to.not.be.reverted;
@@ -173,32 +171,320 @@ describe("PWNWallet", function() {
 			expect(await token.isApprovedForAll(wallet.address, other.address)).to.equal(true);
 		});
 
-		it("Should fail if any asset from collection is tokenised", async function() {
+		it("Should fail when any asset from collection is tokenised", async function() {
 			await wallet.mintTransferRightToken(token.address, tokenId);
 
-			let calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-
+			const calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 			await expect(
 				wallet.execute(token.address, calldata)
 			).to.be.revertedWith("Cannot approve all while having transfer right token minted");
 		});
 
-		// Should update operator set
+		xit("Should update operator set");
 
 	});
 
 
 	describe("Transfer from", function() {
 
-	});
+		const tokenId = 123;
 
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
+		it("Should transfer token when it hasn't tokenized transfer rights", async function() {
+			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.not.be.reverted;
+		});
+
+		it("Should faile when it has tokenized transfer rights", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Try to transfer asset as wallet owner
+			calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.be.reverted;
+		});
+	});
 
 	describe("Safe transfer from", function() {
 
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
+		it("Should transfer token when it hasn't tokenized transfer rights", async function() {
+			const calldata = IERC721.encodeFunctionData("safeTransferFrom(address,address,uint256)", [wallet.address, other.address, tokenId]);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.not.be.reverted;
+		});
+
+		it("Should faile when it has tokenized transfer rights", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Try to transfer asset as wallet owner
+			calldata = IERC721.encodeFunctionData("safeTransferFrom(address,address,uint256)", [wallet.address, other.address, tokenId]);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.be.reverted;
+		});
+	});
+
+	describe("Safe transfer from with data", function() {
+
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
+		it("Should transfer token when it hasn't tokenized transfer rights", async function() {
+			const calldata = IERC721.encodeFunctionData("safeTransferFrom(address,address,uint256,bytes)", [wallet.address, other.address, tokenId, "0x"]);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.not.be.reverted;
+		});
+
+		it("Should faile when it has tokenized transfer rights which is not in wallet", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Try to transfer asset as wallet owner
+			calldata = IERC721.encodeFunctionData("safeTransferFrom(address,address,uint256,bytes)", [wallet.address, other.address, tokenId, "0x"]);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.be.reverted;
+		});
 	});
 
 
-	describe("Safe transfer from with data", function() {
+	describe("Transfer from with TR token", function() {
+
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
+		it("Should fail when it hasn't tokenized transfer rights", async function() {
+			await expect(
+				wallet.connect(other).transferTokenFrom(wallet.address, other.address, token.address, tokenId, 1)
+			).to.be.revertedWith("Transfer rights are not tokenized");
+		});
+
+		it("Should fail when sender is not TR token owner", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(owner).transferTokenFrom(wallet.address, other.address, token.address, tokenId, 1)
+			).to.be.revertedWith("Sender is not owner of TR token");
+		});
+
+		it("Should fail when given TR token id doesn't match tokenized asset", async function() {
+			// Mint other asset
+			await token.mint(wallet.address, 1000);
+
+			// Mint TR token for first asset (TR token id 1)
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Mint TR token for second asset (TR token id 2)
+			await wallet.mintTransferRightToken(token.address, 1000);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(other).transferTokenFrom(wallet.address, other.address, token.address, 1000, 1)
+			).to.be.revertedWith("TR token id does not tokenized given asset");
+		});
+
+		it("Should transfer token when sender has tokenized transfer rights", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(other).transferTokenFrom(wallet.address, other.address, token.address, tokenId, 1)
+			).to.not.be.reverted;
+
+			// Assets owner is `other` now
+			expect(await token.ownerOf(tokenId)).to.equal(other.address);
+		});
+
+	});
+
+
+	describe("Safe transfer from with TR token", function() {
+
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
+		it("Should fail when it hasn't tokenized transfer rights", async function() {
+			await expect(
+				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256)"](wallet.address, other.address, token.address, tokenId, 1)
+			).to.be.revertedWith("Transfer rights are not tokenized");
+		});
+
+		it("Should fail when sender is not TR token owner", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(owner)["safeTransferTokenFrom(address,address,address,uint256,uint256)"](wallet.address, other.address, token.address, tokenId, 1)
+			).to.be.revertedWith("Sender is not owner of TR token");
+		});
+
+		it("Should fail when given TR token id doesn't match tokenized asset", async function() {
+			// Mint other asset
+			await token.mint(wallet.address, 1000);
+
+			// Mint TR token for first asset (TR token id 1)
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Mint TR token for second asset (TR token id 2)
+			await wallet.mintTransferRightToken(token.address, 1000);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256)"](wallet.address, other.address, token.address, 1000, 1)
+			).to.be.revertedWith("TR token id does not tokenized given asset");
+		});
+
+		it("Should transfer token when sender has tokenized transfer rights", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256)"](wallet.address, other.address, token.address, tokenId, 1)
+			).to.not.be.reverted;
+
+			// Assets owner is `other` now
+			expect(await token.ownerOf(tokenId)).to.equal(other.address);
+		});
+
+	});
+
+
+	describe("Safe transfer from with data with TR token", function() {
+
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
+		it("Should fail when it hasn't tokenized transfer rights", async function() {
+			await expect(
+				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256,bytes)"](wallet.address, other.address, token.address, tokenId, 1, "0x")
+			).to.be.revertedWith("Transfer rights are not tokenized");
+		});
+
+		it("Should fail when sender is not TR token owner", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(owner)["safeTransferTokenFrom(address,address,address,uint256,uint256,bytes)"](wallet.address, other.address, token.address, tokenId, 1, "0x")
+			).to.be.revertedWith("Sender is not owner of TR token");
+		});
+
+		it("Should fail when given TR token id doesn't match tokenized asset", async function() {
+			// Mint other asset
+			await token.mint(wallet.address, 1000);
+
+			// Mint TR token for first asset (TR token id 1)
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Mint TR token for second asset (TR token id 2)
+			await wallet.mintTransferRightToken(token.address, 1000);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256,bytes)"](wallet.address, other.address, token.address, 1000, 1, "0x")
+			).to.be.revertedWith("TR token id does not tokenized given asset");
+		});
+
+		it("Should transfer token when sender has tokenized transfer rights", async function() {
+			// Mint TR token
+			await wallet.mintTransferRightToken(token.address, tokenId);
+
+			// Transfer TR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(wallet.address, calldata);
+
+			// Transfer asset from `owner`s wallet via TR token
+			await expect(
+				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256,bytes)"](wallet.address, other.address, token.address, tokenId, 1, "0x")
+			).to.not.be.reverted;
+
+			// Assets owner is `other` now
+			expect(await token.ownerOf(tokenId)).to.equal(other.address);
+		});
 
 	});
 
