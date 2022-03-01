@@ -1,5 +1,5 @@
 {
-  "name": "@pwnfinance/ownerseparator",
+  "name": "@pwnfinance/pwnwallet",
   "version": "0.1.0",
   "scripts": {
     "test": "npx hardhat test"
