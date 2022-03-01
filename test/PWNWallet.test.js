@@ -328,7 +328,7 @@ describe("PWNWallet", function() {
 			// Transfer asset from `owner`s wallet via TR token
 			await expect(
 				wallet.connect(other).transferTokenFrom(wallet.address, other.address, token.address, 1000, 1)
-			).to.be.revertedWith("TR token id does not tokenized given asset");
+			).to.be.revertedWith("TR token id did not tokenized given asset");
 		});
 
 		it("Should transfer token when sender has tokenized transfer rights", async function() {
@@ -397,7 +397,7 @@ describe("PWNWallet", function() {
 			// Transfer asset from `owner`s wallet via TR token
 			await expect(
 				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256)"](wallet.address, other.address, token.address, 1000, 1)
-			).to.be.revertedWith("TR token id does not tokenized given asset");
+			).to.be.revertedWith("TR token id did not tokenized given asset");
 		});
 
 		it("Should transfer token when sender has tokenized transfer rights", async function() {
@@ -466,7 +466,7 @@ describe("PWNWallet", function() {
 			// Transfer asset from `owner`s wallet via TR token
 			await expect(
 				wallet.connect(other)["safeTransferTokenFrom(address,address,address,uint256,uint256,bytes)"](wallet.address, other.address, token.address, 1000, 1, "0x")
-			).to.be.revertedWith("TR token id does not tokenized given asset");
+			).to.be.revertedWith("TR token id did not tokenized given asset");
 		});
 
 		it("Should transfer token when sender has tokenized transfer rights", async function() {
