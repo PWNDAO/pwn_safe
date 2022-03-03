@@ -38,4 +38,8 @@ contract UtilityToken is ERC721 {
 		_mint(owner, tokenId);
 	}
 
+	function burn(uint256 tokenId) external {
+		_burn(tokenId);
+	}
+
 }

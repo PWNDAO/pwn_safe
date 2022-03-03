@@ -16,4 +16,4 @@ This prototype currently supports just ERC721 tokens, but can be extended for an
 
 Assumption for the wallet to work is, that wallet owner cannot grant approval to any other address while asset is locker. In case the locked asset has some non-standard way how to transfer it / approve it to other address, the wallet cannot provide assurance to the "lender", that the asset is really locked even though TR token is minted.
 
-This leads to biggest trade-off. Wallet cannot have tokenized transfer rights to some collection and at the same time provide approval for all assets in that collection (`setApprovalForAll`) to any address (usually protocol which uses `transferFrom` to transfer assets to its vault).
+This leads to the biggest trade-off. Wallet cannot have tokenized transfer rights to some collection and at the same time provide approval for all assets in that collection (`setApproveForAll`) to any address (usually protocol which uses `transferFrom` to transfer assets to its vault).

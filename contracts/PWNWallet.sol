@@ -2,31 +2,24 @@
 pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "hardhat/console.sol";
+import "./AssetTransferRights.sol";
 
-contract PWNWallet is Ownable, ERC721, IERC721Receiver {
+contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 	using EnumerableSet for EnumerableSet.AddressSet;
+	using EnumerableSet for EnumerableSet.UintSet;
 
-	uint256 internal lastTokenId;
-
-	mapping (address => EnumerableSet.AddressSet) internal _operators;
-	// Number of TR tokens for asset contract
+	AssetTransferRights internal _atr;
+	// Number of tokenized assets in wallet
 	mapping (address => uint256) internal _balanceFor;
-	mapping (uint256 => Token) internal _tokens;
-	mapping (address => mapping (uint256 => bool)) internal _isTokenised;
-
-	struct Token {
-		address tokenAddress;
-		uint256 tokenId;
-	}
+	EnumerableSet.UintSet internal _atrs;
+	mapping (address => EnumerableSet.AddressSet) internal _operators;
 
 
-	constructor() Ownable() ERC721("Transfer Right", "TR") {
-
+	constructor(address atr) Ownable() {
+		_atr = AssetTransferRights(atr);
 	}
 
 
@@ -62,21 +55,7 @@ contract PWNWallet is Ownable, ERC721, IERC721Receiver {
 		else if (funcSelector == 0x095ea7b3) {
 			(, uint256 tokenId) = abi.decode(data[4:], (address, uint256));
 
-			require(_isTokenised[target][tokenId] == false, "Cannot approve token while having transfer right token minted");
-		}
-
-		// transferFrom || safeTransferFrom
-		else if (funcSelector == 0x23b872dd || funcSelector == 0x42842e0e) {
-			(, , uint256 tokenId) = abi.decode(data[4:], (address, address, uint256));
-
-			require(_isTokenised[target][tokenId] == false, "Cannot transfer asset with minted transfer rights token. Use dedicated function instead");
-		}
-
-		// safeTransferFrom with data
-		else if (funcSelector == 0xb88d4fde) {
-			(, , uint256 tokenId, ) = abi.decode(data[4:], (address, address, uint256, bytes));
-
-			require(_isTokenised[target][tokenId] == false, "Cannot transfer asset with minted transfer rights token. Use dedicated function instead");
+			require(_atr.isTokenized(target, tokenId) == false, "Cannot approve token while having transfer right token minted");
 		}
 
 		// Execute call
@@ -85,43 +64,17 @@ contract PWNWallet is Ownable, ERC721, IERC721Receiver {
 		// TODO: Parse error message from output data
 		require(success);
 
+		// TODO: Assert that checks tokenized asset balances
+		// How to know which assets should not change balance?
+		// -> a) store asset as tokenized in wallet?
+		// b) store asset owner in ATR contract?
+		for (uint256 i = 0; i < _atrs.length(); ++i) {
+			(address tokenAddress, uint256 tokenId) = _atr.getToken(_atrs.at(i));
+			require(IERC721(tokenAddress).ownerOf(tokenId) == address(this), "One of the tokenized assets moved from the wallet");
+		}
+
+
 		return output;
-	}
-
-
-	// ## Transfer rights
-
-	function mintTransferRightToken(address tokenAddress, uint256 tokenId) external onlyOwner {
-		require(_isTokenised[tokenAddress][tokenId] == false, "Token transfer rights are already tokenised");
-		require(IERC721(tokenAddress).ownerOf(tokenId) == address(this), "Token is not in wallet");
-
-		// _Other option:_ Remove approve in the transaction instead of throwing error
-		require(IERC721(tokenAddress).getApproved(tokenId) == address(0), "Token must not be approved to other address");
-
-		// _Other option:_ Remove all operators in the transaction instead of throwing error
-		require(_operators[tokenAddress].length() == 0, "Token collection must not have any operator set");
-
-		uint256 trId = ++lastTokenId;
-
-		_isTokenised[tokenAddress][tokenId] = true;
-		_tokens[trId] = Token(tokenAddress, tokenId);
-		_balanceFor[tokenAddress] += 1;
-
-		_mint(address(this), trId);
-	}
-
-	// Wallet owner can burn the token if the token is in the wallet
-	// _Other option:_ Token owner can burn the token anytime
-	function burnTransferRightToken(uint256 trId) external onlyOwner {
-		Token memory token = _tokens[trId];
-
-		require(_isTokenised[token.tokenAddress][token.tokenId] == true, "Token transfer rights are not tokenised");
-		require(ownerOf(trId) == address(this), "Token transfer rights has to be in wallet");
-
-		_isTokenised[token.tokenAddress][token.tokenId] = false;
-		_balanceFor[token.tokenAddress] -= 1;
-
-		_burn(trId);
 	}
 
 
@@ -136,33 +89,99 @@ contract PWNWallet is Ownable, ERC721, IERC721Receiver {
 		}
 	}
 
-	// Is it a problem that it's not standard function?
-	function transferTokenFrom(address from, address to, address tokenAddress, uint256 tokenId, uint256 trTokenId) external {
-		_checkTRToken(tokenAddress, tokenId, trTokenId);
+
+	// ## ATR token
+
+	function mintTransferRightToken(address tokenAddress, uint256 tokenId) external {
+		_balanceFor[tokenAddress] += 1;
+		uint256 atrTokenId = _atr.mintTransferRightToken(tokenAddress, tokenId);
+		_atrs.add(atrTokenId);
+	}
+
+	function burnTransferRightToken(uint256 atrTokenId) public {
+		(address tokenAddress, ) = _atr.getToken(atrTokenId);
+		_balanceFor[tokenAddress] -= 1;
+		_atrs.remove(atrTokenId);
+		_atr.burnTransferRightToken(atrTokenId);
+	}
+
+
+	// ## Transfer asset with ATR token
+
+	function transferTokenFrom(address from, address to, uint256 atrTokenId, bool burn) external {
+		(address tokenAddress, uint256 tokenId) = _processTransfer(to, atrTokenId, burn);
+
+		if (burn) {
+			burnTransferRightToken(atrTokenId);
+		}
 
 		IERC721(tokenAddress).transferFrom(from, to, tokenId);
+
+		_afterTransfer();
 	}
 
-	// Is it a problem that it's not standard function?
-	function safeTransferTokenFrom(address from, address to, address tokenAddress, uint256 tokenId, uint256 trTokenId) external {
-		_checkTRToken(tokenAddress, tokenId, trTokenId);
+	function safeTransferTokenFrom(address from, address to, uint256 atrTokenId, bool burn) external {
+		(address tokenAddress, uint256 tokenId) = _processTransfer(to, atrTokenId, burn);
+
+		if (burn) {
+			burnTransferRightToken(atrTokenId);
+		}
 
 		IERC721(tokenAddress).safeTransferFrom(from, to, tokenId);
+
+		_afterTransfer();
 	}
 
-	// Is it a problem that it's not standard function?
-	function safeTransferTokenFrom(address from, address to, address tokenAddress, uint256 tokenId, uint256 trTokenId, bytes calldata data) external {
-		_checkTRToken(tokenAddress, tokenId, trTokenId);
+	function safeTransferTokenFrom(address from, address to, uint256 atrTokenId, bool burn, bytes calldata data) external {
+		(address tokenAddress, uint256 tokenId) = _processTransfer(to, atrTokenId, burn);
+
+		if (burn) {
+			burnTransferRightToken(atrTokenId);
+		}
 
 		IERC721(tokenAddress).safeTransferFrom(from, to, tokenId, data);
+
+		_afterTransfer();
 	}
 
-	function _checkTRToken(address tokenAddress, uint256 tokenId, uint256 trTokenId) internal view {
-		require(_isTokenised[tokenAddress][tokenId] == true, "Transfer rights are not tokenized");
-		require(ownerOf(trTokenId) == msg.sender, "Sender is not owner of TR token");
+	function _processTransfer(address to, uint256 atrTokenId, bool burn) internal returns (address tokenAddress, uint256 tokenId) {
+		(tokenAddress, tokenId) = _atr.getToken(atrTokenId);
 
-		Token memory token = _tokens[trTokenId];
-		require(token.tokenAddress == tokenAddress && token.tokenId == tokenId, "TR token id did not tokenized given asset");
+		// Check that asset transfer rights are tokenized
+		require(tokenAddress != address(0), "Transfer rights are not tokenized");
+
+		// Check that sender is ATR token owner
+		require(_atr.ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
+
+		if (!burn) {
+			// TODO: Fail if recipient is not PWNWallet
+
+			// Check that recipient doesn't have operator for the token collection
+			require(IPWNWallet(to).hasOperatorsFor(tokenAddress) == false, "Receiver cannot have operator set for the token");
+
+			IPWNWallet(to).receivedTokenizedAsset(tokenAddress, atrTokenId);
+		}
+
+		_balanceFor[tokenAddress] -= 1;
+		_atrs.remove(atrTokenId);
+	}
+
+	function _afterTransfer() internal {
+		// (?) TODO: assert that receiver doesn't have approval on token (in case ERC721 transfer did not reset approvals)
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # IPWNWallet                                            *|
+	|*----------------------------------------------------------*/
+
+	function hasOperatorsFor(address tokenAddress) override external view returns (bool) {
+		return _operators[tokenAddress].length() > 0;
+	}
+
+	function receivedTokenizedAsset(address tokenAddress, uint256 atrTokenId) external {
+		_atrs.add(atrTokenId);
+		_balanceFor[tokenAddress] += 1;
 	}
 
 
@@ -170,6 +189,7 @@ contract PWNWallet is Ownable, ERC721, IERC721Receiver {
 	|*  # IERC721Receiver                                       *|
 	|*----------------------------------------------------------*/
 
+	// (?) How to prevent from calling by malicious actor
 	function onERC721Received(
 		address /*operator*/,
 		address /*from*/,
