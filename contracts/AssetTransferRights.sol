@@ -3,10 +3,12 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./IPWNWallet.sol";
+import "./PWNWalletFactory.sol";
 
 contract AssetTransferRights is ERC721 {
 
 	uint256 internal lastTokenId;
+	PWNWalletFactory internal factory;
 
 	mapping (uint256 => Token) internal _tokens;
 	mapping (address => mapping (uint256 => bool)) internal _isTokenized;
@@ -28,7 +30,9 @@ contract AssetTransferRights is ERC721 {
 	|*----------------------------------------------------------*/
 
 	function mintTransferRightToken(address tokenAddress, uint256 tokenId) external returns (uint256) {
-		// TODO: check that msg.sender is PWNWallet
+		// Check that msg.sender is PWNWallet
+		require(factory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
+
 		IPWNWallet wallet = IPWNWallet(msg.sender);
 
 		// Check that asset is not tokenized yet
@@ -57,12 +61,13 @@ contract AssetTransferRights is ERC721 {
 
 	// Token owner can burn the token if it's in the same wallet as tokenized asset
 	function burnTransferRightToken(uint256 atrTokenId) external {
-		// TODO: check that msg.sender is PWNWallet -> if not, tokenized asset balances will not match
+		// Check that msg.sender is PWNWallet -> if not, tokenized asset balances will not match
+		require(factory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
 
 		(address tokenAddress, uint256 tokenId) = getToken(atrTokenId);
 
 		// Check that token is indeed tokenized
-		require(_isTokenized[tokenAddress][tokenId] == true, "Token transfer rights are not tokenised");
+		require(tokenAddress != address(0), "Token transfer rights are not tokenised");
 
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Token transfer rights has to be in wallet");

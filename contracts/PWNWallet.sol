@@ -6,20 +6,33 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./AssetTransferRights.sol";
+import "./PWNWalletFactory.sol";
 
 contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 	using EnumerableSet for EnumerableSet.AddressSet;
 	using EnumerableSet for EnumerableSet.UintSet;
 
 	AssetTransferRights internal _atr;
+	PWNWalletFactory internal _walletFactory;
 	// Number of tokenized assets in wallet
 	mapping (address => uint256) internal _balanceFor;
 	EnumerableSet.UintSet internal _atrs;
 	mapping (address => EnumerableSet.AddressSet) internal _operators;
 
+	bool private _instantiated;
 
-	constructor(address atr) Ownable() {
+
+	constructor() Ownable() {
+
+	}
+
+	function setConstructorValues(address originalOwner, address atr, address walletFactory) external {
+		require(_instantiated == false, "Constructor values are set");
+		_instantiated = true;
+
+		_transferOwnership(originalOwner);
 		_atr = AssetTransferRights(atr);
+		_walletFactory = PWNWalletFactory(walletFactory);
 	}
 
 
@@ -64,10 +77,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 		// TODO: Parse error message from output data
 		require(success);
 
-		// TODO: Assert that checks tokenized asset balances
-		// How to know which assets should not change balance?
-		// -> a) store asset as tokenized in wallet?
-		// b) store asset owner in ATR contract?
+		// Assert that checks tokenized asset balances
 		for (uint256 i = 0; i < _atrs.length(); ++i) {
 			(address tokenAddress, uint256 tokenId) = _atr.getToken(_atrs.at(i));
 			require(IERC721(tokenAddress).ownerOf(tokenId) == address(this), "One of the tokenized assets moved from the wallet");
@@ -154,12 +164,14 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 		require(_atr.ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
 
 		if (!burn) {
-			// TODO: Fail if recipient is not PWNWallet
+			// Fail if recipient is not PWNWallet
+			require(_walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 
 			// Check that recipient doesn't have operator for the token collection
 			require(IPWNWallet(to).hasOperatorsFor(tokenAddress) == false, "Receiver cannot have operator set for the token");
 
-			IPWNWallet(to).receivedTokenizedAsset(tokenAddress, atrTokenId);
+			// Notify other wallet about tokenized asset transfer
+			IPWNWallet(to).willReceiveTokenizedAsset(tokenAddress, atrTokenId);
 		}
 
 		_balanceFor[tokenAddress] -= 1;
@@ -179,7 +191,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 		return _operators[tokenAddress].length() > 0;
 	}
 
-	function receivedTokenizedAsset(address tokenAddress, uint256 atrTokenId) external {
+	function willReceiveTokenizedAsset(address tokenAddress, uint256 atrTokenId) external {
 		_atrs.add(atrTokenId);
 		_balanceFor[tokenAddress] += 1;
 	}

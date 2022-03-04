@@ -9,7 +9,8 @@ const utils = ethers.utils;
 describe("AssetTransferRights", function() {
 
 	let ATR, atr;
-	let PWNWallet, wallet;
+	let wallet;
+	let PWNWalletFactory, factory;
 	let Token, token;
 	let owner, other;
 
@@ -23,7 +24,7 @@ describe("AssetTransferRights", function() {
 
 	before(async function() {
 		ATR = await ethers.getContractFactory("AssetTransferRights");
-		PWNWallet = await ethers.getContractFactory("PWNWallet");
+		PWNWalletFactory = await ethers.getContractFactory("PWNWalletFactory");
 		Token = await ethers.getContractFactory("UtilityToken");
 
 		[owner, other] = await ethers.getSigners();
@@ -33,11 +34,15 @@ describe("AssetTransferRights", function() {
 		atr = await ATR.deploy();
 		await atr.deployed();
 
-		wallet = await PWNWallet.deploy(atr.address);
-		await wallet.deployed();
+		factory = await PWNWalletFactory.deploy(atr.address);
+		await factory.deployed();
 
 		token = await Token.deploy();
 		await token.deployed();
+
+		const walletTx = await factory.connect(owner).newWallet();
+		const walletRes = await walletTx.wait();
+		wallet = await ethers.getContractAt("PWNWallet", walletRes.events[1].args.walletAddress);
 	});
 
 
@@ -50,8 +55,7 @@ describe("AssetTransferRights", function() {
 		});
 
 
-		// TODO: Implement PWNWalletProxyFactory with `isValidProxy` function to determine PWN Wallets
-		xit("Should fail when sender is not PWN Wallet", async function() {
+		it("Should fail when sender is not PWN Wallet", async function() {
 			await token.mint(other.address, 333);
 
 			await expect(
