@@ -1,35 +1,34 @@
-// SPDX-License-Identifier: None
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./AssetTransferRights.sol";
 import "./PWNWalletFactory.sol";
+import "./IPWNWallet.sol";
 
-contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
+contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 	using EnumerableSet for EnumerableSet.AddressSet;
-	using EnumerableSet for EnumerableSet.UintSet;
 
 	AssetTransferRights internal _atr;
 	PWNWalletFactory internal _walletFactory;
-	// Number of tokenized assets in wallet
-	mapping (address => uint256) internal _balanceFor;
-	EnumerableSet.UintSet internal _atrs;
+
+	// Set of operators per token address
 	mapping (address => EnumerableSet.AddressSet) internal _operators;
 
-	bool private _instantiated;
-
+	modifier onlyATRContract() {
+		require(msg.sender == address(_atr), "Sender is not asset transfer rights contract");
+		_;
+	}
 
 	constructor() Ownable() {
 
 	}
 
-	function setConstructorValues(address originalOwner, address atr, address walletFactory) external {
-		require(_instantiated == false, "Constructor values are set");
-		_instantiated = true;
-
+	function initialize(address originalOwner, address atr, address walletFactory) external initializer {
 		_transferOwnership(originalOwner);
 		_atr = AssetTransferRights(atr);
 		_walletFactory = PWNWalletFactory(walletFactory);
@@ -43,9 +42,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 	// ## Wallet execution
 
 	function execute(address target, bytes calldata data) external payable onlyOwner returns (bytes memory) {
-		// If assets implements EIP???? (new EIP for this type) skip all the approve checks
-		// else ->
-
 		bytes4 funcSelector;
 		assembly {
 			funcSelector := calldataload(data.offset)
@@ -53,7 +49,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 
 		// setApproveForAll
 		if (funcSelector == 0xa22cb465) {
-			require(_balanceFor[target] == 0, "Cannot approve all while having transfer right token minted");
+			require(_atr.ownedFromCollection(target) == 0, "Cannot approve all while having transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
 
@@ -74,15 +70,18 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 		// Execute call
 		(bool success, bytes memory output) = target.call{ value: msg.value }(data);
 
-		// TODO: Parse error message from output data
-		require(success);
-
-		// Assert that checks tokenized asset balances
-		for (uint256 i = 0; i < _atrs.length(); ++i) {
-			(address tokenAddress, uint256 tokenId) = _atr.getToken(_atrs.at(i));
-			require(IERC721(tokenAddress).ownerOf(tokenId) == address(this), "One of the tokenized assets moved from the wallet");
+		if (!success) {
+			assembly {
+				revert(add(output, 32), output)
+			}
 		}
 
+		// Assert that checks tokenized asset balances
+		uint256[] memory atrs = _atr.ownedAssetATRIds();
+		for (uint256 i = 0; i < atrs.length; ++i) {
+			(address tokenAddress, uint256 tokenId) = _atr.getToken(atrs[i]);
+			require(IERC721(tokenAddress).ownerOf(tokenId) == address(this), "One of the tokenized assets moved from the wallet");
+		}
 
 		return output;
 	}
@@ -100,82 +99,26 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 	}
 
 
-	// ## ATR token
-
-	function mintTransferRightToken(address tokenAddress, uint256 tokenId) external {
-		_balanceFor[tokenAddress] += 1;
-		uint256 atrTokenId = _atr.mintTransferRightToken(tokenAddress, tokenId);
-		_atrs.add(atrTokenId);
-	}
-
-	function burnTransferRightToken(uint256 atrTokenId) public {
-		(address tokenAddress, ) = _atr.getToken(atrTokenId);
-		_balanceFor[tokenAddress] -= 1;
-		_atrs.remove(atrTokenId);
-		_atr.burnTransferRightToken(atrTokenId);
-	}
-
-
 	// ## Transfer asset with ATR token
 
-	function transferTokenFrom(address from, address to, uint256 atrTokenId, bool burn) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(to, atrTokenId, burn);
-
-		if (burn) {
-			burnTransferRightToken(atrTokenId);
-		}
-
-		IERC721(tokenAddress).transferFrom(from, to, tokenId);
+	function transferAsset(address to, address tokenAddress, uint256 tokenId) external onlyATRContract {
+		IERC721(tokenAddress).transferFrom(address(this), to, tokenId);
 
 		_afterTransfer();
 	}
 
-	function safeTransferTokenFrom(address from, address to, uint256 atrTokenId, bool burn) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(to, atrTokenId, burn);
-
-		if (burn) {
-			burnTransferRightToken(atrTokenId);
-		}
-
-		IERC721(tokenAddress).safeTransferFrom(from, to, tokenId);
+	// Not tested
+	function safeTransferAsset(address to, address tokenAddress, uint256 tokenId) external onlyATRContract {
+		IERC721(tokenAddress).safeTransferFrom(address(this), to, tokenId);
 
 		_afterTransfer();
 	}
 
-	function safeTransferTokenFrom(address from, address to, uint256 atrTokenId, bool burn, bytes calldata data) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(to, atrTokenId, burn);
-
-		if (burn) {
-			burnTransferRightToken(atrTokenId);
-		}
-
-		IERC721(tokenAddress).safeTransferFrom(from, to, tokenId, data);
+	// Not tested
+	function safeTransferAsset(address to, address tokenAddress, uint256 tokenId, bytes calldata data) external onlyATRContract {
+		IERC721(tokenAddress).safeTransferFrom(address(this), to, tokenId, data);
 
 		_afterTransfer();
-	}
-
-	function _processTransfer(address to, uint256 atrTokenId, bool burn) internal returns (address tokenAddress, uint256 tokenId) {
-		(tokenAddress, tokenId) = _atr.getToken(atrTokenId);
-
-		// Check that asset transfer rights are tokenized
-		require(tokenAddress != address(0), "Transfer rights are not tokenized");
-
-		// Check that sender is ATR token owner
-		require(_atr.ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
-
-		if (!burn) {
-			// Fail if recipient is not PWNWallet
-			require(_walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
-
-			// Check that recipient doesn't have operator for the token collection
-			require(IPWNWallet(to).hasOperatorsFor(tokenAddress) == false, "Receiver cannot have operator set for the token");
-
-			// Notify other wallet about tokenized asset transfer
-			IPWNWallet(to).willReceiveTokenizedAsset(tokenAddress, atrTokenId);
-		}
-
-		_balanceFor[tokenAddress] -= 1;
-		_atrs.remove(atrTokenId);
 	}
 
 	function _afterTransfer() internal {
@@ -189,11 +132,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver {
 
 	function hasOperatorsFor(address tokenAddress) override external view returns (bool) {
 		return _operators[tokenAddress].length() > 0;
-	}
-
-	function willReceiveTokenizedAsset(address tokenAddress, uint256 atrTokenId) external {
-		_atrs.add(atrTokenId);
-		_balanceFor[tokenAddress] += 1;
 	}
 
 

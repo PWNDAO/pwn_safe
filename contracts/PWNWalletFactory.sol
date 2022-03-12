@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: None
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
@@ -12,12 +12,12 @@ contract PWNWalletFactory {
 	address immutable internal _masterImplementation;
 	address immutable internal _atr;
 
-	event NewWallet(address indexed walletAddress);
+	event NewWallet(address indexed walletAddress, address indexed owner);
 
 
 	constructor(address atr) {
-		_masterImplementation = address(new PWNWallet());
 		_atr = atr;
+		_masterImplementation = address(new PWNWallet());
 	}
 
 
@@ -25,9 +25,9 @@ contract PWNWalletFactory {
 		address walletAddress = _masterImplementation.clone();
 		isValidWallet[walletAddress] = true;
 
-		PWNWallet(walletAddress).setConstructorValues(msg.sender, _atr, address(this));
+		PWNWallet(walletAddress).initialize(msg.sender, _atr, address(this));
 
-		emit NewWallet(walletAddress);
+		emit NewWallet(walletAddress, msg.sender);
 	}
 
 }

@@ -1,7 +1,10 @@
-// SPDX-License-Identifier: None
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
 interface IPWNWallet {
-	function willReceiveTokenizedAsset(address tokenAddress, uint256 atrTokenId) external;
-	function hasOperatorsFor(address tokenAddress) external returns (bool);
+	function transferAsset(address to, address tokenContract, uint256 tokenId) external;
+	function safeTransferAsset(address to, address tokenContract, uint256 tokenId) external;
+	function safeTransferAsset(address to, address tokenContract, uint256 tokenId, bytes calldata data) external;
+
+	function hasOperatorsFor(address tokenAddress) external view returns (bool);
 }
