@@ -44,9 +44,15 @@ contract AssetTransferRights is ERC721 {
 
 
 	/*----------------------------------------------------------*|
-	|*  # Transfer rights                                       *|
+	|*  # Asset transfer rights token                           *|
 	|*----------------------------------------------------------*/
 
+	// Tokenize given assets transfer rights and mint ATR token
+	// Internali:
+	// - set asset as tokenized
+	// - store asset info under ATR token id
+	// - store that tokenized asset is in senders wallet
+	// - store that wallet has tokenized asset from assets collection
 	function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external {
 		// Check that token address is not zero address
 		require(tokenAddress != address(0), "Cannot tokenize zero address asset");
@@ -78,6 +84,7 @@ contract AssetTransferRights is ERC721 {
 		// TODO: Event
 	}
 
+	// Burn ATR token and "untokenize" that assets transfer rights
 	// Token owner can burn the token if it's in the same wallet as tokenized asset
 	function burnAssetTransferRightsToken(uint256 atrTokenId) external {
 		(address tokenAddress, uint256 tokenId) = getToken(atrTokenId);
@@ -107,7 +114,9 @@ contract AssetTransferRights is ERC721 {
 	|*  # Transfer asset with ATR token                         *|
 	|*----------------------------------------------------------*/
 
-	// Can transfer only from wallet that is calling the transfer
+	// Transfer assets via ATR token
+	// Asset can be transferred only to another PWN Wallet
+	// TODO: Add argument `burn` which will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
 	function transferAssetFrom(address from, address to, uint256 atrTokenId) external {
 		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId);
 

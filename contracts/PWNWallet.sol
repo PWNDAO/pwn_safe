@@ -16,7 +16,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 	AssetTransferRights internal _atr;
 	PWNWalletFactory internal _walletFactory;
 
-	// Set of operators per token address
+	// Set of operators per asset collection
 	mapping (address => EnumerableSet.AddressSet) internal _operators;
 
 	modifier onlyATRContract() {
