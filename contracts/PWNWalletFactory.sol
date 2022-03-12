@@ -7,6 +7,7 @@ import "./PWNWallet.sol";
 contract PWNWalletFactory {
 	using Clones for address;
 
+	// Used to check that tokenized asset is transferred to another PWN Wallet
 	mapping (address => bool) public isValidWallet;
 
 	address immutable internal _masterImplementation;
