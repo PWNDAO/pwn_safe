@@ -17,3 +17,7 @@ This prototype currently supports just ERC721 tokens, but can be extended for an
 Assumption for the wallet to work is, that wallet owner cannot grant approval to any other address while asset is locker. In case the locked asset has some non-standard way how to transfer it / approve it to other address, the wallet cannot provide assurance to the "lender", that the asset is really locked even though TR token is minted.
 
 This leads to the biggest trade-off. Wallet cannot have tokenized transfer rights to some collection and at the same time provide approval for all assets in that collection (`setApproveForAll`) to any address (usually protocol which uses `transferFrom` to transfer assets to its vault).
+
+## Rinkeby
+ATR contract: `0xDBdb041842407c109F65b23eA86D99c1E0D94522`
+Wallet factory: `0xff9f68c2eD6aD97399f1e7304735D62C3da65d6B`
