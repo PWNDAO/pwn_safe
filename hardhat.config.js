@@ -1,6 +1,20 @@
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
+require('dotenv').config();
 
 module.exports = {
   solidity: "0.8.9",
+  networks: {
+    rinkeby: {
+      url: process.env.RINKEBY_URL || "",
+      accounts:
+        process.env.DEPLOY_PRIVATE_KEY_TESTNET !== undefined
+          ? [process.env.DEPLOY_PRIVATE_KEY_TESTNET]
+          : [],
+    }
+  },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS !== undefined,
+    currency: "USD",
+  },
 };
