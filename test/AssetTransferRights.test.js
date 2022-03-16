@@ -3,9 +3,6 @@ const { ethers } = require("hardhat");
 const utils = ethers.utils;
 
 
-// ⚠️ Warning: This is not the final test suite. It's just for prototype purposes.
-
-
 describe("AssetTransferRights", function() {
 
 	let ATR, atr;
@@ -26,9 +23,9 @@ describe("AssetTransferRights", function() {
 		"function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external returns (uint256)",
 		"function burnAssetTransferRightsToken(uint256 atrTokenId) external",
 
-		"function transferAssetFrom(address from, address to, uint256 atrTokenId) external",
-		"function safeTransferAssetFrom(address from, address to, uint256 atrTokenId) external",
-		"function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bytes calldata data) external",
+		"function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
+		"function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
+		"function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken, bytes calldata data) external",
 	]);
 
 	before(async function() {
@@ -171,7 +168,7 @@ describe("AssetTransferRights", function() {
 
 		it("Should fail when sender is not tokenized asset owner", async function() {
 			// Transfer asset to `otherWallet`
-			let calldata = atrIface.encodeFunctionData("transferAssetFrom", [wallet.address, walletOther.address, 1]);
+			let calldata = atrIface.encodeFunctionData("transferAssetFrom", [wallet.address, walletOther.address, 1, false]);
 			await wallet.execute(atr.address, calldata);
 
 			calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [1]);
@@ -209,28 +206,41 @@ describe("AssetTransferRights", function() {
 
 		it("Should fail when it hasn't tokenized transfer rights", async function() {
 			await expect(
-				atr.transferAssetFrom(wallet.address, walletOther.address, 2)
+				atr.transferAssetFrom(wallet.address, walletOther.address, 2, false)
 			).to.be.revertedWith("Transfer rights are not tokenized");
 		});
 
 		it("Should fail when sender is not ATR token owner", async function() {
 			await expect(
-				atr.connect(owner).transferAssetFrom(wallet.address, walletOther.address, 1)
+				atr.connect(owner).transferAssetFrom(wallet.address, walletOther.address, 1, false)
 			).to.be.revertedWith("Sender is not ATR token owner");
 		});
 
-		it("Should fail when transferring to other than PWN Wallet", async function() {
+		it("Should fail when transferring to other than PWN Wallet and not burning ATR token", async function() {
 			// Transfer ATR token to `other`
 			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
 			await wallet.execute(atr.address, calldata);
 
 			// Transfer asset from `owner`s wallet via ATR token
 			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, other.address, 1)
+				atr.connect(other).transferAssetFrom(wallet.address, other.address, 1, false)
 			).to.be.revertedWith("Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 		});
 
-		it("Should fail when receiver has operator set on asset collection", async function() {
+		it("Should transfer asset when transferring to other than PWN Wallet and burning ATR token", async function() {
+			// Transfer ATR token to `other`
+			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(atr.address, calldata);
+
+			// Transfer asset from `owner`s wallet via ATR token
+			await expect(
+				atr.connect(other).transferAssetFrom(wallet.address, other.address, 1, true)
+			).to.not.be.reverted;
+
+			expect(await token.ownerOf(tokenId)).to.equal(other.address);
+		});
+
+		it("Should fail when receiver has operator set on asset collection when not burning ATR token", async function() {
 			// Transfer ATR token to `other`
 			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
 			await wallet.execute(atr.address, calldata);
@@ -241,8 +251,25 @@ describe("AssetTransferRights", function() {
 
 			// Transfer asset from `owner`s wallet via ATR token
 			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1)
+				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, false)
 			).to.be.revertedWith("Receiver cannot have operator set for the token");
+		});
+
+		it("Should transfer asset when receiver has operator set on asset collection when burning ATR token", async function() {
+			// Transfer ATR token to `other`
+			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(atr.address, calldata);
+
+			// Set operator `other` on walletOther
+			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
+			await walletOther.connect(other).execute(token.address, calldata);
+
+			// Transfer asset from `owner`s wallet via ATR token
+			await expect(
+				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, true)
+			).to.not.be.reverted;
+
+			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
 		});
 
 		it("Should fail when asset is not in wallet", async function() {
@@ -252,13 +279,32 @@ describe("AssetTransferRights", function() {
 
 			// Transfer asset from `owner`s wallet via ATR token
 			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1)
+				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, false)
 			).to.not.be.reverted;
 
 			// Try to again transfer asset from `owner`s wallet via ATR token
 			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1)
+				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, false)
 			).to.be.revertedWith("Asset is not in target wallet");
+		});
+
+		it("Should burn ATR token when transferring with burn flag", async function() {
+			// Transfer ATR token to `other`
+			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(atr.address, calldata);
+
+			// Transfer asset from `owner`s wallet via ATR token
+			await expect(
+				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, true)
+			).to.not.be.reverted;
+
+			// Assets owner is `walletOther` now
+			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
+
+			expect(await atr.isTokenized(token.address, tokenId)).to.equal(false);
+			const asset = await atr.getToken(1);
+			expect(asset[0]).to.equal(ethers.constants.AddressZero);
+			expect(asset[1]).to.equal(0);
 		});
 
 		it("Should transfer token when sender has tokenized transfer rights", async function() {
@@ -268,7 +314,7 @@ describe("AssetTransferRights", function() {
 
 			// Transfer asset from `owner`s wallet via ATR token
 			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1)
+				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, false)
 			).to.not.be.reverted;
 
 			// Assets owner is `walletOther` now

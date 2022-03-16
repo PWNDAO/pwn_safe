@@ -80,8 +80,6 @@ contract AssetTransferRights is ERC721 {
 		_ownedFromCollection[msg.sender][tokenAddress] += 1;
 
 		_mint(msg.sender, atrTokenId);
-
-		// TODO: Event
 	}
 
 	// Burn ATR token and "untokenize" that assets transfer rights
@@ -105,8 +103,6 @@ contract AssetTransferRights is ERC721 {
 		_ownedFromCollection[msg.sender][tokenAddress] -= 1;
 
 		_burn(atrTokenId);
-
-		// TODO: Event
 	}
 
 
@@ -117,27 +113,27 @@ contract AssetTransferRights is ERC721 {
 	// Transfer assets via ATR token
 	// Asset can be transferred only to another PWN Wallet
 	// TODO: Add argument `burn` which will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
-	function transferAssetFrom(address from, address to, uint256 atrTokenId) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId);
+	function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external {
+		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
 
 		IPWNWallet(from).transferAsset(to, tokenAddress, tokenId);
 	}
 
 	// Not tested
-	function safeTransferAssetFrom(address from, address to, uint256 atrTokenId) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId);
+	function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external {
+		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
 
 		IPWNWallet(from).safeTransferAsset(to, tokenAddress, tokenId);
 	}
 
 	// Not tested
-	function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bytes calldata data) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId);
+	function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken, bytes calldata data) external {
+		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
 
 		IPWNWallet(from).safeTransferAsset(to, tokenAddress, tokenId, data);
 	}
 
-	function _processTransfer(address from, address to, uint256 atrTokenId) internal returns (address tokenAddress, uint256 tokenId) {
+	function _processTransfer(address from, address to, uint256 atrTokenId, bool burnToken) internal returns (address tokenAddress, uint256 tokenId) {
 		(tokenAddress, tokenId) = getToken(atrTokenId);
 
 		// Check that asset transfer rights are tokenized
@@ -146,19 +142,30 @@ contract AssetTransferRights is ERC721 {
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
 
-		// Fail if recipient is not PWNWallet
-		require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
+		if (!burnToken) {
+			// Fail if recipient is not PWNWallet
+			require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 
-		// Check that recipient doesn't have operator for the token collection
-		require(IPWNWallet(to).hasOperatorsFor(tokenAddress) == false, "Receiver cannot have operator set for the token");
+			// Check that recipient doesn't have operator for the token collection
+			require(IPWNWallet(to).hasOperatorsFor(tokenAddress) == false, "Receiver cannot have operator set for the token");
+
+			// Update owned assets by wallet
+			_ownedAssetATRIds[to].add(atrTokenId);
+
+			// Update owned collections by wallet
+			_ownedFromCollection[to][tokenAddress] += 1;
+		} else {
+			_isTokenized[tokenAddress][tokenId] = false;
+			_tokens[atrTokenId] = Token(address(0), 0);
+
+			_burn(atrTokenId);
+		}
 
 		// Update owned assets by wallet
 		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
-		_ownedAssetATRIds[to].add(atrTokenId);
 
 		// Update owned collections by wallet
 		_ownedFromCollection[from][tokenAddress] -= 1;
-		_ownedFromCollection[to][tokenAddress] += 1;
 	}
 
 

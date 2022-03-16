@@ -26,7 +26,7 @@ contract PWNWalletFactory {
 		address walletAddress = _masterImplementation.clone();
 		isValidWallet[walletAddress] = true;
 
-		PWNWallet(walletAddress).initialize(msg.sender, _atr, address(this));
+		PWNWallet(walletAddress).initialize(msg.sender, _atr);
 
 		emit NewWallet(walletAddress, msg.sender);
 	}

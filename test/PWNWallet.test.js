@@ -1,9 +1,10 @@
-const { expect } = require("chai");
+const chai = require("chai");
 const { ethers } = require("hardhat");
+const { smock } = require("@defi-wonderland/smock");
 const utils = ethers.utils;
 
-
-// ⚠️ Warning: This is not the final test suite. It's just for prototype purposes.
+const expect = chai.expect;
+chai.use(smock.matchers);
 
 
 describe("PWNWallet", function() {
@@ -258,8 +259,47 @@ describe("PWNWallet", function() {
 			).to.be.revertedWith("Sender is not asset transfer rights contract");
 		});
 
-		xit("Should transfer asset to receiver", async function() {
-			// Mock wallet, set _atr to some address, call from that address
+		it("Should transfer asset to receiver", async function() {
+			const fakeToken = await smock.fake("UtilityToken");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, other.address);
+
+			await mockWallet.connect(other).transferAsset(walletOther.address, fakeToken.address, 1);
+
+			expect(fakeToken.transferFrom).to.have.been.calledOnceWith(mockWallet.address, walletOther.address, 1);
+		});
+
+	});
+
+
+	describe("Mint ATR token", function() {
+
+		it("Should call mint on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet.mintAssetTransferRightsToken(token.address, 40);
+
+			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith(token.address, 40);
+		});
+
+	});
+
+
+	describe("Burn ATR token", function() {
+
+		it("Should call burn on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet.burnAssetTransferRightsToken(332);
+
+			expect(fakeAtr.burnAssetTransferRightsToken).to.have.been.calledOnceWith(332);
 		});
 
 	});

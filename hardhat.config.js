@@ -3,7 +3,20 @@ require("hardhat-gas-reporter");
 require('dotenv').config();
 
 module.exports = {
-  solidity: "0.8.9",
+  solidity: {
+    version: "0.8.9",
+    settings: {
+      // optimizer: {
+      //   enabled: true,
+      //   runs: 200,
+      // },
+      outputSelection: {
+        "*": {
+          "*": ["storageLayout"]
+        }
+      }
+    },
+  },
   networks: {
     rinkeby: {
       url: process.env.RINKEBY_URL || "",

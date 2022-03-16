@@ -14,7 +14,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 	using EnumerableSet for EnumerableSet.AddressSet;
 
 	AssetTransferRights internal _atr;
-	PWNWalletFactory internal _walletFactory;
 
 	// Set of operators per asset collection
 	mapping (address => EnumerableSet.AddressSet) internal _operators;
@@ -28,10 +27,9 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 
 	}
 
-	function initialize(address originalOwner, address atr, address walletFactory) external initializer {
+	function initialize(address originalOwner, address atr) external initializer {
 		_transferOwnership(originalOwner);
 		_atr = AssetTransferRights(atr);
-		_walletFactory = PWNWalletFactory(walletFactory);
 	}
 
 
@@ -98,31 +96,29 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 		}
 	}
 
+	function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external onlyOwner {
+		_atr.mintAssetTransferRightsToken(tokenAddress, tokenId);
+	}
+
+	function burnAssetTransferRightsToken(uint256 atrTokenId) external onlyOwner {
+		_atr.burnAssetTransferRightsToken(atrTokenId);
+	}
+
 
 	// ## Transfer asset with ATR token
 
 	function transferAsset(address to, address tokenAddress, uint256 tokenId) external onlyATRContract {
 		IERC721(tokenAddress).transferFrom(address(this), to, tokenId);
-
-		_afterTransfer();
 	}
 
 	// Not tested
 	function safeTransferAsset(address to, address tokenAddress, uint256 tokenId) external onlyATRContract {
 		IERC721(tokenAddress).safeTransferFrom(address(this), to, tokenId);
-
-		_afterTransfer();
 	}
 
 	// Not tested
 	function safeTransferAsset(address to, address tokenAddress, uint256 tokenId, bytes calldata data) external onlyATRContract {
 		IERC721(tokenAddress).safeTransferFrom(address(this), to, tokenId, data);
-
-		_afterTransfer();
-	}
-
-	function _afterTransfer() internal {
-		// (?) TODO: assert that receiver doesn't have approval on token (in case ERC721 transfer did not reset approvals)
 	}
 
 
