@@ -11,6 +11,10 @@ describe("AssetTransferRights", function() {
 	let Token, token;
 	let owner, other;
 
+	const tokenIface = new utils.Interface([
+		"function utilityEmpty() external",
+	]);
+
 	const IERC721 = new utils.Interface([
 		"function approve(address to, uint256 tokenId) external",
 		"function setApprovalForAll(address operator, bool _approved) external",
@@ -288,6 +292,17 @@ describe("AssetTransferRights", function() {
 			).to.be.revertedWith("Asset is not in target wallet");
 		});
 
+		it("Should fail when transferring asset to self", async function() {
+			// Transfer ATR token to `other`
+			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			await wallet.execute(atr.address, calldata);
+
+			// Transfer asset from and to `owner`s wallet via ATR token
+			await expect(
+				atr.connect(other).transferAssetFrom(wallet.address, wallet.address, 1, false)
+			).to.be.revertedWith("Transferring asset to same address");
+		});
+
 		it("Should burn ATR token when transferring with burn flag", async function() {
 			// Transfer ATR token to `other`
 			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
@@ -319,6 +334,71 @@ describe("AssetTransferRights", function() {
 
 			// Assets owner is `walletOther` now
 			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
+		});
+
+	});
+
+
+	describe("Resolve Asset Conflict", function() {
+
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+
+			// ATR token with id 1
+			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
+			await wallet.execute(atr.address, calldata);
+		});
+
+
+		it("Should fail when conflicting owner is correct owner", async function() {
+			await expect(
+				atr.resolveAssetConflict(wallet.address, 1)
+			).to.be.revertedWith("Conflicting owner is asset owner");
+		});
+
+		it("Should fail when asset is not in conflicting owners wallet", async function() {
+			await expect(
+				atr.resolveAssetConflict(walletOther.address, 1)
+			).to.be.revertedWith("Asset is not in conflicting owners wallet");
+		});
+
+		it("Should set asset to correct owner", async function() {
+			// Force transfer asset out of wallet, leaving corrupted internal state
+			await token.forceTransfer(wallet.address, walletOther.address, tokenId);
+
+			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.be.reverted;
+
+
+			await atr.resolveAssetConflict(wallet.address, 1);
+
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.not.be.reverted;
+			expect(await atr.ownerOf(1)).to.equal(wallet.address);
+		});
+
+		it("Should burn ATR token if correct owner is not PWN wallet", async function() {
+			// Force transfer asset out of wallet, leaving corrupted internal state
+			await token.forceTransfer(wallet.address, other.address, tokenId);
+
+			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.be.reverted;
+
+			await atr.resolveAssetConflict(wallet.address, 1);
+
+			await expect(
+				wallet.execute(token.address, calldata)
+			).to.not.be.reverted;
+			await expect(
+				atr.ownerOf(1)
+			).to.be.reverted;
 		});
 
 	});

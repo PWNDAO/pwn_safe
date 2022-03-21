@@ -136,13 +136,27 @@ contract AssetTransferRights is ERC721 {
 	function _processTransfer(address from, address to, uint256 atrTokenId, bool burnToken) internal returns (address tokenAddress, uint256 tokenId) {
 		(tokenAddress, tokenId) = getToken(atrTokenId);
 
+		// Check that transferring to different address
+		require(from != to, "Transferring asset to same address");
+
 		// Check that asset transfer rights are tokenized
 		require(tokenAddress != address(0), "Transfer rights are not tokenized");
 
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
 
-		if (!burnToken) {
+		// Update owned assets by wallet
+		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
+
+		// Update owned collections by wallet
+		_ownedFromCollection[from][tokenAddress] -= 1;
+
+		if (burnToken) {
+			_isTokenized[tokenAddress][tokenId] = false;
+			_tokens[atrTokenId] = Token(address(0), 0);
+
+			_burn(atrTokenId);
+		} else {
 			// Fail if recipient is not PWNWallet
 			require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 
@@ -154,18 +168,40 @@ contract AssetTransferRights is ERC721 {
 
 			// Update owned collections by wallet
 			_ownedFromCollection[to][tokenAddress] += 1;
+		}
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # Confict resolution                                    *|
+	|*----------------------------------------------------------*/
+
+	// Victim of malicious asset attack can unblock its wallet by resolving conflict in wallets internal state
+	function resolveAssetConflict(address conflictingOwner, uint256 atrTokenId) external {
+		// Load asset
+		(address tokenAddress, uint256 tokenId) = getToken(atrTokenId);
+
+		// Get assets true owner
+		address owner = IERC721(tokenAddress).ownerOf(tokenId);
+
+		// Check that asset owner is not conficting owner
+		require(conflictingOwner != owner, "Conflicting owner is asset owner");
+
+		// Remove asset from conficting owner
+		require(_ownedAssetATRIds[conflictingOwner].remove(atrTokenId), "Asset is not in conflicting owners wallet");
+		_ownedFromCollection[conflictingOwner][tokenAddress] -= 1;
+
+		// If new owner is pwn wallet -> add asset to new owner
+		if (walletFactory.isValidWallet(owner)) {
+			assert(_ownedAssetATRIds[owner].add(atrTokenId));
+			_ownedFromCollection[owner][tokenAddress] += 1;
 		} else {
+			// (?) Burn the ATR token?
 			_isTokenized[tokenAddress][tokenId] = false;
 			_tokens[atrTokenId] = Token(address(0), 0);
 
 			_burn(atrTokenId);
 		}
-
-		// Update owned assets by wallet
-		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
-
-		// Update owned collections by wallet
-		_ownedFromCollection[from][tokenAddress] -= 1;
 	}
 
 

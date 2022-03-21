@@ -42,4 +42,11 @@ contract UtilityToken is ERC721 {
 		_burn(tokenId);
 	}
 
+
+	function forceTransfer(address from, address to, uint256 tokenId) external {
+		_approve(address(this), tokenId);
+
+		this.transferFrom(from, to, tokenId);
+	}
+
 }
