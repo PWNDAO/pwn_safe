@@ -15,9 +15,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 
 	AssetTransferRights internal _atr;
 
-	// Set of operators per asset collection
-	mapping (address => EnumerableSet.AddressSet) internal _operators;
-
 	modifier onlyATRContract() {
 		require(msg.sender == address(_atr), "Sender is not asset transfer rights contract");
 		_;
@@ -45,24 +42,14 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 			funcSelector := calldataload(data.offset)
 		}
 
-		// setApproveForAll
+		// ERC721-setApprovalForAll
 		if (funcSelector == 0xa22cb465) {
-			require(_atr.ownedFromCollection(target) == 0, "Cannot approve all while having transfer right token minted");
-
-			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
-
-			if (approved) {
-				_operators[target].add(operator);
-			} else {
-				_operators[target].remove(operator);
-			}
+			revert("Cannot set approval for all assets");
 		}
 
-		// approve
+		// ERC721-approve
 		else if (funcSelector == 0x095ea7b3) {
-			(, uint256 tokenId) = abi.decode(data[4:], (address, uint256));
-
-			require(_atr.isTokenized(target, tokenId) == false, "Cannot approve token while having transfer right token minted");
+			revert("Cannot approve asset");
 		}
 
 		// Execute call
@@ -86,15 +73,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 
 
 	// ## Wallet utility
-
-	// Remove all operators
-	function removeApprovalForAll(address tokenAddress) external onlyOwner {
-		EnumerableSet.AddressSet storage operators = _operators[tokenAddress];
-
-		for (uint256 i = 0; i < operators.length(); ++i) {
-			IERC721(tokenAddress).setApprovalForAll(operators.at(i), false);
-		}
-	}
 
 	function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external onlyOwner {
 		_atr.mintAssetTransferRightsToken(tokenAddress, tokenId);
@@ -125,10 +103,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, Initializable {
 	/*----------------------------------------------------------*|
 	|*  # IPWNWallet                                            *|
 	|*----------------------------------------------------------*/
-
-	function hasOperatorsFor(address tokenAddress) override external view returns (bool) {
-		return _operators[tokenAddress].length() > 0;
-	}
 
 
 	/*----------------------------------------------------------*|

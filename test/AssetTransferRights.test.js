@@ -100,34 +100,6 @@ describe("AssetTransferRights", function() {
 			).to.be.revertedWith("Cannot tokenize zero address asset");
 		});
 
-		it("Should fail when token is approved to another address", async function() {
-			let calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-			await wallet.execute(token.address, calldata);
-
-			calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await expect(
-				wallet.execute(atr.address, calldata)
-			).to.be.revertedWith("Token must not be approved to other address");
-		});
-
-		it("Should fail when token has operator", async function() {
-			let calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await wallet.execute(token.address, calldata);
-
-			calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await expect(
-				wallet.execute(atr.address, calldata)
-			).to.be.revertedWith("Token collection must not have any operator set");
-
-			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, false]);
-			await wallet.execute(token.address, calldata);
-
-			calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await expect(
-				wallet.execute(atr.address, calldata)
-			).not.to.be.reverted;
-		});
-
 		it("Should mint TR token", async function() {
 			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
 			await expect(
@@ -244,38 +216,6 @@ describe("AssetTransferRights", function() {
 			expect(await token.ownerOf(tokenId)).to.equal(other.address);
 		});
 
-		it("Should fail when receiver has operator set on asset collection when not burning ATR token", async function() {
-			// Transfer ATR token to `other`
-			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
-			await wallet.execute(atr.address, calldata);
-
-			// Set operator `other` on walletOther
-			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await walletOther.connect(other).execute(token.address, calldata);
-
-			// Transfer asset from `owner`s wallet via ATR token
-			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, false)
-			).to.be.revertedWith("Receiver cannot have operator set for the token");
-		});
-
-		it("Should transfer asset when receiver has operator set on asset collection when burning ATR token", async function() {
-			// Transfer ATR token to `other`
-			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
-			await wallet.execute(atr.address, calldata);
-
-			// Set operator `other` on walletOther
-			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await walletOther.connect(other).execute(token.address, calldata);
-
-			// Transfer asset from `owner`s wallet via ATR token
-			await expect(
-				atr.connect(other).transferAssetFrom(wallet.address, walletOther.address, 1, true)
-			).to.not.be.reverted;
-
-			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
-		});
-
 		it("Should fail when asset is not in wallet", async function() {
 			// Transfer ATR token to `other`
 			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
@@ -316,7 +256,7 @@ describe("AssetTransferRights", function() {
 			// Assets owner is `walletOther` now
 			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
 
-			expect(await atr.isTokenized(token.address, tokenId)).to.equal(false);
+			await expect(atr.ownerOf(1)).to.be.reverted;
 			const asset = await atr.getToken(1);
 			expect(asset[0]).to.equal(ethers.constants.AddressZero);
 			expect(asset[1]).to.equal(0);

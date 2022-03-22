@@ -16,20 +16,11 @@ contract AssetTransferRights is ERC721 {
 	// (ATR token id => Token)
 	mapping (uint256 => Token) internal _tokens;
 
-	// Mapping if asset is tokenized
-	// (tokenAddress => tokenId => isTokenized)
-	mapping (address => mapping (uint256 => bool)) internal _isTokenized;
-
 	// Mapping of address to set of ATR ids, that belongs to assets in the addresses pwn wallet
 	// The ATR token itself doesn't have to be in the wallet
 	// Used in PWNWallet to enumerate over all tokenized assets after arbitrary execution
 	// (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
 	mapping (address => EnumerableSet.UintSet) internal _ownedAssetATRIds;
-
-	// Number of tokenized assets from collection in wallet
-	// Used in PWNWallet to check if owner can setApprovalForAll on given collection
-	// (owner => tokenAddress => number of tokenized assets from given collection currently in owners wallet)
-	mapping (address => mapping (address => uint256)) internal _ownedFromCollection;
 
 	// TODO: Rename to `Asset`
 	struct Token {
@@ -61,7 +52,11 @@ contract AssetTransferRights is ERC721 {
 		require(walletFactory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
 
 		// Check that asset is not tokenized yet
-		require(_isTokenized[tokenAddress][tokenId] == false, "Token transfer rights are already tokenised");
+		uint256[] memory atrs = ownedAssetATRIds();
+		for (uint256 i = 0; i < atrs.length; ++i) {
+			(address tAddr, uint256 tId) = getToken(atrs[i]);
+			require(tAddr != tokenAddress && tId != tokenId, "Token transfer rights are already tokenised");
+		}
 
 		// Check that sender is asset owner
 		require(IERC721(tokenAddress).ownerOf(tokenId) == msg.sender, "Token is not in wallet");
@@ -69,15 +64,10 @@ contract AssetTransferRights is ERC721 {
 		// Check that asset doesn't have approved address
 		require(IERC721(tokenAddress).getApproved(tokenId) == address(0), "Token must not be approved to other address");
 
-		// Check that asset doesn't have  operator
-		require(IPWNWallet(msg.sender).hasOperatorsFor(tokenAddress) == false, "Token collection must not have any operator set");
-
 		uint256 atrTokenId = ++lastTokenId;
 
-		_isTokenized[tokenAddress][tokenId] = true;
 		_tokens[atrTokenId] = Token(tokenAddress, tokenId);
 		_ownedAssetATRIds[msg.sender].add(atrTokenId);
-		_ownedFromCollection[msg.sender][tokenAddress] += 1;
 
 		_mint(msg.sender, atrTokenId);
 	}
@@ -97,10 +87,8 @@ contract AssetTransferRights is ERC721 {
 		// @dev Without this condition ATR would not know from which address to deduct balance of ATR tokens
 		require(IERC721(tokenAddress).ownerOf(tokenId) == msg.sender, "Sender is not tokenized asset owner");
 
-		_isTokenized[tokenAddress][tokenId] = false;
 		_tokens[atrTokenId] = Token(address(0), 0);
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in the wallet");
-		_ownedFromCollection[msg.sender][tokenAddress] -= 1;
 
 		_burn(atrTokenId);
 	}
@@ -112,7 +100,7 @@ contract AssetTransferRights is ERC721 {
 
 	// Transfer assets via ATR token
 	// Asset can be transferred only to another PWN Wallet
-	// TODO: Add argument `burn` which will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
+	// Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
 	function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external {
 		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
 
@@ -148,11 +136,7 @@ contract AssetTransferRights is ERC721 {
 		// Update owned assets by wallet
 		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
 
-		// Update owned collections by wallet
-		_ownedFromCollection[from][tokenAddress] -= 1;
-
 		if (burnToken) {
-			_isTokenized[tokenAddress][tokenId] = false;
 			_tokens[atrTokenId] = Token(address(0), 0);
 
 			_burn(atrTokenId);
@@ -160,14 +144,8 @@ contract AssetTransferRights is ERC721 {
 			// Fail if recipient is not PWNWallet
 			require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 
-			// Check that recipient doesn't have operator for the token collection
-			require(IPWNWallet(to).hasOperatorsFor(tokenAddress) == false, "Receiver cannot have operator set for the token");
-
 			// Update owned assets by wallet
 			_ownedAssetATRIds[to].add(atrTokenId);
-
-			// Update owned collections by wallet
-			_ownedFromCollection[to][tokenAddress] += 1;
 		}
 	}
 
@@ -189,15 +167,13 @@ contract AssetTransferRights is ERC721 {
 
 		// Remove asset from conficting owner
 		require(_ownedAssetATRIds[conflictingOwner].remove(atrTokenId), "Asset is not in conflicting owners wallet");
-		_ownedFromCollection[conflictingOwner][tokenAddress] -= 1;
 
 		// If new owner is pwn wallet -> add asset to new owner
 		if (walletFactory.isValidWallet(owner)) {
 			assert(_ownedAssetATRIds[owner].add(atrTokenId));
-			_ownedFromCollection[owner][tokenAddress] += 1;
+			// _ownedFromCollection[owner][tokenAddress] += 1;
 		} else {
-			// (?) Burn the ATR token?
-			_isTokenized[tokenAddress][tokenId] = false;
+			// Burn the ATR token?
 			_tokens[atrTokenId] = Token(address(0), 0);
 
 			_burn(atrTokenId);
@@ -216,16 +192,8 @@ contract AssetTransferRights is ERC721 {
 		tokenId = token.tokenId;
 	}
 
-	function isTokenized(address tokenAddress, uint256 tokenId) external view returns (bool) {
-		return _isTokenized[tokenAddress][tokenId];
-	}
-
-	function ownedAssetATRIds() external view returns (uint256[] memory) {
+	function ownedAssetATRIds() public view returns (uint256[] memory) {
 		return _ownedAssetATRIds[msg.sender].values();
-	}
-
-	function ownedFromCollection(address tokenAddress) external view returns (uint256) {
-		return _ownedFromCollection[msg.sender][tokenAddress];
 	}
 
 }

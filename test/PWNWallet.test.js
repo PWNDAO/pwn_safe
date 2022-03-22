@@ -93,119 +93,6 @@ describe("PWNWallet", function() {
 	});
 
 
-	describe("Approve", function() {
-
-		const tokenId = 123;
-
-		beforeEach(async function() {
-			await token.mint(wallet.address, tokenId);
-		});
-
-
-		it("Should set approved address when asset is not tokenised", async function() {
-			const calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-			await expect(
-				wallet.connect(owner).execute(token.address, calldata)
-			).to.not.be.reverted;
-
-			expect(await token.getApproved(tokenId)).to.equal(other.address);
-		});
-
-		it("Should fail when asset is tokenised", async function() {
-			// ATR token with id 1
-			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
-
-			calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-			await expect(
-				wallet.connect(owner).execute(token.address, calldata)
-			).to.be.revertedWith("Cannot approve token while having transfer right token minted");
-		});
-
-		it("Should set approved address when asset had ATR token and then was burned", async function() {
-			// mint ATR token
-			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
-
-			// try to approve
-			calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-			await expect(
-				wallet.connect(owner).execute(token.address, calldata)
-			).to.be.reverted;
-
-			// burn ATR token
-			calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [1]);
-			await wallet.execute(atr.address, calldata);
-
-			// approve
-			calldata = IERC721.encodeFunctionData("approve", [other.address, tokenId]);
-			await expect(
-				wallet.connect(owner).execute(token.address, calldata)
-			).to.not.be.reverted;
-
-			expect(await token.getApproved(tokenId)).to.equal(other.address);
-		});
-
-	});
-
-
-	describe("Set approval for all", function() {
-
-		const tokenId = 123;
-
-		beforeEach(async function() {
-			await token.mint(wallet.address, tokenId);
-		});
-
-
-		it("Should set operator when any asset from collection is not tokenised", async function() {
-			const calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.not.be.reverted;
-
-			expect(await token.isApprovedForAll(wallet.address, other.address)).to.equal(true);
-		});
-
-		it("Should fail when any asset from collection is tokenised", async function() {
-			// mint ATR token
-			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
-
-			// try to set approve for all
-			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.be.revertedWith("Cannot approve all while having transfer right token minted");
-		});
-
-		it("Should set operator when asset had ATR token and then was burned", async function() {
-			// mint ATR token
-			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
-
-			// try to set approve for all
-			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.be.reverted;
-
-			// burn ATR token
-			calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [1]);
-			await wallet.execute(atr.address, calldata);
-
-			// set approval for all
-			calldata = IERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.not.be.reverted;
-
-			expect(await token.isApprovedForAll(wallet.address, other.address)).to.equal(true);
-		});
-
-	});
-
-
 	describe("Transfer from", function() {
 
 		const tokenId = 123;
@@ -303,7 +190,5 @@ describe("PWNWallet", function() {
 		});
 
 	});
-
-	// TODO: Test adding / removing operators
 
 });
