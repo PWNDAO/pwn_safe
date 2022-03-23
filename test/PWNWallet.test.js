@@ -33,12 +33,9 @@ describe("PWNWallet", function() {
 	]);
 
 	const atrIface = new utils.Interface([
-		"function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external returns (uint256)",
+		"function mintAssetTransferRightsToken(tuple(address assetAddress, uint8 category, uint256 amount, uint256 id)) external returns (uint256)",
 		"function burnAssetTransferRightsToken(uint256 atrTokenId) external",
-
-		"function transferAsset(address to, uint256 atrTokenId) external",
-		"function safeTransferAsset(address to, uint256 atrTokenId) external",
-		"function safeTransferAsset(address to, uint256 atrTokenId, bytes calldata data) external",
+		"function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
 	]);
 
 	before(async function() {
@@ -69,6 +66,13 @@ describe("PWNWallet", function() {
 
 	describe("Execute", function() {
 
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await token.mint(wallet.address, tokenId);
+		});
+
+
 		it("Should fail when sender is not wallet owner", async function() {
 			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
 			await expect(
@@ -90,18 +94,6 @@ describe("PWNWallet", function() {
 			expect(await token.encodedReturnValue()).to.equal(encodedReturnValue);
 		});
 
-	});
-
-
-	describe("Transfer from", function() {
-
-		const tokenId = 123;
-
-		beforeEach(async function() {
-			await token.mint(wallet.address, tokenId);
-		});
-
-
 		it("Should transfer token when it hasn't tokenized transfer rights", async function() {
 			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
 			await expect(
@@ -111,12 +103,7 @@ describe("PWNWallet", function() {
 
 		it("Should fail when it has tokenized transfer rights", async function() {
 			// mint ATR token
-			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
-
-			// transfer ATR token to `other`
-			calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
-			await wallet.execute(atr.address, calldata);
+			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
 
 			// try to transfer asset as wallet owner
 			calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
@@ -135,14 +122,13 @@ describe("PWNWallet", function() {
 			await token.mint(wallet.address, tokenId);
 
 			// ATR token with id 1
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
+			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
 		});
 
 
 		it("Should fail when sender is not ATR contract", async function() {
 			await expect(
-				wallet.transferAsset(walletOther.address, token.address, 1)
+				wallet.transferAsset([token.address, 1, 1, 1], walletOther.address)
 			).to.be.revertedWith("Sender is not asset transfer rights contract");
 		});
 
@@ -152,9 +138,9 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, other.address);
 
-			await mockWallet.connect(other).transferAsset(walletOther.address, fakeToken.address, 1);
+			await mockWallet.connect(other).transferAsset([fakeToken.address, 1, 1, 1], walletOther.address);
 
-			expect(fakeToken.transferFrom).to.have.been.calledOnceWith(mockWallet.address, walletOther.address, 1);
+			expect(fakeToken.transferFrom).to.have.been.calledOnce;
 		});
 
 	});
@@ -168,9 +154,9 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, fakeAtr.address);
 
-			await mockWallet.mintAssetTransferRightsToken(token.address, 40);
+			await mockWallet.mintAssetTransferRightsToken([token.address, 1, 1, 40]);
 
-			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith(token.address, 40);
+			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith([token.address, 1, 1, 40]);
 		});
 
 	});

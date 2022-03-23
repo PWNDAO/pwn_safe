@@ -24,12 +24,9 @@ describe("AssetTransferRights", function() {
 	]);
 
 	const atrIface = new utils.Interface([
-		"function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external returns (uint256)",
+		"function mintAssetTransferRightsToken(tuple(address assetAddress, uint8 category, uint256 amount, uint256 id)) external returns (uint256)",
 		"function burnAssetTransferRightsToken(uint256 atrTokenId) external",
-
 		"function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
-		"function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
-		"function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken, bytes calldata data) external",
 	]);
 
 	before(async function() {
@@ -71,39 +68,36 @@ describe("AssetTransferRights", function() {
 			await token.mint(other.address, 333);
 
 			await expect(
-				atr.connect(other).mintAssetTransferRightsToken(token.address, 333)
+				atr.connect(other).mintAssetTransferRightsToken( [token.address, 1, 1, 333] )
 			).to.be.revertedWith("Mint is permitted only from PWN Wallet");
 		});
 
 		it("Should fail when token is already tokenised", async function() {
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
+			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
 
 			await expect(
-				wallet.execute(atr.address, calldata)
-			).to.be.revertedWith("Token transfer rights are already tokenised");
+				wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId])
+			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
 		});
 
 		it("Should fail when sender is not asset owner", async function() {
 			await token.mint(owner.address, 3232);
 
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, 3232]);
 			await expect(
-				wallet.execute(atr.address, calldata)
-			).to.be.revertedWith("Token is not in wallet");
+				wallet.mintAssetTransferRightsToken([token.address, 1, 1, 3232])
+			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
 		});
 
 		it("Should fail when trying to tokenize zero address asset", async function() {
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [ethers.constants.AddressZero, 3232]);
+			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [ [ethers.constants.AddressZero, 1, 1, 3232] ]);
 			await expect(
-				wallet.execute(atr.address, calldata)
+				wallet.mintAssetTransferRightsToken([ethers.constants.AddressZero, 1, 1, 3232])
 			).to.be.revertedWith("Cannot tokenize zero address asset");
 		});
 
 		it("Should mint TR token", async function() {
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
 			await expect(
-				wallet.execute(atr.address, calldata)
+				wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId])
 			).to.not.be.reverted;
 
 			expect(await atr.ownerOf(1)).to.equal(wallet.address);
@@ -119,44 +113,40 @@ describe("AssetTransferRights", function() {
 		beforeEach(async function() {
 			await token.mint(wallet.address, tokenId);
 
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
+			// ATR token with id 1
+			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
 		});
 
 
 		it("Should fail when sender is not ATR token owner", async function() {
 			// Transfer ATR token to `other`
-			let calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
+			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, 1]);
 			await wallet.execute(atr.address, calldata);
 
-			calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [1]);
 			await expect(
-				wallet.execute(atr.address, calldata)
+				wallet.burnAssetTransferRightsToken(1)
 			).to.be.revertedWith("Sender is not ATR token owner");
 		});
 
 		it("Should fail when ATR token is not minted", async function() {
-			const calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [2]);
 			await expect(
-				wallet.execute(atr.address, calldata)
-			).to.be.revertedWith("Token transfer rights are not tokenised");
+				wallet.burnAssetTransferRightsToken(2)
+			).to.be.revertedWith("Asset transfer rights are not tokenized");
 		});
 
 		it("Should fail when sender is not tokenized asset owner", async function() {
 			// Transfer asset to `otherWallet`
-			let calldata = atrIface.encodeFunctionData("transferAssetFrom", [wallet.address, walletOther.address, 1, false]);
+			const calldata = atrIface.encodeFunctionData("transferAssetFrom", [wallet.address, walletOther.address, 1, false]);
 			await wallet.execute(atr.address, calldata);
 
-			calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [1]);
 			await expect(
-				wallet.execute(atr.address, calldata)
-			).to.be.revertedWith("Sender is not tokenized asset owner");
+				wallet.burnAssetTransferRightsToken(1)
+			).to.be.revertedWith("Sender does not have enough amount of tokenized asset");
 		});
 
 		it("Should burn ATR token", async function() {
-			const calldata = atrIface.encodeFunctionData("burnAssetTransferRightsToken", [1]);
 			await expect(
-				wallet.execute(atr.address, calldata)
+				wallet.burnAssetTransferRightsToken(1)
 			).to.not.be.reverted;
 
 			await expect(
@@ -175,8 +165,7 @@ describe("AssetTransferRights", function() {
 			await token.mint(wallet.address, tokenId);
 
 			// ATR token with id 1
-			const calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
+			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
 		});
 
 
@@ -257,9 +246,9 @@ describe("AssetTransferRights", function() {
 			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
 
 			await expect(atr.ownerOf(1)).to.be.reverted;
-			const asset = await atr.getToken(1);
+			const asset = await atr.getAsset(1);
 			expect(asset[0]).to.equal(ethers.constants.AddressZero);
-			expect(asset[1]).to.equal(0);
+			expect(asset[3]).to.equal(0);
 		});
 
 		it("Should transfer token when sender has tokenized transfer rights", async function() {
@@ -274,71 +263,6 @@ describe("AssetTransferRights", function() {
 
 			// Assets owner is `walletOther` now
 			expect(await token.ownerOf(tokenId)).to.equal(walletOther.address);
-		});
-
-	});
-
-
-	describe("Resolve Asset Conflict", function() {
-
-		const tokenId = 123;
-
-		beforeEach(async function() {
-			await token.mint(wallet.address, tokenId);
-
-			// ATR token with id 1
-			let calldata = atrIface.encodeFunctionData("mintAssetTransferRightsToken", [token.address, tokenId]);
-			await wallet.execute(atr.address, calldata);
-		});
-
-
-		it("Should fail when conflicting owner is correct owner", async function() {
-			await expect(
-				atr.resolveAssetConflict(wallet.address, 1)
-			).to.be.revertedWith("Conflicting owner is asset owner");
-		});
-
-		it("Should fail when asset is not in conflicting owners wallet", async function() {
-			await expect(
-				atr.resolveAssetConflict(walletOther.address, 1)
-			).to.be.revertedWith("Asset is not in conflicting owners wallet");
-		});
-
-		it("Should set asset to correct owner", async function() {
-			// Force transfer asset out of wallet, leaving corrupted internal state
-			await token.forceTransfer(wallet.address, walletOther.address, tokenId);
-
-			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.be.reverted;
-
-
-			await atr.resolveAssetConflict(wallet.address, 1);
-
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.not.be.reverted;
-			expect(await atr.ownerOf(1)).to.equal(wallet.address);
-		});
-
-		it("Should burn ATR token if correct owner is not PWN wallet", async function() {
-			// Force transfer asset out of wallet, leaving corrupted internal state
-			await token.forceTransfer(wallet.address, other.address, tokenId);
-
-			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.be.reverted;
-
-			await atr.resolveAssetConflict(wallet.address, 1);
-
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.not.be.reverted;
-			await expect(
-				atr.ownerOf(1)
-			).to.be.reverted;
 		});
 
 	});

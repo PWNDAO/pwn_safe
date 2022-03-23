@@ -3,30 +3,27 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
 
+
 contract AssetTransferRights is ERC721 {
 	using EnumerableSet for EnumerableSet.UintSet;
+	using MultiToken for MultiToken.Asset;
 
 	uint256 public lastTokenId;
 	PWNWalletFactory public walletFactory;
 
-	// Mapping of ATR token id to tokenized asset struct
-	// (ATR token id => Token)
-	mapping (uint256 => Token) internal _tokens;
+	// Mapping of ATR token id to tokenized asset
+	// (ATR token id => Asset)
+	mapping (uint256 => MultiToken.Asset) internal _assets;
 
 	// Mapping of address to set of ATR ids, that belongs to assets in the addresses pwn wallet
 	// The ATR token itself doesn't have to be in the wallet
 	// Used in PWNWallet to enumerate over all tokenized assets after arbitrary execution
 	// (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
 	mapping (address => EnumerableSet.UintSet) internal _ownedAssetATRIds;
-
-	// TODO: Rename to `Asset`
-	struct Token {
-		address tokenAddress;
-		uint256 tokenId;
-	}
 
 
 	constructor() ERC721("Asset Transfer Rights", "ATR") {
@@ -38,56 +35,62 @@ contract AssetTransferRights is ERC721 {
 	|*  # Asset transfer rights token                           *|
 	|*----------------------------------------------------------*/
 
-	// Tokenize given assets transfer rights and mint ATR token
-	// Internali:
-	// - set asset as tokenized
-	// - store asset info under ATR token id
-	// - store that tokenized asset is in senders wallet
-	// - store that wallet has tokenized asset from assets collection
-	function mintAssetTransferRightsToken(address tokenAddress, uint256 tokenId) external {
+	// Tokenize given assets transfer rights
+	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external {
 		// Check that token address is not zero address
-		require(tokenAddress != address(0), "Cannot tokenize zero address asset");
+		require(asset.assetAddress != address(0), "Cannot tokenize zero address asset");
 
 		// Check that msg.sender is PWNWallet
 		require(walletFactory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
 
-		// Check that asset is not tokenized yet
-		uint256[] memory atrs = ownedAssetATRIds();
-		for (uint256 i = 0; i < atrs.length; ++i) {
-			(address tAddr, uint256 tId) = getToken(atrs[i]);
-			require(tAddr != tokenAddress && tId != tokenId, "Token transfer rights are already tokenised");
+		// Check that amount is correctly set
+		require(asset.amount > 0, "Amount has to be bigger than zero");
+
+		// Check if asset can be tokenized
+		uint256 balance = asset.balanceOf(msg.sender);
+		require(balance >= asset.amount, "Not enough balance to tokenize asset transfer rights");
+
+		unchecked {
+			balance -= asset.amount;
 		}
 
-		// Check that sender is asset owner
-		require(IERC721(tokenAddress).ownerOf(tokenId) == msg.sender, "Token is not in wallet");
+		uint256[] memory atrs = ownedAssetATRIds();
+		for (uint256 i = 0; i < atrs.length; ++i) {
+			MultiToken.Asset memory _asset = getAsset(atrs[i]);
 
-		// Check that asset doesn't have approved address
-		require(IERC721(tokenAddress).getApproved(tokenId) == address(0), "Token must not be approved to other address");
+			if (areEqual(_asset, asset)) {
+				require(balance >= _asset.amount, "Not enough balance to tokenize asset transfer rights");
+				balance -= _asset.amount;
+			}
+		}
 
 		uint256 atrTokenId = ++lastTokenId;
 
-		_tokens[atrTokenId] = Token(tokenAddress, tokenId);
+		// Store asset data
+		_assets[atrTokenId] = asset;
 		_ownedAssetATRIds[msg.sender].add(atrTokenId);
 
+		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
 	}
 
 	// Burn ATR token and "untokenize" that assets transfer rights
-	// Token owner can burn the token if it's in the same wallet as tokenized asset
+	// Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function
 	function burnAssetTransferRightsToken(uint256 atrTokenId) external {
-		(address tokenAddress, uint256 tokenId) = getToken(atrTokenId);
+		// Load asset
+		MultiToken.Asset memory asset = getAsset(atrTokenId);
 
 		// Check that token is indeed tokenized
-		require(tokenAddress != address(0), "Token transfer rights are not tokenised");
+		require(asset.assetAddress != address(0), "Asset transfer rights are not tokenized");
 
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
 
 		// Check that ATR token is in the same wallet as tokenized asset
-		// @dev Without this condition ATR would not know from which address to deduct balance of ATR tokens
-		require(IERC721(tokenAddress).ownerOf(tokenId) == msg.sender, "Sender is not tokenized asset owner");
+		// @dev Without this condition ATR would not know from which address to remove the ATR token
+		require(asset.balanceOf(msg.sender) >= asset.amount, "Sender does not have enough amount of tokenized asset");
 
-		_tokens[atrTokenId] = Token(address(0), 0);
+		_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in the wallet");
 
 		_burn(atrTokenId);
@@ -102,33 +105,14 @@ contract AssetTransferRights is ERC721 {
 	// Asset can be transferred only to another PWN Wallet
 	// Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
 	function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
-
-		IPWNWallet(from).transferAsset(to, tokenAddress, tokenId);
-	}
-
-	// Not tested
-	function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
-
-		IPWNWallet(from).safeTransferAsset(to, tokenAddress, tokenId);
-	}
-
-	// Not tested
-	function safeTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken, bytes calldata data) external {
-		(address tokenAddress, uint256 tokenId) = _processTransfer(from, to, atrTokenId, burnToken);
-
-		IPWNWallet(from).safeTransferAsset(to, tokenAddress, tokenId, data);
-	}
-
-	function _processTransfer(address from, address to, uint256 atrTokenId, bool burnToken) internal returns (address tokenAddress, uint256 tokenId) {
-		(tokenAddress, tokenId) = getToken(atrTokenId);
+		// Load asset
+		MultiToken.Asset memory asset = getAsset(atrTokenId);
 
 		// Check that transferring to different address
 		require(from != to, "Transferring asset to same address");
 
 		// Check that asset transfer rights are tokenized
-		require(tokenAddress != address(0), "Transfer rights are not tokenized");
+		require(asset.assetAddress != address(0), "Transfer rights are not tokenized");
 
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
@@ -137,7 +121,8 @@ contract AssetTransferRights is ERC721 {
 		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
 
 		if (burnToken) {
-			_tokens[atrTokenId] = Token(address(0), 0);
+			// Burn the ATR token
+			_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
 
 			_burn(atrTokenId);
 		} else {
@@ -147,37 +132,8 @@ contract AssetTransferRights is ERC721 {
 			// Update owned assets by wallet
 			_ownedAssetATRIds[to].add(atrTokenId);
 		}
-	}
 
-
-	/*----------------------------------------------------------*|
-	|*  # Confict resolution                                    *|
-	|*----------------------------------------------------------*/
-
-	// Victim of malicious asset attack can unblock its wallet by resolving conflict in wallets internal state
-	function resolveAssetConflict(address conflictingOwner, uint256 atrTokenId) external {
-		// Load asset
-		(address tokenAddress, uint256 tokenId) = getToken(atrTokenId);
-
-		// Get assets true owner
-		address owner = IERC721(tokenAddress).ownerOf(tokenId);
-
-		// Check that asset owner is not conficting owner
-		require(conflictingOwner != owner, "Conflicting owner is asset owner");
-
-		// Remove asset from conficting owner
-		require(_ownedAssetATRIds[conflictingOwner].remove(atrTokenId), "Asset is not in conflicting owners wallet");
-
-		// If new owner is pwn wallet -> add asset to new owner
-		if (walletFactory.isValidWallet(owner)) {
-			assert(_ownedAssetATRIds[owner].add(atrTokenId));
-			// _ownedFromCollection[owner][tokenAddress] += 1;
-		} else {
-			// Burn the ATR token?
-			_tokens[atrTokenId] = Token(address(0), 0);
-
-			_burn(atrTokenId);
-		}
+		IPWNWallet(from).transferAsset(asset, to);
 	}
 
 
@@ -185,15 +141,24 @@ contract AssetTransferRights is ERC721 {
 	|*  # Utility                                               *|
 	|*----------------------------------------------------------*/
 
-	function getToken(uint256 atrTokenId) public view returns (address tokenAddress, uint256 tokenId) {
-		Token memory token = _tokens[atrTokenId];
-
-		tokenAddress = token.tokenAddress;
-		tokenId = token.tokenId;
+	function getAsset(uint256 atrTokenId) public view returns (MultiToken.Asset memory) {
+		return _assets[atrTokenId];
 	}
 
 	function ownedAssetATRIds() public view returns (uint256[] memory) {
 		return _ownedAssetATRIds[msg.sender].values();
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # Private                                               *|
+	|*----------------------------------------------------------*/
+
+	function areEqual(MultiToken.Asset memory asset1, MultiToken.Asset memory asset2) private pure returns (bool) {
+		return
+			asset1.assetAddress == asset2.assetAddress &&
+			asset1.category == asset2.category &&
+			(asset1.category == MultiToken.Category.ERC20 || asset1.id == asset2.id);
 	}
 
 }
