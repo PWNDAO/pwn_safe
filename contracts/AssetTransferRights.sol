@@ -104,9 +104,12 @@ contract AssetTransferRights is ERC721 {
 	|*----------------------------------------------------------*/
 
 	// Transfer assets via ATR token
-	// Asset can be transferred only to another PWN Wallet
+	// Asset can be transferred only to sender (claim) which has to be another PWN Wallet
+	// Sender has to be ATR token owner
 	// Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
-	function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external {
+	function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external {
+		address to = msg.sender;
+
 		// Load asset
 		MultiToken.Asset memory asset = getAsset(atrTokenId);
 
