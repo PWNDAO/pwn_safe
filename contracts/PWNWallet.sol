@@ -103,6 +103,10 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		_atr.burnAssetTransferRightsToken(atrTokenId);
 	}
 
+	function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external onlyOwner {
+		_atr.transferAssetFrom(from, atrTokenId, burnToken);
+	}
+
 
 	/*----------------------------------------------------------*|
 	|*  # IPWNWallet                                            *|
