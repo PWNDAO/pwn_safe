@@ -2,6 +2,7 @@ const chai = require("chai");
 const { ethers } = require("hardhat");
 const { smock } = require("@defi-wonderland/smock");
 const utils = ethers.utils;
+const Iface = require("./sharedIfaces.js");
 
 const expect = chai.expect;
 chai.use(smock.matchers);
@@ -12,35 +13,15 @@ describe("PWNWallet", function() {
 	let ATR, atr;
 	let wallet, walletOther;
 	let factory;
-	let Token, token;
+	let T20, T721, T1155;
+	let t20, t721, t1155;
 	let owner, other;
-
-	const tokenIface = new utils.Interface([
-		"function utilityEmpty() external",
-		"function burn(uint256 tokenId) external",
-	]);
-
-	const factoryIface = new utils.Interface([
-		"event NewWallet(address indexed walletAddress)",
-	]);
-
-	const IERC721 = new utils.Interface([
-		"function approve(address to, uint256 tokenId) external",
-		"function setApprovalForAll(address operator, bool _approved) external",
-		"function transferFrom(address from, address to, uint256 tokenId) external",
-		"function safeTransferFrom(address from, address to, uint256 tokenId) external",
-		"function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external",
-	]);
-
-	const atrIface = new utils.Interface([
-		"function mintAssetTransferRightsToken(tuple(address assetAddress, uint8 category, uint256 amount, uint256 id)) external returns (uint256)",
-		"function burnAssetTransferRightsToken(uint256 atrTokenId) external",
-		"function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
-	]);
 
 	before(async function() {
 		ATR = await ethers.getContractFactory("AssetTransferRights");
-		Token = await ethers.getContractFactory("UtilityToken");
+		T20 = await ethers.getContractFactory("T20");
+		T721 = await ethers.getContractFactory("T721");
+		T1155 = await ethers.getContractFactory("T1155");
 
 		[owner, other] = await ethers.getSigners();
 	});
@@ -51,8 +32,14 @@ describe("PWNWallet", function() {
 
 		factory = await ethers.getContractAt("PWNWalletFactory", atr.walletFactory());
 
-		token = await Token.deploy();
-		await token.deployed();
+		t20 = await T20.deploy();
+		await t20.deployed();
+
+		t721 = await T721.deploy();
+		await t721.deployed();
+
+		t1155 = await T1155.deploy();
+		await t1155.deployed();
 
 		const walletTx = await factory.connect(owner).newWallet();
 		const walletRes = await walletTx.wait();
@@ -67,80 +54,183 @@ describe("PWNWallet", function() {
 	describe("Execute", function() {
 
 		const tokenId = 123;
+		const tokenAmount = 993;
 
 		beforeEach(async function() {
-			await token.mint(wallet.address, tokenId);
+			await t20.mint(wallet.address, tokenAmount);
+			await t721.mint(wallet.address, tokenId);
+			await t1155.mint(wallet.address, tokenId, tokenAmount);
 		});
 
 
 		it("Should fail when sender is not wallet owner", async function() {
-			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
+			const calldata = Iface.T721.encodeFunctionData("foo", []);
 			await expect(
-				wallet.connect(other).execute(token.address, calldata)
+				wallet.connect(other).execute(t721.address, calldata)
 			).to.be.reverted;
 		});
 
-		it("Should succeed when sender is wallet owner", async function() {
-			const calldata = tokenIface.encodeFunctionData("utilityEmpty", []);
+		// TODO: Implement
+		xit("Should fail when execution call fails", async function() {
+			const crazyErrorMessage = "50m3 6u5t0m err0r m3ssag3";
+			const fakeToken = await smock.fake("T721");
+			fakeToken.foo.reverts(crazyErrorMessage);
 
+			const calldata = Iface.T721.encodeFunctionData("foo", []);
 			await expect(
-				wallet.connect(owner).execute(token.address, calldata)
-			).to.not.be.reverted;
-
-			const encodedReturnValue = utils.defaultAbiCoder.encode(
-				["bytes32"],
-				[utils.keccak256(utils.toUtf8Bytes("success"))]
-			);
-			expect(await token.encodedReturnValue()).to.equal(encodedReturnValue);
+				wallet.execute(fakeToken.address, calldata)
+			).to.be.revertedWith(crazyErrorMessage);
 		});
 
-		it("Should transfer token when it hasn't tokenized transfer rights", async function() {
-			const calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.not.be.reverted;
+		describe("Approvals", function() {
+
+			it("Should fail when calling ERC20-approve", async function() {
+				const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 1]);
+				await expect(
+					wallet.execute(other.address, calldata)
+				).to.be.revertedWith("Cannot approve asset");
+			});
+
+			it("Should fail when calling ERC721-setApprovalForAll", async function() {
+				const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
+				await expect(
+					wallet.execute(other.address, calldata)
+				).to.be.revertedWith("Cannot set approval for all assets");
+			});
+
+			it("Should fail when calling ERC721-approve", async function() {
+				const calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, 1]);
+				await expect(
+					wallet.execute(other.address, calldata)
+				).to.be.revertedWith("Cannot approve asset");
+			});
+
+			it("Should fail when calling ERC1155-setApprovalForAll", async function() {
+				const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
+				await expect(
+					wallet.execute(other.address, calldata)
+				).to.be.revertedWith("Cannot set approval for all assets");
+			});
+
 		});
 
-		it("Should fail when it has tokenized transfer rights", async function() {
-			// mint ATR token
-			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
+		describe("Asset transfers", function() {
 
-			// try to transfer asset as wallet owner
-			calldata = IERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
-			await expect(
-				wallet.execute(token.address, calldata)
-			).to.be.reverted;
-		});
-	});
+			// Not tokenized
+			it("Should transfer ERC20 asset when it don't have tokenized transfer rights", async function() {
+				const calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, tokenAmount]);
+				await expect(
+					wallet.execute(t20.address, calldata)
+				).to.not.be.reverted;
+			});
 
+			it("Should transfer ERC721 asset when it don't have tokenized transfer rights", async function() {
+				const calldata = Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
+				await expect(
+					wallet.execute(t721.address, calldata)
+				).to.not.be.reverted;
+			});
 
-	describe("Transfer asset", function() {
+			it("Should transfer ERC1155 asset when it don't have tokenized transfer rights", async function() {
+				const calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, tokenAmount, "0x"]);
+				await expect(
+					wallet.execute(t1155.address, calldata)
+				).to.not.be.reverted;
+			});
 
-		const tokenId = 123;
+			// Tokenized
+			it("Should fail when transferring tokenized ERC20 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
 
-		beforeEach(async function() {
-			await token.mint(wallet.address, tokenId);
+				// try to transfer asset as wallet owner
+				calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, 1]);
+				await expect(
+					wallet.execute(t20.address, calldata)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
 
-			// ATR token with id 1
-			await wallet.mintAssetTransferRightsToken([token.address, 1, 1, tokenId]);
-		});
+			it("Should fail when transferring tokenized ERC721 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
 
+				// try to transfer asset as wallet owner
+				calldata = Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
+				await expect(
+					wallet.execute(t721.address, calldata)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
 
-		it("Should fail when sender is not ATR contract", async function() {
-			await expect(
-				wallet.transferAsset([token.address, 1, 1, 1], walletOther.address)
-			).to.be.revertedWith("Sender is not asset transfer rights contract");
-		});
+			it("Should fail when transferring tokenized ERC1155 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
 
-		it("Should transfer asset to receiver", async function() {
-			const fakeToken = await smock.fake("UtilityToken");
-			const mockWalletFactory = await smock.mock("PWNWallet");
-			const mockWallet = await mockWalletFactory.deploy();
-			await mockWallet.initialize(owner.address, other.address);
+				// try to transfer asset as wallet owner
+				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 1, "0x"]);
+				await expect(
+					wallet.execute(t1155.address, calldata)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
 
-			await mockWallet.connect(other).transferAsset([fakeToken.address, 1, 1, 1], walletOther.address);
+			// Tokenized fungible assets
 
-			expect(fakeToken.transferFrom).to.have.been.calledOnce;
+			it("Should transfer untokenized amount of ERC20 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 100, 0]);
+
+				// transfer asset as wallet owner
+				calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, 100]);
+				await expect(
+					wallet.execute(t20.address, calldata)
+				).to.not.be.reverted;
+			});
+
+			it("Should fail when transferring amount biggen than untokenized amount of ERC20 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 100, 0]);
+
+				// try to transfer asset as wallet owner
+				calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, 101]);
+				await expect(
+					wallet.execute(t20.address, calldata)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
+
+			it("Should transfer untokenized amount of ERC1155 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount - 40, tokenId]);
+
+				// transfer asset as wallet owner
+				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 40, "0x"]);
+				await expect(
+					wallet.execute(t1155.address, calldata)
+				).to.not.be.reverted;
+			});
+
+			it("Should transfer untokenized token id of ERC1155 asset", async function() {
+				await t1155.mint(wallet.address, 45, tokenAmount);
+
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+
+				// transfer asset as wallet owner
+				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, 45, tokenAmount, "0x"]);
+				await expect(
+					wallet.execute(t1155.address, calldata)
+				).to.not.be.reverted;
+			});
+
+			it("Should fail when transferring amount biggen than untokenized amount of ERC1155 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount - 40, tokenId]);
+
+				// transfer asset as wallet owner
+				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 41, "0x"]);
+				await expect(
+					wallet.execute(t1155.address, calldata)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
+
 		});
 
 	});
@@ -154,9 +244,9 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, fakeAtr.address);
 
-			await mockWallet.mintAssetTransferRightsToken([token.address, 1, 1, 40]);
+			await mockWallet.mintAssetTransferRightsToken([t721.address, 1, 1, 40]);
 
-			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith([token.address, 1, 1, 40]);
+			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith([t721.address, 1, 1, 40]);
 		});
 
 	});
@@ -173,6 +263,125 @@ describe("PWNWallet", function() {
 			await mockWallet.burnAssetTransferRightsToken(332);
 
 			expect(fakeAtr.burnAssetTransferRightsToken).to.have.been.calledOnceWith(332);
+		});
+
+	});
+
+
+	describe("Transfer asset", function() {
+
+		const tokenId = 123;
+
+		beforeEach(async function() {
+			await t721.mint(wallet.address, tokenId);
+
+			// ATR token with id 1
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+		});
+
+
+		it("Should fail when sender is not ATR contract", async function() {
+			await expect(
+				wallet.transferAsset([t721.address, 1, 1, 1], walletOther.address)
+			).to.be.revertedWith("Sender is not asset transfer rights contract");
+		});
+
+		it("Should transfer asset to receiver as ERC20", async function() {
+			const fakeToken = await smock.fake("T20");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, other.address);
+
+			await mockWallet.connect(other).transferAsset([fakeToken.address, 0, 1, 1], walletOther.address);
+
+			expect(fakeToken.transfer).to.have.been.calledOnce;
+		});
+
+		it("Should transfer asset to receiver as ERC721", async function() {
+			const fakeToken = await smock.fake("T721");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, other.address);
+
+			await mockWallet.connect(other).transferAsset([fakeToken.address, 1, 1, 1], walletOther.address);
+
+			expect(fakeToken.transferFrom).to.have.been.calledOnce;
+		});
+
+		it("Should transfer asset to receiver as ERC1155", async function() {
+			const fakeToken = await smock.fake("T1155");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, other.address);
+
+			await mockWallet.connect(other).transferAsset([fakeToken.address, 2, 1, 1], walletOther.address);
+
+			expect(fakeToken.safeTransferFrom).to.have.been.calledOnce;
+		});
+
+	});
+
+
+	describe("IERC721Receiver", function() {
+
+		it("Should return onERC721Received function selector", async function() {
+			const response = await wallet.onERC721Received(other.address, other.address, 1, "0x");
+
+			expect(response).to.equal("0x150b7a02");
+		});
+
+	});
+
+
+	describe("IERC1155Receiver", function() {
+
+		it("Should return onERC1155Received function selector", async function() {
+			const response = await wallet.onERC1155Received(other.address, other.address, 1, 1, "0x");
+
+			expect(response).to.equal("0xf23a6e61");
+		});
+
+		it("Should return onERC1155BatchReceived function selector", async function() {
+			const response = await wallet.onERC1155BatchReceived(other.address, other.address, [1], [1], "0x");
+
+			expect(response).to.equal("0xbc197c81");
+		});
+
+	});
+
+
+	describe("Supports interface", function() {
+
+		function funcSelector(signature) {
+			const bytes = utils.toUtf8Bytes(signature)
+			const hash = utils.keccak256(bytes);
+			const selector = utils.hexDataSlice(hash, 0, 4);
+			return ethers.BigNumber.from(selector);
+		}
+
+		it("Should support IPWNWallet interface", async function() {
+			const interfaceId = funcSelector("transferAsset((address,uint8,uint256,uint256),address)");
+
+			expect(await wallet.supportsInterface(interfaceId)).to.equal(true);
+		});
+
+		it("Should support IERC721Receiver interface", async function() {
+			const interfaceId = funcSelector("onERC721Received(address,address,uint256,bytes)");
+
+			expect(await wallet.supportsInterface(interfaceId)).to.equal(true);
+		});
+
+		it("Should support IERC1155Receiver interface", async function() {
+			const interfaceId = funcSelector("onERC1155Received(address,address,uint256,uint256,bytes)")
+				.xor(funcSelector("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
+
+			expect(await wallet.supportsInterface(interfaceId)).to.equal(true);
+		});
+
+		it("Should support IERC165 interface", async function() {
+			const interfaceId = funcSelector("supportsInterface(bytes4)");
+
+			expect(await wallet.supportsInterface(interfaceId)).to.equal(true);
 		});
 
 	});

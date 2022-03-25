@@ -5,9 +5,6 @@ function selector(signature) {
 }
 
 console.log("------");
-console.log("setApprovalForAll:\t", selector("setApprovalForAll(address,bool)"));
-console.log("approve:\t\t", selector("approve(address,uint256)"));
-console.log("transferFrom:\t\t", selector("transferFrom(address,address,uint256)"));
-console.log("safeTransferFrom:\t", selector("safeTransferFrom(address,address,uint256)"));
-console.log("safeTransferFromD:\t", selector("safeTransferFrom(address,address,uint256,bytes)"));
+console.log("ERC721-setApprovalForAll:\t", selector("setApprovalForAll(address,bool)"));
+console.log("ERC721-approve:\t\t", selector("approve(address,uint256)"));
 console.log("------");

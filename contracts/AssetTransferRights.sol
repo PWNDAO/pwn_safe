@@ -90,9 +90,11 @@ contract AssetTransferRights is ERC721 {
 		// @dev Without this condition ATR would not know from which address to remove the ATR token
 		require(asset.balanceOf(msg.sender) >= asset.amount, "Sender does not have enough amount of tokenized asset");
 
+		// Clear asset data
 		_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in the wallet");
 
+		// Burn ATR token
 		_burn(atrTokenId);
 	}
 

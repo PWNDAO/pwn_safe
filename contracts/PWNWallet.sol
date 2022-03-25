@@ -3,14 +3,12 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./AssetTransferRights.sol";
-import "./PWNWalletFactory.sol";
 import "./IPWNWallet.sol";
 
 
@@ -42,26 +40,26 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	// ## Wallet execution
 
 	function execute(address target, bytes calldata data) external payable onlyOwner returns (bytes memory) {
+		// Gen function selector from calldata
 		bytes4 funcSelector;
 		assembly {
 			funcSelector := calldataload(data.offset)
 		}
 
-		// ERC721-setApprovalForAll
+		// ERC721/ERC20-approve
+		if (funcSelector == 0x095ea7b3) {
+			revert("Cannot approve asset");
+		}
+
+		// ERC721/ERC1155-setApprovalForAll
 		if (funcSelector == 0xa22cb465) {
 			revert("Cannot set approval for all assets");
 		}
 
-		// ERC721-approve
-		else if (funcSelector == 0x095ea7b3) {
-			revert("Cannot approve asset");
-		}
-
-		// TODO: block other approval functions
-
 		// Execute call
 		(bool success, bytes memory output) = target.call{ value: msg.value }(data);
 
+		// TODO: Revert with proper revert message
 		if (!success) {
 			assembly {
 				revert(add(output, 32), output)
