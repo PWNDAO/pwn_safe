@@ -6,4 +6,5 @@ import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 
 interface IPWNWallet {
 	function transferAsset(MultiToken.Asset memory asset, address to) external;
+	function hasOperatorsFor(address assetAddress) external view returns (bool);
 }

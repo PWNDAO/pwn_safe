@@ -3,6 +3,8 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -18,10 +20,14 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	AssetTransferRights internal _atr;
 
+	// Set of operators per asset address
+	mapping (address => EnumerableSet.AddressSet) internal _operators;
+
 	modifier onlyATRContract() {
 		require(msg.sender == address(_atr), "Sender is not asset transfer rights contract");
 		_;
 	}
+
 
 	constructor() Ownable() {
 
@@ -46,15 +52,67 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			funcSelector := calldataload(data.offset)
 		}
 
-		// ERC721/ERC20-approve
+
+
+		// ERC20/ERC721 - approve
 		if (funcSelector == 0x095ea7b3) {
-			revert("Cannot approve asset");
+			require(_atr.ownedFromCollection(target) == 0, "Cannot approve asset while having transfer right token minted");
+
+			(address operator, uint256 tokenIdOrAmount) = abi.decode(data[4:], (address, uint256));
+
+			// Because approve of ERC20 and ERC721 have same function selector, they cannot be easily distinguishable.
+			// Unfortunately second parameter once represents token amount and once token id.
+			// To be able to determine which ERC is called, we need to call additional functions that would fail for the other ERC.
+			// In case both calls fails, we throw error as it's ERC that is not yet supported by wallet.
+
+			bool isERC20;
+			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
+				if (allowance != 0 && tokenIdOrAmount == 0) {
+					_operators[target].remove(operator);
+				}
+
+				else if (allowance == 0 && tokenIdOrAmount != 0) {
+					_operators[target].add(operator);
+				}
+
+				isERC20 = true;
+			} catch {}
+
+			bool isERC721;
+			if (!isERC20) {
+
+				try IERC721(target).getApproved(tokenIdOrAmount) returns (address approved) {
+					if (approved != address(0)) {
+						_operators[target].remove(approved);
+					}
+
+					if (operator != address(0)) {
+						_operators[target].add(operator);
+					}
+
+					isERC721 = true;
+				} catch {}
+
+			}
+
+			require(isERC20 || isERC721, "Trying to approve unsupported token type");
+
 		}
 
-		// ERC721/ERC1155-setApprovalForAll
-		if (funcSelector == 0xa22cb465) {
-			revert("Cannot set approval for all assets");
+		// ERC721/ERC1155 - setApprovalForAll
+		else if (funcSelector == 0xa22cb465) {
+			require(_atr.ownedFromCollection(target) == 0, "Cannot approve all assets while having transfer right token minted");
+
+			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
+
+			if (approved) {
+				_operators[target].add(operator);
+			} else {
+				_operators[target].remove(operator);
+			}
 		}
+
+
 
 		// Execute call
 		(bool success, bytes memory output) = target.call{ value: msg.value }(data);
@@ -65,6 +123,8 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 				revert(add(output, 32), output)
 			}
 		}
+
+
 
 		// Assert that checks tokenized asset balances
 		uint256[] memory atrs = _atr.ownedAssetATRIds();
@@ -89,6 +149,8 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			require(balances[assetIndex].amount <= asset.balanceOf(address(this)), "One of the tokenized asset moved from the wallet");
 		}
 
+
+
 		return output;
 	}
 
@@ -107,6 +169,19 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		_atr.transferAssetFrom(from, atrTokenId, burnToken);
 	}
 
+	// Remove all operators
+	function removeApprovalForAll(address tokenAddress) external onlyOwner {
+		EnumerableSet.AddressSet storage operators = _operators[tokenAddress];
+
+		for (uint256 i = 0; i < operators.length(); ++i) {
+			IERC721(tokenAddress).setApprovalForAll(operators.at(i), false);
+		}
+	}
+
+	function resolveApprovalIfNeeded() external {
+		// TODO:
+	}
+
 
 	/*----------------------------------------------------------*|
 	|*  # IPWNWallet                                            *|
@@ -114,6 +189,10 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	function transferAsset(MultiToken.Asset memory asset, address to) external onlyATRContract {
 		asset.transferAsset(to);
+	}
+
+	function hasOperatorsFor(address assetAddress) external view returns (bool) {
+		return _operators[assetAddress].length() > 0;
 	}
 
 

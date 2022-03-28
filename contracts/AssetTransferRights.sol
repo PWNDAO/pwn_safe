@@ -25,6 +25,11 @@ contract AssetTransferRights is ERC721 {
 	// (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
 	mapping (address => EnumerableSet.UintSet) internal _ownedAssetATRIds;
 
+	// Number of tokenized assets from collection in wallet
+	// Used in PWNWallet to check if owner can setApprovalForAll on given collection
+	// (owner => tokenAddress => number of tokenized assets from given collection currently in owners wallet)
+	mapping (address => mapping (address => uint256)) internal _ownedFromCollection;
+
 
 	constructor() ERC721("Asset Transfer Rights", "ATR") {
 		walletFactory = new PWNWalletFactory(address(this));
@@ -45,6 +50,9 @@ contract AssetTransferRights is ERC721 {
 
 		// Check that amount is correctly set
 		require(asset.amount > 0, "Amount has to be bigger than zero");
+
+		// Check that asset doesn't have operator
+		require(IPWNWallet(msg.sender).hasOperatorsFor(asset.assetAddress) == false, "Asset collection must not have any operator set");
 
 		// Check if asset can be tokenized
 		uint256 balance = asset.balanceOf(msg.sender);
@@ -68,7 +76,10 @@ contract AssetTransferRights is ERC721 {
 
 		// Store asset data
 		_assets[atrTokenId] = asset;
+
+		// Update internal state
 		_ownedAssetATRIds[msg.sender].add(atrTokenId);
+		_ownedFromCollection[msg.sender][asset.assetAddress] += 1;
 
 		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
@@ -92,7 +103,10 @@ contract AssetTransferRights is ERC721 {
 
 		// Clear asset data
 		_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
+
+		// Update internal state
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in the wallet");
+		_ownedFromCollection[msg.sender][asset.assetAddress] -= 1;
 
 		// Burn ATR token
 		_burn(atrTokenId);
@@ -122,8 +136,9 @@ contract AssetTransferRights is ERC721 {
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
 
-		// Update owned assets by wallet
+		// Update internal state
 		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
+		_ownedFromCollection[from][asset.assetAddress] -= 1;
 
 		if (burnToken) {
 			// Burn the ATR token
@@ -134,8 +149,12 @@ contract AssetTransferRights is ERC721 {
 			// Fail if recipient is not PWNWallet
 			require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 
-			// Update owned assets by wallet
+			// Check that recipient doesn't have operator for the token collection
+			require(IPWNWallet(to).hasOperatorsFor(asset.assetAddress) == false, "Receiver cannot have operator set for the token");
+
+			// Update internal state
 			_ownedAssetATRIds[to].add(atrTokenId);
+			_ownedFromCollection[to][asset.assetAddress] += 1;
 		}
 
 		IPWNWallet(from).transferAsset(asset, to);
@@ -152,6 +171,10 @@ contract AssetTransferRights is ERC721 {
 
 	function ownedAssetATRIds() public view returns (uint256[] memory) {
 		return _ownedAssetATRIds[msg.sender].values();
+	}
+
+	function ownedFromCollection(address assetAddress) external view returns (uint256) {
+		return _ownedFromCollection[msg.sender][assetAddress];
 	}
 
 

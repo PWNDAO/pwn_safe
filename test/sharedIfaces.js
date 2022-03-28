@@ -58,7 +58,9 @@ const ATR = new ethers.utils.Interface([
 	"function mintAssetTransferRightsToken(tuple(address assetAddress, uint8 category, uint256 amount, uint256 id)) external returns (uint256)",
 	"function burnAssetTransferRightsToken(uint256 atrTokenId) external",
 	"function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
+	"function getAsset(uint256 atrTokenId) public view returns (tuple(address assetAddress, uint8 category, uint256 amount, uint256 id))",
 	"function ownedAssetATRIds() public view returns (uint256[] memory)",
+	"function ownedFromCollection(address assetAddress) external view returns (uint256)",
 ]);
 
 module.exports = { walletFactory, ERC20, ERC721, ERC1155, T20, T721, T1155, ATR };

@@ -1,7 +1,12 @@
-const { expect } = require("chai");
+const chai = require("chai");
 const { ethers } = require("hardhat");
+const { smock } = require("@defi-wonderland/smock");
 const utils = ethers.utils;
 const Iface = require("./sharedIfaces.js");
+
+const expect = chai.expect;
+chai.use(smock.matchers);
+
 
 describe("AssetTransferRights", function() {
 
@@ -141,6 +146,15 @@ describe("AssetTransferRights", function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t1155.address, 2, 20, tokenId])
 			).to.not.be.reverted;
+		});
+
+		it("Should fail if asset collection has operator set", async function() {
+			const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [owner.address, true]);
+			await wallet.execute(t721.address, calldata);
+
+			await expect(
+				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
+			).to.be.revertedWith("Asset collection must not have any operator set");
 		});
 
 		it("Should increate ATR token id", async function() {

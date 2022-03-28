@@ -84,32 +84,123 @@ describe("PWNWallet", function() {
 
 		describe("Approvals", function() {
 
-			it("Should fail when calling ERC20-approve", async function() {
-				const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 1]);
+			// Approve without tokenized asset
+
+			it("Should approve ERC20 asset when there is no tokenized asset from collection", async function() {
+				const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, tokenAmount]);
 				await expect(
-					wallet.execute(other.address, calldata)
-				).to.be.revertedWith("Cannot approve asset");
+					wallet.execute(t20.address, calldata)
+				).to.not.be.reverted;
 			});
 
-			it("Should fail when calling ERC721-setApprovalForAll", async function() {
+			it("Should approve ERC721 asset when there is no tokenized asset from collection", async function() {
+				const calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, tokenId]);
+				await expect(
+					wallet.execute(t721.address, calldata)
+				).to.not.be.reverted;
+			});
+
+			it("Should approve for all ERC721 asset when there is no tokenized asset from collection", async function() {
 				const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await expect(
-					wallet.execute(other.address, calldata)
-				).to.be.revertedWith("Cannot set approval for all assets");
+					wallet.execute(t721.address, calldata)
+				).to.not.be.reverted;
 			});
 
-			it("Should fail when calling ERC721-approve", async function() {
-				const calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, 1]);
-				await expect(
-					wallet.execute(other.address, calldata)
-				).to.be.revertedWith("Cannot approve asset");
-			});
-
-			it("Should fail when calling ERC1155-setApprovalForAll", async function() {
+			it("Should approve for all ERC1155 asset when there is no tokenized asset from collection", async function() {
 				const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await expect(
-					wallet.execute(other.address, calldata)
-				).to.be.revertedWith("Cannot set approval for all assets");
+					wallet.execute(t1155.address, calldata)
+				).to.not.be.reverted;
+			});
+
+			// Try to approve with tokenized asset
+
+			it("Should fail when trying to approve ERC20 asset and other asset is tokenized from that collection", async function() {
+				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
+
+				const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 10]);
+				await expect(
+					wallet.execute(t20.address, calldata)
+				).to.be.revertedWith("Cannot approve asset while having transfer right token minted");
+			});
+
+			it("Should fail when trying to approve ERC721 asset and other asset is tokenized from that collection", async function() {
+				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+				await t721.mint(wallet.address, 444);
+
+				const calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, 444]);
+				await expect(
+					wallet.execute(t721.address, calldata)
+				).to.be.revertedWith("Cannot approve asset while having transfer right token minted");
+			});
+
+			it("Should fail when trying to approve for all ERC721 asset and other asset is tokenized from that collection", async function() {
+				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+
+				const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
+				await expect(
+					wallet.execute(t721.address, calldata)
+				).to.be.revertedWith("Cannot approve all assets while having transfer right token minted");
+			});
+
+			it("Should fail when trying to approve for all ERC1155 asset and other asset is tokenized from that collection", async function() {
+				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+
+				const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
+				await expect(
+					wallet.execute(t1155.address, calldata)
+				).to.be.revertedWith("Cannot approve all assets while having transfer right token minted");
+			});
+
+			// Set / remove operator on approval / revoke
+
+			it("Should update stored operators depending on given / revoked approvals of ERC20 asset", async function() {
+				let calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 1]);
+				await wallet.execute(t20.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t20.address)).to.equal(true, "ERC20 approval should store operator");
+
+				calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 0]);
+				await wallet.execute(t20.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t20.address)).to.equal(false, "ERC20 approval revoke should remove stored operator");
+			});
+
+			it("Should update stored operators depending on given / revoked approvals of ERC721 asset", async function() {
+				let calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, tokenId]);
+				await wallet.execute(t721.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(true, "ERC721 approval should store operator");
+
+				calldata = Iface.ERC721.encodeFunctionData("approve", [ethers.constants.AddressZero, tokenId]);
+				await wallet.execute(t721.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(false, "ERC721 approval revoke should remove stored operator");
+			});
+
+			it("Should update stored operators depending on given / revoked approvals of ERC721 asset", async function() {
+				let calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
+				await wallet.execute(t721.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(true, "ERC721 approval for all should store operator");
+
+				calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, false]);
+				await wallet.execute(t721.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(false, "ERC721 approval for all revoke should remove stored operator");
+			});
+
+			it("Should update stored operators depending on given / revoked approvals of ERC1155 asset", async function() {
+				let calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
+				await wallet.execute(t1155.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t1155.address)).to.equal(true, "ERC1155 approval for all should store operator");
+
+				calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, false]);
+				await wallet.execute(t1155.address, calldata);
+
+				expect(await wallet.hasOperatorsFor(t1155.address)).to.equal(false, "ERC1155 approval for all revoke should remove stored operator");
 			});
 
 		});
@@ -356,6 +447,15 @@ describe("PWNWallet", function() {
 	});
 
 
+	describe("Has operators for", function() {
+
+		xit("Should return true if collection has at least one operator stored");
+
+		xit("Should return false if collection has no operator stored");
+
+	});
+
+
 	describe("IERC721Receiver", function() {
 
 		it("Should return onERC721Received function selector", async function() {
@@ -394,7 +494,8 @@ describe("PWNWallet", function() {
 		}
 
 		it("Should support IPWNWallet interface", async function() {
-			const interfaceId = funcSelector("transferAsset((address,uint8,uint256,uint256),address)");
+			const interfaceId = funcSelector("transferAsset((address,uint8,uint256,uint256),address)")
+				.xor(funcSelector("hasOperatorsFor(address)"));
 
 			expect(await wallet.supportsInterface(interfaceId)).to.equal(true);
 		});
