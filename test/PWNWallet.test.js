@@ -472,9 +472,18 @@ describe("PWNWallet", function() {
 
 	describe("Has operators for", function() {
 
-		xit("Should return true if collection has at least one operator stored");
+		it("Should return true if collection has at least one operator stored", async function() {
+			const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
+			await wallet.execute(t1155.address, calldata);
 
-		xit("Should return false if collection has no operator stored");
+			expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(true);
+		});
+
+		it("Should return false if collection has no operator stored", async function() {
+			await t1155.mint(wallet.address, 14, 332);
+
+			expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(false);
+		});
 
 	});
 

@@ -189,8 +189,8 @@ describe("AssetTransferRights", function() {
 
 			const calldata = Iface.ATR.encodeFunctionData("ownedAssetATRIds", []);
 			const ownedAssets = await wallet.callStatic.execute(atr.address, calldata);
-			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets);
-			expect(decodedOwnedAssets[0][0].toNumber()).to.equal(1);
+			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets)[0];
+			expect(decodedOwnedAssets[0].toNumber()).to.equal(1);
 		});
 
 		it("Should mint TR token", async function() {
@@ -257,8 +257,8 @@ describe("AssetTransferRights", function() {
 
 			const calldata = Iface.ATR.encodeFunctionData("ownedAssetATRIds", []);
 			const ownedAssets = await wallet.callStatic.execute(atr.address, calldata);
-			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets);
-			expect(decodedOwnedAssets[0]).to.be.empty;
+			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets)[0];
+			expect(decodedOwnedAssets).to.be.empty;
 		});
 
 		it("Should burn ATR token", async function() {
@@ -329,8 +329,8 @@ describe("AssetTransferRights", function() {
 			// Asset is no longer in `walletOther`
 			calldata = Iface.ATR.encodeFunctionData("ownedAssetATRIds", []);
 			const ownedAssets = await walletOther.connect(other).callStatic.execute(atr.address, calldata);
-			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets);
-			expect(decodedOwnedAssets[0].map(bn => bn.toNumber())).to.not.contain(2);
+			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets)[0];
+			expect(decodedOwnedAssets.map(bn => bn.toNumber())).to.not.contain(2);
 		});
 
 		it("Should transfer ERC20 asset when sender has tokenized transfer rights", async function() {
@@ -366,8 +366,8 @@ describe("AssetTransferRights", function() {
 				// Asset is in `wallet`
 				calldata = Iface.ATR.encodeFunctionData("ownedAssetATRIds", []);
 				const ownedAssets = await wallet.callStatic.execute(atr.address, calldata);
-				const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets);
-				expect(decodedOwnedAssets[0].map(bn => bn.toNumber())).to.contain(2);
+				const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets)[0];
+				expect(decodedOwnedAssets.map(bn => bn.toNumber())).to.contain(2);
 			});
 
 			it("Should fail if recipient wallet has approval for asset", async function() {
@@ -432,14 +432,85 @@ describe("AssetTransferRights", function() {
 
 	describe("Get asset", function() {
 
-		xit("Should return stored asset");
+		async function areEqual(assetId, values) {
+			const asset = await atr.getAsset(assetId);
+
+			return asset.assetAddress == values[0] &&
+				asset.category == values[1] &&
+				asset.amount.toNumber() == values[2] &&
+				asset.id.toNumber() == values[3];
+		};
+
+
+		it("Should return stored asset", async function() {
+			const tokenId = 123;
+			const tokenAmount = 12332;
+
+			await t20.mint(wallet.address, tokenAmount);
+			await t721.mint(wallet.address, tokenId);
+			await t1155.mint(wallet.address, tokenId, tokenAmount);
+
+			// ATR tokens with ids 1, 2, 3
+			await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+			await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+
+			expect(await areEqual(1, [t20.address, 0, tokenAmount, 0])).to.equal(true);
+			expect(await areEqual(2, [t721.address, 1, 1, tokenId])).to.equal(true);
+			expect(await areEqual(3, [t1155.address, 2, tokenAmount, tokenId])).to.equal(true);
+		});
 
 	});
 
 
 	describe("Owned asset ATR ids", function() {
 
-		xit("Should return list of tokenized assets in senders wallet represented by their ATR token id");
+		it("Should return list of tokenized assets in senders wallet represented by their ATR token id", async function() {
+			const tokenId = 123;
+			const tokenAmount = 12332;
+
+			await t20.mint(wallet.address, tokenAmount);
+			await t721.mint(wallet.address, tokenId);
+			await t1155.mint(wallet.address, tokenId, tokenAmount);
+
+			// ATR tokens with ids 1, 2, 3
+			await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+			await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+
+			const calldata = Iface.ATR.encodeFunctionData("ownedAssetATRIds", []);
+			const ownedAssets = await wallet.callStatic.execute(atr.address, calldata);
+
+			const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets)[0];
+			const ids = decodedOwnedAssets.map(bn => bn.toNumber());
+
+			expect(ids).to.include.members([1, 2, 3]);
+		});
+
+	});
+
+
+	describe("Owned from collection", function() {
+
+		it("Should return number of tokenized assets from given contract address", async function() {
+			await t721.mint(wallet.address, 2);
+			await t721.mint(wallet.address, 3);
+
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 2]);
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 3]);
+
+			let calldata = Iface.ATR.encodeFunctionData("ownedFromCollection", [t20.address]);
+			let ownedFromERC20Collection = await wallet.callStatic.execute(atr.address, calldata);
+
+			ownedFromERC20Collection = Iface.ATR.decodeFunctionResult("ownedFromCollection", ownedFromERC20Collection)[0];
+			expect(ownedFromERC20Collection.toNumber()).to.equal(0);
+
+			calldata = Iface.ATR.encodeFunctionData("ownedFromCollection", [t721.address]);
+			let ownedFromERC721Collection = await wallet.callStatic.execute(atr.address, calldata);
+
+			ownedFromERC721Collection = Iface.ATR.decodeFunctionResult("ownedFromCollection", ownedFromERC721Collection)[0];
+			expect(ownedFromERC721Collection.toNumber()).to.equal(2);
+		});
 
 	});
 
