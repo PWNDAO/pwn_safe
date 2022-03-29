@@ -56,54 +56,40 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 		// ERC20/ERC721 - approve
 		if (funcSelector == 0x095ea7b3) {
+			// Block any approve call if there is at least one tokenized asset from a collection
 			require(_atr.ownedFromCollection(target) == 0, "Cannot approve asset while having transfer right token minted");
 
-			(address operator, uint256 tokenIdOrAmount) = abi.decode(data[4:], (address, uint256));
+			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
-			// Because approve of ERC20 and ERC721 have same function selector, they cannot be easily distinguishable.
-			// Unfortunately second parameter once represents token amount and once token id.
-			// To be able to determine which ERC is called, we need to call additional functions that would fail for the other ERC.
-			// In case both calls fails, we throw error as it's ERC that is not yet supported by wallet.
+			// Wallet don't need to track approved ERC721 asset ids, because it's possible to get this information from ERC721 contract directly.
+			// ERC20 contract doesn't provide possibility to list all addresses that are approved to transfer asset on behalf of an owner.
+			// That's why a wallet has to track operators.
 
-			bool isERC20;
 			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
-				if (allowance != 0 && tokenIdOrAmount == 0) {
+
+				if (allowance != 0 && amount == 0) {
 					_operators[target].remove(operator);
 				}
 
-				else if (allowance == 0 && tokenIdOrAmount != 0) {
+				else if (allowance == 0 && amount != 0) {
 					_operators[target].add(operator);
 				}
 
-				isERC20 = true;
 			} catch {}
-
-			bool isERC721;
-			if (!isERC20) {
-
-				try IERC721(target).getApproved(tokenIdOrAmount) returns (address approved) {
-					if (approved != address(0)) {
-						_operators[target].remove(approved);
-					}
-
-					if (operator != address(0)) {
-						_operators[target].add(operator);
-					}
-
-					isERC721 = true;
-				} catch {}
-
-			}
-
-			require(isERC20 || isERC721, "Trying to approve unsupported token type");
 
 		}
 
+		// TODO: ERC20-increaseAllowance & decreaseAllowance
+
 		// ERC721/ERC1155 - setApprovalForAll
 		else if (funcSelector == 0xa22cb465) {
+			// Block any approve for all call if there is at least one tokenized asset from a collection
 			require(_atr.ownedFromCollection(target) == 0, "Cannot approve all assets while having transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
+
+			// Not ERC721 nor ERC1155 does provider direct way how to get list of approved operators.
+			// That's why a wallet has to track them.
 
 			if (approved) {
 				_operators[target].add(operator);
@@ -126,7 +112,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 
 
-		// Assert that checks tokenized asset balances
+		// Assert that tokenized asset balances did not change
 		uint256[] memory atrs = _atr.ownedAssetATRIds();
 		MultiToken.Asset[] memory balances = new MultiToken.Asset[](atrs.length);
 		uint256 nextEmptyIndex;
@@ -135,8 +121,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 			// Check that wallet owns at least that amount
 			// Need to add fungible token amounts together
-			// Option 1: use mapping, would need to reset mapping after every call, probably very expensive
-			// -> Option 2: store assets in an array and always try to find them
 
 			uint256 assetIndex = _find(balances, asset);
 			if (assetIndex == balances.length) {
@@ -169,17 +153,14 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		_atr.transferAssetFrom(from, atrTokenId, burnToken);
 	}
 
-	// Remove all operators
-	function removeApprovalForAll(address tokenAddress) external onlyOwner {
-		EnumerableSet.AddressSet storage operators = _operators[tokenAddress];
-
-		for (uint256 i = 0; i < operators.length(); ++i) {
-			IERC721(tokenAddress).setApprovalForAll(operators.at(i), false);
+	// Can happen when approved address transfers all approved assets.
+	// Approved address will stay as operator, even though the allowance would be 0.
+	// The transfer would not update wallets internal state.
+	function resolveInvalidApproval(address assetAddress, address operator) external {
+		uint256 allowance = IERC20(assetAddress).allowance(address(this), operator);
+		if (allowance == 0) {
+			_operators[assetAddress].remove(operator);
 		}
-	}
-
-	function resolveApprovalIfNeeded() external {
-		// TODO:
 	}
 
 
@@ -191,7 +172,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		asset.transferAsset(to);
 	}
 
-	function hasOperatorsFor(address assetAddress) external view returns (bool) {
+	function hasApprovalsFor(address assetAddress) external view returns (bool) {
 		return _operators[assetAddress].length() > 0;
 	}
 

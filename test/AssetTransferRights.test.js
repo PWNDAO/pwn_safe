@@ -96,6 +96,15 @@ describe("AssetTransferRights", function() {
 			).to.be.revertedWith("Amount has to be bigger than zero");
 		});
 
+		it("Should fail when ERC721 asset is approved", async function() {
+			const calldata = Iface.ERC721.encodeFunctionData("approve", [owner.address, tokenId]);
+			await wallet.execute(t721.address, calldata);
+
+			await expect(
+				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
+			).to.be.revertedWith("Tokenized asset cannot have approved address set");
+		});
+
 		it("Should fail when ERC20 asset doesn't have enough untokenized balance to tokenize without any tokenized asset", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount + 1, 0])
@@ -154,7 +163,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
-			).to.be.revertedWith("Asset collection must not have any operator set");
+			).to.be.revertedWith("Asset collection must not have any approvals set");
 		});
 
 		it("Should increate ATR token id", async function() {
@@ -359,6 +368,17 @@ describe("AssetTransferRights", function() {
 				const ownedAssets = await wallet.callStatic.execute(atr.address, calldata);
 				const decodedOwnedAssets = Iface.ATR.decodeFunctionResult("ownedAssetATRIds", ownedAssets);
 				expect(decodedOwnedAssets[0].map(bn => bn.toNumber())).to.contain(2);
+			});
+
+			it("Should fail if recipient wallet has approval for asset", async function() {
+				// Set operator for asset collection
+				const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [owner.address, true]);
+				await wallet.execute(t721.address, calldata);
+
+				// Try to transfer asset from `walletOther` via ATR token
+				await expect(
+					wallet.transferAssetFrom(walletOther.address, 2, false)
+				).to.be.revertedWith("Receiver cannot have approvals set for the token");
 			});
 
 			it("Should fail when transferring to other than PWN Wallet", async function() {

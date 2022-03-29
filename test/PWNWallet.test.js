@@ -159,48 +159,39 @@ describe("PWNWallet", function() {
 				let calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 1]);
 				await wallet.execute(t20.address, calldata);
 
-				expect(await wallet.hasOperatorsFor(t20.address)).to.equal(true, "ERC20 approval should store operator");
+				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(true, "ERC20 approval should store operator");
 
 				calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 0]);
 				await wallet.execute(t20.address, calldata);
 
-				expect(await wallet.hasOperatorsFor(t20.address)).to.equal(false, "ERC20 approval revoke should remove stored operator");
+				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(false, "ERC20 approval revoke should remove stored operator");
 			});
 
-			it("Should update stored operators depending on given / revoked approvals of ERC721 asset", async function() {
-				let calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, tokenId]);
-				await wallet.execute(t721.address, calldata);
-
-				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(true, "ERC721 approval should store operator");
-
-				calldata = Iface.ERC721.encodeFunctionData("approve", [ethers.constants.AddressZero, tokenId]);
-				await wallet.execute(t721.address, calldata);
-
-				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(false, "ERC721 approval revoke should remove stored operator");
-			});
+			// ERC721 approval is not tracked because operator can approve owners asset without triggering any action on wallet or ATR contract
+			// Tracking approvals will not be without leaks thus unusable
 
 			it("Should update stored operators depending on given / revoked approvals of ERC721 asset", async function() {
 				let calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await wallet.execute(t721.address, calldata);
 
-				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(true, "ERC721 approval for all should store operator");
+				expect(await wallet.hasApprovalsFor(t721.address)).to.equal(true, "ERC721 approval for all should store operator");
 
 				calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, false]);
 				await wallet.execute(t721.address, calldata);
 
-				expect(await wallet.hasOperatorsFor(t721.address)).to.equal(false, "ERC721 approval for all revoke should remove stored operator");
+				expect(await wallet.hasApprovalsFor(t721.address)).to.equal(false, "ERC721 approval for all revoke should remove stored operator");
 			});
 
 			it("Should update stored operators depending on given / revoked approvals of ERC1155 asset", async function() {
 				let calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await wallet.execute(t1155.address, calldata);
 
-				expect(await wallet.hasOperatorsFor(t1155.address)).to.equal(true, "ERC1155 approval for all should store operator");
+				expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(true, "ERC1155 approval for all should store operator");
 
 				calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, false]);
 				await wallet.execute(t1155.address, calldata);
 
-				expect(await wallet.hasOperatorsFor(t1155.address)).to.equal(false, "ERC1155 approval for all revoke should remove stored operator");
+				expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(false, "ERC1155 approval for all revoke should remove stored operator");
 			});
 
 		});
@@ -208,6 +199,7 @@ describe("PWNWallet", function() {
 		describe("Asset transfers", function() {
 
 			// Not tokenized
+
 			it("Should transfer ERC20 asset when it don't have tokenized transfer rights", async function() {
 				const calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, tokenAmount]);
 				await expect(
@@ -230,6 +222,7 @@ describe("PWNWallet", function() {
 			});
 
 			// Tokenized
+
 			it("Should fail when transferring tokenized ERC20 asset", async function() {
 				// mint ATR token
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
@@ -393,6 +386,36 @@ describe("PWNWallet", function() {
 	});
 
 
+	describe("Resolve invalid approval", function() {
+
+		it("Should resolve invalid approval when ERC20 asset was transferred by approved address", async function() {
+			// Mint ERC20 asset to wallet
+			await t20.mint(wallet.address, 1000);
+
+			// Approve ERC20 asset
+			const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 322]);
+			await wallet.execute(t20.address, calldata);
+
+			// Transfer asset by approved address
+			await t20.connect(other).transferFrom(wallet.address, other.address, 322);
+
+			// Check that internal state is corrupted
+			expect(
+				await wallet.hasApprovalsFor(t20.address)
+			).to.equal(true);
+
+			// Fix corrupted internal state
+			await wallet.resolveInvalidApproval(t20.address, other.address);
+
+			// Check that internal state is fixed
+			expect(
+				await wallet.hasApprovalsFor(t20.address)
+			).to.equal(false);
+		});
+
+	});
+
+
 	describe("Transfer asset", function() {
 
 		const tokenId = 123;
@@ -495,7 +518,7 @@ describe("PWNWallet", function() {
 
 		it("Should support IPWNWallet interface", async function() {
 			const interfaceId = funcSelector("transferAsset((address,uint8,uint256,uint256),address)")
-				.xor(funcSelector("hasOperatorsFor(address)"));
+				.xor(funcSelector("hasApprovalsFor(address)"));
 
 			expect(await wallet.supportsInterface(interfaceId)).to.equal(true);
 		});

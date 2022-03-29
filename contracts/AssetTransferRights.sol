@@ -2,6 +2,7 @@
 pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./IPWNWallet.sol";
@@ -48,11 +49,20 @@ contract AssetTransferRights is ERC721 {
 		// Check that msg.sender is PWNWallet
 		require(walletFactory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
 
+		// TODO: Move to MultiToken library as (?) `isValid`
 		// Check that amount is correctly set
 		require(asset.amount > 0, "Amount has to be bigger than zero");
 
-		// Check that asset doesn't have operator
-		require(IPWNWallet(msg.sender).hasOperatorsFor(asset.assetAddress) == false, "Asset collection must not have any operator set");
+		// Check that asset collection doesn't have approvals
+		require(IPWNWallet(msg.sender).hasApprovalsFor(asset.assetAddress) == false, "Asset collection must not have any approvals set");
+
+		// Check that tokenized asset don't have approval
+		// ERC721 operator can approve concrete asset without triggering any action in wallet nor ATR contract
+		// Without this check it would be possible to tokenize approved ERC721 asset
+		if (asset.category == MultiToken.Category.ERC721) {
+			address approved = IERC721(asset.assetAddress).getApproved(asset.id);
+			require(approved == address(0), "Tokenized asset cannot have approved address set");
+		}
 
 		// Check if asset can be tokenized
 		uint256 balance = asset.balanceOf(msg.sender);
@@ -149,8 +159,8 @@ contract AssetTransferRights is ERC721 {
 			// Fail if recipient is not PWNWallet
 			require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
 
-			// Check that recipient doesn't have operator for the token collection
-			require(IPWNWallet(to).hasOperatorsFor(asset.assetAddress) == false, "Receiver cannot have operator set for the token");
+			// Check that recipient doesn't have approvals for the token collection
+			require(IPWNWallet(to).hasApprovalsFor(asset.assetAddress) == false, "Receiver cannot have approvals set for the token");
 
 			// Update internal state
 			_ownedAssetATRIds[to].add(atrTokenId);
@@ -182,6 +192,7 @@ contract AssetTransferRights is ERC721 {
 	|*  # Private                                               *|
 	|*----------------------------------------------------------*/
 
+	// TODO: Move to MultiToken library
 	function areEqual(MultiToken.Asset memory asset1, MultiToken.Asset memory asset2) private pure returns (bool) {
 		return
 			asset1.assetAddress == asset2.assetAddress &&
