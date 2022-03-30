@@ -12,8 +12,8 @@ const ERC20 = new ethers.utils.Interface([
 	"function allowance(address owner, address spender) external view returns (uint256)",
 	"function approve(address spender, uint256 amount) external returns (bool)",
 	"function transferFrom(address from, address to, uint256 amount) external returns (bool)",
-	"function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool)",
-	"function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool)",
+	"function increaseAllowance(address spender, uint256 addedValue) public returns (bool)",
+	"function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool)",
 ]);
 
 const ERC721 = new ethers.utils.Interface([

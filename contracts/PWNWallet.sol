@@ -79,11 +79,38 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 		}
 
-		// TODO: ERC20-increaseAllowance & decreaseAllowance
+		// ERC20 - increaseAllowance
+		else if (funcSelector == 0x39509351) {
+			// Block any increaseAllowance call if there is at least one tokenized asset from a collection
+			require(_atr.ownedFromCollection(target) == 0, "Cannot increase allowance of asset while having transfer right token minted");
+
+			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
+
+			if (amount > 0) {
+				_operators[target].add(operator);
+			}
+		}
+
+		// ERC20 - decreaseAllowance
+		else if (funcSelector == 0xa457c2d7) {
+			// Block any decreaseAllowance call if there is at least one tokenized asset from a collection
+			// (?) Is this check necessary?
+			require(_atr.ownedFromCollection(target) == 0, "Cannot decrease allowance of asset while having transfer right token minted");
+
+			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
+
+			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
+
+				if (allowance <= amount) {
+					_operators[target].remove(operator);
+				}
+
+			} catch {}
+		}
 
 		// ERC721/ERC1155 - setApprovalForAll
 		else if (funcSelector == 0xa22cb465) {
-			// Block any approve for all call if there is at least one tokenized asset from a collection
+			// Block any setApprovalForAll call if there is at least one tokenized asset from a collection
 			require(_atr.ownedFromCollection(target) == 0, "Cannot approve all assets while having transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
