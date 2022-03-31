@@ -11,7 +11,8 @@ async function main() {
 	await atr.deployed();
 
 	console.log(`Asset Transfer Rights deploy at: ${atr.address}`);
-	console.log(`Wallet deploy at: ${await atr.walletFactory()}`);
+	console.log(`Wallet factory deploy at: ${await atr.walletFactory()}`);
+
 }
 
 
