@@ -59,7 +59,7 @@ const T1155 = new ethers.utils.Interface([
 const ATR = new ethers.utils.Interface([
 	"function mintAssetTransferRightsToken(tuple(address assetAddress, uint8 category, uint256 amount, uint256 id)) external returns (uint256)",
 	"function burnAssetTransferRightsToken(uint256 atrTokenId) external",
-	"function transferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) external",
+	"function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external",
 	"function getAsset(uint256 atrTokenId) public view returns (tuple(address assetAddress, uint8 category, uint256 amount, uint256 id))",
 	"function ownedAssetATRIds() public view returns (uint256[] memory)",
 	"function ownedFromCollection(address assetAddress) external view returns (uint256)",
