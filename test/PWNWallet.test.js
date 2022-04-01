@@ -86,47 +86,61 @@ describe("PWNWallet", function() {
 			// Approve without tokenized asset
 
 			it("Should approve ERC20 asset when there is no tokenized asset from collection", async function() {
-				const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, tokenAmount]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("approve", [other.address, tokenAmount])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should increase allowance of ERC20 asset when there is no tokenized asset from collection", async function() {
-				const calldata = Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, tokenAmount]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, tokenAmount])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should decrease allowance of ERC20 asset when there is no tokenized asset from collection", async function() {
-				let calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, tokenAmount]);
-				await wallet.execute(t20.address, calldata);
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("approve", [other.address, tokenAmount])
+				);
 
-				calldata = Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, tokenAmount]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, tokenAmount])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should approve ERC721 asset when there is no tokenized asset from collection", async function() {
-				const calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, tokenId]);
 				await expect(
-					wallet.execute(t721.address, calldata)
+					wallet.execute(
+						t721.address,
+						Iface.ERC721.encodeFunctionData("approve", [other.address, tokenId])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should approve for all ERC721 asset when there is no tokenized asset from collection", async function() {
-				const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await expect(
-					wallet.execute(t721.address, calldata)
+					wallet.execute(
+						t721.address,
+						Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should approve for all ERC1155 asset when there is no tokenized asset from collection", async function() {
-				const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true])
+					)
 				).to.not.be.reverted;
 			});
 
@@ -135,27 +149,33 @@ describe("PWNWallet", function() {
 			it("Should fail when trying to approve ERC20 asset and other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
 
-				const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 10]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("approve", [other.address, 10])
+					)
 				).to.be.revertedWith("Cannot approve asset while having transfer right token minted");
 			});
 
 			it("Should fail when trying to increase allowance of ERC20 asset and other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
 
-				const calldata = Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, 10]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, 10])
+					)
 				).to.be.revertedWith("Cannot increase allowance of asset while having transfer right token minted");
 			});
 
 			it("Should fail when trying to decrease allowance of ERC20 asset and other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
 
-				calldata = Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 0]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 0])
+					)
 				).to.be.revertedWith("Cannot decrease allowance of asset while having transfer right token minted");
 			});
 
@@ -163,40 +183,50 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
 				await t721.mint(wallet.address, 444);
 
-				const calldata = Iface.ERC721.encodeFunctionData("approve", [other.address, 444]);
 				await expect(
-					wallet.execute(t721.address, calldata)
+					wallet.execute(
+						t721.address,
+						Iface.ERC721.encodeFunctionData("approve", [other.address, 444])
+					)
 				).to.be.revertedWith("Cannot approve asset while having transfer right token minted");
 			});
 
 			it("Should fail when trying to approve for all ERC721 asset and other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
 
-				const calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await expect(
-					wallet.execute(t721.address, calldata)
+					wallet.execute(
+						t721.address,
+						Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true])
+					)
 				).to.be.revertedWith("Cannot approve all assets while having transfer right token minted");
 			});
 
 			it("Should fail when trying to approve for all ERC1155 asset and other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
 
-				const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true])
+					)
 				).to.be.revertedWith("Cannot approve all assets while having transfer right token minted");
 			});
 
 			// Set / remove operator on approval / revoke
 
 			it("Should update stored operators depending on given / revoked approvals of ERC20 asset", async function() {
-				let calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 1]);
-				await wallet.execute(t20.address, calldata);
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("approve", [other.address, 1])
+				);
 
 				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(true, "ERC20 approval should store operator");
 
-				calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 0]);
-				await wallet.execute(t20.address, calldata);
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("approve", [other.address, 0])
+				);
 
 				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(false, "ERC20 approval revoke should remove stored operator");
 			});
@@ -204,20 +234,26 @@ describe("PWNWallet", function() {
 			it("Should update stored operators depending on allowance increase of ERC20 asset", async function() {
 				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(false);
 
-				calldata = Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, 10]);
-				await wallet.execute(t20.address, calldata);
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, 10])
+				);
 
 				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(true);
 			});
 
 			it("Should update stored operators depending on allowance decrease of ERC20 asset", async function() {
-				let calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 1]);
-				await wallet.execute(t20.address, calldata);
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("approve", [other.address, 1])
+				);
 
 				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(true);
 
-				calldata = Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 1]);
-				await wallet.execute(t20.address, calldata);
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 1])
+				);
 
 				expect(await wallet.hasApprovalsFor(t20.address)).to.equal(false);
 			});
@@ -226,25 +262,33 @@ describe("PWNWallet", function() {
 			// Tracking approvals will not be without leaks thus unusable
 
 			it("Should update stored operators depending on given / revoked approvals of ERC721 asset", async function() {
-				let calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true]);
-				await wallet.execute(t721.address, calldata);
+				await wallet.execute(
+					t721.address,
+					Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true])
+				);
 
 				expect(await wallet.hasApprovalsFor(t721.address)).to.equal(true, "ERC721 approval for all should store operator");
 
-				calldata = Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, false]);
-				await wallet.execute(t721.address, calldata);
+				await wallet.execute(
+					t721.address,
+					Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, false])
+				);
 
 				expect(await wallet.hasApprovalsFor(t721.address)).to.equal(false, "ERC721 approval for all revoke should remove stored operator");
 			});
 
 			it("Should update stored operators depending on given / revoked approvals of ERC1155 asset", async function() {
-				let calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
-				await wallet.execute(t1155.address, calldata);
+				await wallet.execute(
+					t1155.address,
+					Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true])
+				);
 
 				expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(true, "ERC1155 approval for all should store operator");
 
-				calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, false]);
-				await wallet.execute(t1155.address, calldata);
+				await wallet.execute(
+					t1155.address,
+					Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, false])
+				);
 
 				expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(false, "ERC1155 approval for all revoke should remove stored operator");
 			});
@@ -256,23 +300,29 @@ describe("PWNWallet", function() {
 			// Not tokenized
 
 			it("Should transfer ERC20 asset when it don't have tokenized transfer rights", async function() {
-				const calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, tokenAmount]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, tokenAmount])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should transfer ERC721 asset when it don't have tokenized transfer rights", async function() {
-				const calldata = Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
 				await expect(
-					wallet.execute(t721.address, calldata)
+					wallet.execute(
+						t721.address,
+						Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId])
+					)
 				).to.not.be.reverted;
 			});
 
 			it("Should transfer ERC1155 asset when it don't have tokenized transfer rights", async function() {
-				const calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, tokenAmount, "0x"]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, tokenAmount, "0x"])
+					)
 				).to.not.be.reverted;
 			});
 
@@ -283,9 +333,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
 
 				// try to transfer asset as wallet owner
-				calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, 1]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, 1])
+					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
 
@@ -294,9 +346,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
 
 				// try to transfer asset as wallet owner
-				calldata = Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId]);
 				await expect(
-					wallet.execute(t721.address, calldata)
+					wallet.execute(
+						t721.address,
+						Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId])
+					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
 
@@ -305,9 +359,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
 
 				// try to transfer asset as wallet owner
-				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 1, "0x"]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 1, "0x"])
+					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
 
@@ -318,9 +374,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 100, 0]);
 
 				// transfer asset as wallet owner
-				calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, 100]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, 100])
+					)
 				).to.not.be.reverted;
 			});
 
@@ -329,9 +387,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 100, 0]);
 
 				// try to transfer asset as wallet owner
-				calldata = Iface.ERC20.encodeFunctionData("transfer", [other.address, 101]);
 				await expect(
-					wallet.execute(t20.address, calldata)
+					wallet.execute(
+						t20.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, 101])
+					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
 
@@ -340,9 +400,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount - 40, tokenId]);
 
 				// transfer asset as wallet owner
-				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 40, "0x"]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 40, "0x"])
+					)
 				).to.not.be.reverted;
 			});
 
@@ -353,9 +415,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
 
 				// transfer asset as wallet owner
-				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, 45, tokenAmount, "0x"]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, 45, tokenAmount, "0x"])
+					)
 				).to.not.be.reverted;
 			});
 
@@ -364,9 +428,11 @@ describe("PWNWallet", function() {
 				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount - 40, tokenId]);
 
 				// transfer asset as wallet owner
-				calldata = Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 41, "0x"]);
 				await expect(
-					wallet.execute(t1155.address, calldata)
+					wallet.execute(
+						t1155.address,
+						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 41, "0x"])
+					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
 
@@ -448,8 +514,10 @@ describe("PWNWallet", function() {
 			await t20.mint(wallet.address, 1000);
 
 			// Approve ERC20 asset
-			const calldata = Iface.ERC20.encodeFunctionData("approve", [other.address, 322]);
-			await wallet.execute(t20.address, calldata);
+			await wallet.execute(
+				t20.address,
+				Iface.ERC20.encodeFunctionData("approve", [other.address, 322])
+			);
 
 			// Transfer asset by approved address
 			await t20.connect(other).transferFrom(wallet.address, other.address, 322);
@@ -528,8 +596,10 @@ describe("PWNWallet", function() {
 	describe("Has operators for", function() {
 
 		it("Should return true if collection has at least one operator stored", async function() {
-			const calldata = Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true]);
-			await wallet.execute(t1155.address, calldata);
+			await wallet.execute(
+				t1155.address,
+				Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true])
+			);
 
 			expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(true);
 		});
