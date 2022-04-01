@@ -2,8 +2,6 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const Iface = require("./sharedIfaces.js");
 
-const minimalProxyCode = "0x363d3d373d3d3d363d73a16e02e87b7454126e5e10d957a927a7f5b5d2be5af43d82803e903d91602b57fd5bf3";
-
 
 describe("PWNWalletFactory", function() {
 
@@ -28,7 +26,8 @@ describe("PWNWalletFactory", function() {
 			const res = await tx.wait();
 			const walletAddr = res.events[1].args.walletAddress;
 
-			expect(await ethers.provider.getCode(walletAddr)).to.equal(minimalProxyCode);
+			const code = await ethers.provider.getCode(walletAddr);
+			expect(code).to.match(/^0x363d3d373d3d3d363d73.{40}5af43d82803e903d91602b57fd5bf3/);
 		});
 
 		it("Should set new contract address as valid wallet address", async function() {
