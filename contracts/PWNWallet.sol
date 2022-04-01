@@ -130,7 +130,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		// Execute call
 		(bool success, bytes memory output) = target.call{ value: msg.value }(data);
 
-		// TODO: Revert with proper revert message
 		if (!success) {
 			assembly {
 				revert(add(output, 32), output)

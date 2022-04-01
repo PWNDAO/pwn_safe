@@ -48,6 +48,7 @@ const T721 = new ethers.utils.Interface([
 	"function mint(address owner, uint256 tokenId) external",
 	"function burn(uint256 tokenId) external",
 	"function forceTransfer(address from, address to, uint256 tokenId) external",
+	"function revertWithMessage() external pure",
 ]);
 
 const T1155 = new ethers.utils.Interface([

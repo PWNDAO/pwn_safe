@@ -64,22 +64,21 @@ describe("PWNWallet", function() {
 
 
 		it("Should fail when sender is not wallet owner", async function() {
-			const calldata = Iface.T721.encodeFunctionData("foo", []);
 			await expect(
-				wallet.connect(other).execute(t721.address, calldata)
+				wallet.connect(other).execute(
+					t721.address,
+					Iface.T721.encodeFunctionData("foo", [])
+				)
 			).to.be.reverted;
 		});
 
-		// TODO: Implement
-		xit("Should fail when execution call fails", async function() {
-			const crazyErrorMessage = "50m3 6u5t0m err0r m3ssag3";
-			const fakeToken = await smock.fake("T721");
-			fakeToken.foo.reverts(crazyErrorMessage);
-
-			const calldata = Iface.T721.encodeFunctionData("foo", []);
+		it("Should fail with execution revert message", async function() {
 			await expect(
-				wallet.execute(fakeToken.address, calldata)
-			).to.be.revertedWith(crazyErrorMessage);
+				wallet.execute(
+					t721.address,
+					Iface.T721.encodeFunctionData("revertWithMessage", [])
+				)
+			).to.be.revertedWith("50m3 6u5t0m err0r m3ssag3");
 		});
 
 		describe("Approvals", function() {

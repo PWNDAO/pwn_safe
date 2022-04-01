@@ -25,4 +25,8 @@ contract T721 is ERC721("ERC721", "ERC721") {
 		this.transferFrom(from, to, tokenId);
 	}
 
+	function revertWithMessage() external pure {
+		revert("50m3 6u5t0m err0r m3ssag3");
+	}
+
 }
