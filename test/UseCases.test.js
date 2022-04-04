@@ -46,8 +46,6 @@ describe("Use cases", function() {
 	});
 
 
-	// All asset collections are isolated, thus there is not need to test cross-asset functionality
-
 	describe("ERC20", function() {
 
 		/**
@@ -357,6 +355,23 @@ describe("Use cases", function() {
 				t721.address,
 				Iface.ERC721.encodeFunctionData("setApprovalForAll", [addr1.address, false])
 			);
+		});
+
+		/**
+		 * 1: mint asset 1
+		 * 2: mint ATR token 1 for asset 1
+		 * 3: mint ATR token 2 for asset 1, but with ERC20 category
+		 *
+		 */
+		it("UC:ERC721:3", async function() {
+			// 1:
+			await t721.mint(wallet.address, 0);
+
+			// 2:
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 0]);
+
+			// 3: ⚠️⚠️⚠️⚠️ should not work
+			await wallet.mintAssetTransferRightsToken([t721.address, 0, 1, 0]);
 		});
 
 	});

@@ -72,7 +72,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				atr.connect(other).mintAssetTransferRightsToken( [t721.address, 1, 1, 333] )
-			).to.be.revertedWith("Mint is permitted only from PWN Wallet");
+			).to.be.revertedWith("Caller is not a PWN Wallet");
 		});
 
 		it("Should fail when sender is not asset owner", async function() {
@@ -80,19 +80,19 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 3232])
-			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
+			).to.be.revertedWith("Insufficient balance to tokenize");
 		});
 
 		it("Should fail when trying to tokenize zero address asset", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([ethers.constants.AddressZero, 1, 1, 3232])
-			).to.be.revertedWith("Cannot tokenize zero address asset");
+			).to.be.revertedWith("Attempting to tokenize zero address asset");
 		});
 
 		it("Should fail when asset is invalid", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 0, tokenId])
-			).to.be.revertedWith("Asset is not valid");
+			).to.be.revertedWith("MultiToken.Asset is not valid");
 		});
 
 		it("Should fail when ERC721 asset is approved", async function() {
@@ -103,19 +103,19 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
-			).to.be.revertedWith("Tokenized asset cannot have approved address set");
+			).to.be.revertedWith("Tokenized asset has an approved address");
 		});
 
 		it("Should fail when ERC20 asset doesn't have enough untokenized balance to tokenize without any tokenized asset", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount + 1, 0])
-			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
+			).to.be.revertedWith("Insufficient balance to tokenize");
 		});
 
 		it("Should fail when ERC1155 asset doesn't have enough untokenized balance to tokenize without any tokenized asset", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount + 1, tokenId])
-			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
+			).to.be.revertedWith("Insufficient balance to tokenize");
 		});
 
 		it("Should fail when ERC20 asset doesn't have enough untokenized balance to tokenize with some tokenized asset", async function() {
@@ -123,7 +123,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t20.address, 0, 21, 0])
-			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
+			).to.be.revertedWith("Insufficient balance to tokenize");
 		});
 
 		it("Should fail when ERC721 asset is already tokenised", async function() {
@@ -131,7 +131,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
-			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
+			).to.be.revertedWith("Insufficient balance to tokenize");
 		});
 
 		it("Should fail when ERC1155 asset doesn't have enough untokenized balance to tokenize with some tokenized asset", async function() {
@@ -139,7 +139,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t1155.address, 2, 21, tokenId])
-			).to.be.revertedWith("Not enough balance to tokenize asset transfer rights");
+			).to.be.revertedWith("Insufficient balance to tokenize");
 		});
 
 		it("Should tokenize ERC20 asset when untokenized balance is sufficient", async function() {
@@ -166,7 +166,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
-			).to.be.revertedWith("Asset collection must not have any approvals set");
+			).to.be.revertedWith("Some asset from collection has an approval");
 		});
 
 		it("Should increate ATR token id", async function() {
@@ -198,7 +198,7 @@ describe("AssetTransferRights", function() {
 			expect(decodedOwnedAssets[0].toNumber()).to.equal(1);
 		});
 
-		it("Should mint TR token", async function() {
+		it("Should mint ATR token", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
 			).to.not.be.reverted;
@@ -230,7 +230,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				wallet.burnAssetTransferRightsToken(1)
-			).to.be.revertedWith("Sender is not ATR token owner");
+			).to.be.revertedWith("Caller is not ATR token owner");
 		});
 
 		it("Should fail when ATR token is not minted", async function() {
@@ -248,7 +248,7 @@ describe("AssetTransferRights", function() {
 
 			await expect(
 				walletOther.connect(other).burnAssetTransferRightsToken(1)
-			).to.be.revertedWith("Sender does not have enough amount of tokenized asset");
+			).to.be.revertedWith("Insufficient balance of a tokenize asset");
 		});
 
 		it("Should clear stored tokenized asset data", async function() {
@@ -318,19 +318,19 @@ describe("AssetTransferRights", function() {
 		it("Should fail when sender is not ATR token owner", async function() {
 			await expect(
 				walletEmpty.connect(other).transferAssetFrom(walletOther.address, 2, false)
-			).to.be.revertedWith("Sender is not ATR token owner");
+			).to.be.revertedWith("Caller is not ATR token owner");
 		});
 
 		it("Should fail when asset is not in wallet", async function() {
 			await expect(
 				wallet.transferAssetFrom(walletEmpty.address, 2, false)
-			).to.be.revertedWith("Asset is not in target wallet");
+			).to.be.revertedWith("Asset is not in a target wallet");
 		});
 
 		it("Should fail when transferring asset to same address", async function() {
 			await expect(
 				walletOther.connect(other).transferAssetFrom(walletOther.address, 2, false)
-			).to.be.revertedWith("Transferring asset to same address");
+			).to.be.revertedWith("Attempting to transfer asset to the same address");
 		});
 
 		it("Should remove stored tokenized asset info from senders wallet", async function() {
@@ -395,7 +395,7 @@ describe("AssetTransferRights", function() {
 				// Try to transfer asset from `walletOther` via ATR token
 				await expect(
 					wallet.transferAssetFrom(walletOther.address, 2, false)
-				).to.be.revertedWith("Receiver cannot have approvals set for the token");
+				).to.be.revertedWith("Receiver has approvals set for an asset");
 			});
 
 			it("Should fail when transferring to other than PWN Wallet", async function() {
@@ -408,7 +408,7 @@ describe("AssetTransferRights", function() {
 				// Try to transfer asset from `walletOther` via ATR token
 				await expect(
 					atr.connect(other).transferAssetFrom(walletOther.address, 2, false)
-				).to.be.revertedWith("Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
+				).to.be.revertedWith("Attempting to transfer asset to non PWN Wallet address");
 			});
 
 		});

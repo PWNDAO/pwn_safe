@@ -24,7 +24,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	mapping (address => EnumerableSet.AddressSet) internal _operators;
 
 	modifier onlyATRContract() {
-		require(msg.sender == address(_atr), "Sender is not asset transfer rights contract");
+		require(msg.sender == address(_atr), "Caller is not asset transfer rights contract");
 		_;
 	}
 
@@ -57,7 +57,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		// ERC20/ERC721 - approve
 		if (funcSelector == 0x095ea7b3) {
 			// Block any approve call if there is at least one tokenized asset from a collection
-			require(_atr.ownedFromCollection(target) == 0, "Cannot approve asset while having transfer right token minted");
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -82,7 +82,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		// ERC20 - increaseAllowance
 		else if (funcSelector == 0x39509351) {
 			// Block any increaseAllowance call if there is at least one tokenized asset from a collection
-			require(_atr.ownedFromCollection(target) == 0, "Cannot increase allowance of asset while having transfer right token minted");
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -95,7 +95,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		else if (funcSelector == 0xa457c2d7) {
 			// Block any decreaseAllowance call if there is at least one tokenized asset from a collection
 			// (?) Is this check necessary?
-			require(_atr.ownedFromCollection(target) == 0, "Cannot decrease allowance of asset while having transfer right token minted");
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -111,7 +111,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		// ERC721/ERC1155 - setApprovalForAll
 		else if (funcSelector == 0xa22cb465) {
 			// Block any setApprovalForAll call if there is at least one tokenized asset from a collection
-			require(_atr.ownedFromCollection(target) == 0, "Cannot approve all assets while having transfer right token minted");
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
 
@@ -264,8 +264,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			if (assets[i].assetAddress == address(0))
 				break;
 
-			// Should be category also checked?
-			if (assets[i].assetAddress == asset.assetAddress && assets[i].id == asset.id)
+			if (asset.isSameAs(assets[i]))
 				return i;
 		}
 

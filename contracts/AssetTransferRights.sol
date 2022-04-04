@@ -43,29 +43,29 @@ contract AssetTransferRights is ERC721 {
 
 	// Tokenize given assets transfer rights
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external {
-		// Check that token address is not zero address
-		require(asset.assetAddress != address(0), "Cannot tokenize zero address asset");
+		// Check that asset address is not zero address
+		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
 		// Check that msg.sender is PWNWallet
-		require(walletFactory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
+		require(walletFactory.isValidWallet(msg.sender) == true, "Caller is not a PWN Wallet");
 
 		// Check that amount is correctly set
-		require(asset.isValid(), "Asset is not valid");
+		require(asset.isValid(), "MultiToken.Asset is not valid");
 
 		// Check that asset collection doesn't have approvals
-		require(IPWNWallet(msg.sender).hasApprovalsFor(asset.assetAddress) == false, "Asset collection must not have any approvals set");
+		require(IPWNWallet(msg.sender).hasApprovalsFor(asset.assetAddress) == false, "Some asset from collection has an approval");
 
 		// Check that tokenized asset don't have approval
 		// ERC721 operator can approve concrete asset without triggering any action in wallet nor ATR contract
 		// Without this check it would be possible to tokenize approved ERC721 asset
 		if (asset.category == MultiToken.Category.ERC721) {
 			address approved = IERC721(asset.assetAddress).getApproved(asset.id);
-			require(approved == address(0), "Tokenized asset cannot have approved address set");
+			require(approved == address(0), "Tokenized asset has an approved address");
 		}
 
 		// Check if asset can be tokenized
 		uint256 balance = asset.balanceOf(msg.sender);
-		require(balance >= asset.amount, "Not enough balance to tokenize asset transfer rights");
+		require(balance >= asset.amount, "Insufficient balance to tokenize");
 
 		unchecked {
 			balance -= asset.amount;
@@ -75,8 +75,8 @@ contract AssetTransferRights is ERC721 {
 		for (uint256 i = 0; i < atrs.length; ++i) {
 			MultiToken.Asset memory _asset = getAsset(atrs[i]);
 
-			if (_asset.isSameAs(asset)) {
-				require(balance >= _asset.amount, "Not enough balance to tokenize asset transfer rights");
+			if (asset.isSameAs(_asset)) {
+				require(balance >= _asset.amount, "Insufficient balance to tokenize");
 				balance -= _asset.amount;
 			}
 		}
@@ -103,18 +103,18 @@ contract AssetTransferRights is ERC721 {
 		// Check that token is indeed tokenized
 		require(asset.assetAddress != address(0), "Asset transfer rights are not tokenized");
 
-		// Check that sender is ATR token owner
-		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
+		// Check that caller is ATR token owner
+		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
 		// Check that ATR token is in the same wallet as tokenized asset
 		// @dev Without this condition ATR would not know from which address to remove the ATR token
-		require(asset.balanceOf(msg.sender) >= asset.amount, "Sender does not have enough amount of tokenized asset");
+		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
 
 		// Clear asset data
 		_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
 
 		// Update internal state
-		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in the wallet");
+		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in a wallet");
 		_ownedFromCollection[msg.sender][asset.assetAddress] -= 1;
 
 		// Burn ATR token
@@ -127,8 +127,8 @@ contract AssetTransferRights is ERC721 {
 	|*----------------------------------------------------------*/
 
 	// Transfer assets via ATR token
-	// Asset can be transferred only to sender (claim) which has to be another PWN Wallet
-	// Sender has to be ATR token owner
+	// Asset can be transferred only to caller (claim) which has to be another PWN Wallet
+	// Caller has to be ATR token owner
 	// Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
 	function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external {
 		address to = msg.sender;
@@ -137,16 +137,16 @@ contract AssetTransferRights is ERC721 {
 		MultiToken.Asset memory asset = getAsset(atrTokenId);
 
 		// Check that transferring to different address
-		require(from != to, "Transferring asset to same address");
+		require(from != to, "Attempting to transfer asset to the same address");
 
 		// Check that asset transfer rights are tokenized
 		require(asset.assetAddress != address(0), "Transfer rights are not tokenized");
 
 		// Check that sender is ATR token owner
-		require(ownerOf(atrTokenId) == msg.sender, "Sender is not ATR token owner");
+		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
 		// Update internal state
-		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in target wallet");
+		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in a target wallet");
 		_ownedFromCollection[from][asset.assetAddress] -= 1;
 
 		if (burnToken) {
@@ -156,10 +156,10 @@ contract AssetTransferRights is ERC721 {
 			_burn(atrTokenId);
 		} else {
 			// Fail if recipient is not PWNWallet
-			require(walletFactory.isValidWallet(to) == true, "Transfers of asset with tokenized transfer rights are allowed only to PWN Wallets");
+			require(walletFactory.isValidWallet(to) == true, "Attempting to transfer asset to non PWN Wallet address");
 
 			// Check that recipient doesn't have approvals for the token collection
-			require(IPWNWallet(to).hasApprovalsFor(asset.assetAddress) == false, "Receiver cannot have approvals set for the token");
+			require(IPWNWallet(to).hasApprovalsFor(asset.assetAddress) == false, "Receiver has approvals set for an asset");
 
 			// Update internal state
 			_ownedAssetATRIds[to].add(atrTokenId);

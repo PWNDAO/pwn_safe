@@ -154,7 +154,7 @@ describe("PWNWallet", function() {
 						t20.address,
 						Iface.ERC20.encodeFunctionData("approve", [other.address, 10])
 					)
-				).to.be.revertedWith("Cannot approve asset while having transfer right token minted");
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
 			it("Should fail when trying to increase allowance of ERC20 asset and other asset is tokenized from that collection", async function() {
@@ -165,7 +165,7 @@ describe("PWNWallet", function() {
 						t20.address,
 						Iface.ERC20.encodeFunctionData("increaseAllowance", [other.address, 10])
 					)
-				).to.be.revertedWith("Cannot increase allowance of asset while having transfer right token minted");
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
 			it("Should fail when trying to decrease allowance of ERC20 asset and other asset is tokenized from that collection", async function() {
@@ -176,7 +176,7 @@ describe("PWNWallet", function() {
 						t20.address,
 						Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 0])
 					)
-				).to.be.revertedWith("Cannot decrease allowance of asset while having transfer right token minted");
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
 			it("Should fail when trying to approve ERC721 asset and other asset is tokenized from that collection", async function() {
@@ -188,7 +188,7 @@ describe("PWNWallet", function() {
 						t721.address,
 						Iface.ERC721.encodeFunctionData("approve", [other.address, 444])
 					)
-				).to.be.revertedWith("Cannot approve asset while having transfer right token minted");
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
 			it("Should fail when trying to approve for all ERC721 asset and other asset is tokenized from that collection", async function() {
@@ -199,7 +199,7 @@ describe("PWNWallet", function() {
 						t721.address,
 						Iface.ERC721.encodeFunctionData("setApprovalForAll", [other.address, true])
 					)
-				).to.be.revertedWith("Cannot approve all assets while having transfer right token minted");
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
 			it("Should fail when trying to approve for all ERC1155 asset and other asset is tokenized from that collection", async function() {
@@ -210,7 +210,7 @@ describe("PWNWallet", function() {
 						t1155.address,
 						Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true])
 					)
-				).to.be.revertedWith("Cannot approve all assets while having transfer right token minted");
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
 			// Set / remove operator on approval / revoke
@@ -554,7 +554,7 @@ describe("PWNWallet", function() {
 		it("Should fail when sender is not ATR contract", async function() {
 			await expect(
 				wallet.transferAsset([t721.address, 1, 1, 1], walletOther.address)
-			).to.be.revertedWith("Sender is not asset transfer rights contract");
+			).to.be.revertedWith("Caller is not asset transfer rights contract");
 		});
 
 		it("Should transfer asset to receiver as ERC20", async function() {
