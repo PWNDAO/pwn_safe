@@ -261,17 +261,12 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	function _find(MultiToken.Asset[] memory assets, MultiToken.Asset memory asset) private pure returns (uint256) {
 		for (uint256 i = 0; i < assets.length; ++i) {
-			if (assets[i].assetAddress == address(0)) {
+			if (assets[i].assetAddress == address(0))
 				break;
-			}
 
-			// TODO: Move to MultiToken as `isSameAssetAs`
-			// TODO: Implement `isValid` function on MultiToken.Asset to check e.g.
-			//		 category == ERC20 -> id == 0
-			//		 amount > 0
-			if (assets[i].assetAddress == asset.assetAddress && (assets[i].id == asset.id || assets[i].category == MultiToken.Category.ERC20)) {
+			// Should be category also checked?
+			if (assets[i].assetAddress == asset.assetAddress && assets[i].id == asset.id)
 				return i;
-			}
 		}
 
 		return assets.length;

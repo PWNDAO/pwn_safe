@@ -49,9 +49,8 @@ contract AssetTransferRights is ERC721 {
 		// Check that msg.sender is PWNWallet
 		require(walletFactory.isValidWallet(msg.sender) == true, "Mint is permitted only from PWN Wallet");
 
-		// TODO: Move to MultiToken library as (?) `isValid`
 		// Check that amount is correctly set
-		require(asset.amount > 0, "Amount has to be bigger than zero");
+		require(asset.isValid(), "Asset is not valid");
 
 		// Check that asset collection doesn't have approvals
 		require(IPWNWallet(msg.sender).hasApprovalsFor(asset.assetAddress) == false, "Asset collection must not have any approvals set");
@@ -76,7 +75,7 @@ contract AssetTransferRights is ERC721 {
 		for (uint256 i = 0; i < atrs.length; ++i) {
 			MultiToken.Asset memory _asset = getAsset(atrs[i]);
 
-			if (areEqual(_asset, asset)) {
+			if (_asset.isSameAs(asset)) {
 				require(balance >= _asset.amount, "Not enough balance to tokenize asset transfer rights");
 				balance -= _asset.amount;
 			}
@@ -185,19 +184,6 @@ contract AssetTransferRights is ERC721 {
 
 	function ownedFromCollection(address assetAddress) external view returns (uint256) {
 		return _ownedFromCollection[msg.sender][assetAddress];
-	}
-
-
-	/*----------------------------------------------------------*|
-	|*  # Private                                               *|
-	|*----------------------------------------------------------*/
-
-	// TODO: Move to MultiToken library
-	function areEqual(MultiToken.Asset memory asset1, MultiToken.Asset memory asset2) private pure returns (bool) {
-		return
-			asset1.assetAddress == asset2.assetAddress &&
-			asset1.category == asset2.category &&
-			(asset1.category == MultiToken.Category.ERC20 || asset1.id == asset2.id);
 	}
 
 }

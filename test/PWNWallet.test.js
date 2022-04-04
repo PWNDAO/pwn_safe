@@ -576,7 +576,7 @@ describe("PWNWallet", function() {
 
 			await mockWallet.connect(other).transferAsset([fakeToken.address, 1, 1, 1], walletOther.address);
 
-			expect(fakeToken.transferFrom).to.have.been.calledOnce;
+			expect(fakeToken["safeTransferFrom(address,address,uint256)"]).to.have.been.calledOnce;
 		});
 
 		it("Should transfer asset to receiver as ERC1155", async function() {

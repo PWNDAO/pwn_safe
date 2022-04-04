@@ -92,7 +92,7 @@ describe("AssetTransferRights", function() {
 		it("Should fail when asset is invalid", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 0, tokenId])
-			).to.be.revertedWith("Amount has to be bigger than zero");
+			).to.be.revertedWith("Asset is not valid");
 		});
 
 		it("Should fail when ERC721 asset is approved", async function() {
