@@ -13,26 +13,70 @@ import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./AssetTransferRights.sol";
 import "./IPWNWallet.sol";
 
-
+/**
+ * @title PWN Wallet
+ * @author PWN Finance
+ * @notice Contract wallet that enforces rules of tokenized asset transfer rights
+ * @notice If wallet owner tokenizes transfer rights of its asset, wallet will not enable the owner to trasnfer the asset without the ATR token
+ */
 contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, Initializable {
 	using EnumerableSet for EnumerableSet.AddressSet;
 	using MultiToken for MultiToken.Asset;
 
+
+	/*----------------------------------------------------------*|
+	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @notice Address of AssetTransferRights contract
+	 */
 	AssetTransferRights internal _atr;
 
-	// Set of operators per asset address
+	/**
+	 * @notice Set of operators per asset address
+	 * @dev Operator is any address that can trasnfer asset on behalf of an owner
+	 * @dev Could have allowance (ERC20) or could approval for all owned assets (ERC721/1155-setApprovalForAll)
+	 * @dev Operator is not address approved to transfer concrete ERC721 asset. This approvals are not tracked by wallet.
+	 */
 	mapping (address => EnumerableSet.AddressSet) internal _operators;
 
+
+	/*----------------------------------------------------------*|
+	|*  # EVENTS & ERRORS DEFINITIONS                           *|
+	|*----------------------------------------------------------*/
+
+	// No events nor error defined
+
+
+	/*----------------------------------------------------------*|
+	|*  # MODIFIERS                                             *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @dev Throws when called by any other than ATR contract address
+	 */
 	modifier onlyATRContract() {
 		require(msg.sender == address(_atr), "Caller is not asset transfer rights contract");
 		_;
 	}
 
 
+	/*----------------------------------------------------------*|
+	|*  # CONSTRUCTOR                                           *|
+	|*----------------------------------------------------------*/
+
 	constructor() Ownable() {
 
 	}
 
+	/**
+	 * @dev Since proxied contracts do not make use of a constructor, it's common to move constructor logic to an
+	 * external initializer function, usually called `initialize`.
+	 *
+	 * @param originalOwner Address of a wallet owner
+	 * @param atr Address of AssetTransferRights contract
+	 */
 	function initialize(address originalOwner, address atr) external initializer {
 		_transferOwnership(originalOwner);
 		_atr = AssetTransferRights(atr);
@@ -45,6 +89,17 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	// ## Wallet execution
 
+	/**
+	 * @notice Execute arbitrary calldata on a target address
+	 *
+	 * @dev This is generic function that takes raw transaction `data` and makes a call with them on a `target` address.
+	 * This function is the main function that makes this contract a wallet.
+	 * Also it has build in rules, that restricts wallet owner from transferring asset, that has transfer rights tokenized.
+	 *
+	 * @param target Address of a target contract to call with `data`
+	 * @param data Raw transaction calldata to be called on a `target`
+	 * @return Any response from a call as bytes
+	 */
 	function execute(address target, bytes calldata data) external payable onlyOwner returns (bytes memory) {
 		// Gen function selector from calldata
 		bytes4 funcSelector;
@@ -167,21 +222,45 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	// ## Wallet utility
 
+	/**
+	 * @dev See {AssetTransferRights-mintAssetTransferRightsToken}
+	 *
+	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
+	 */
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external onlyOwner {
 		_atr.mintAssetTransferRightsToken(asset);
 	}
 
+	/**
+	 * @dev See {AssetTransferRights-burnAssetTransferRightsToken}
+	 *
+	 * @param atrTokenId ATR token id which should be burned
+	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) external onlyOwner {
 		_atr.burnAssetTransferRightsToken(atrTokenId);
 	}
 
+	/**
+	 * @dev See {AssetTransferRights-transferAssetFrom}
+	 *
+	 * @param from PWN Wallet address from which to transfer asset
+	 * @param atrTokenId ATR token id which is used for the transfer
+	 * @param burnToken Flag to burn ATR token in the same transaction
+	 */
 	function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external onlyOwner {
 		_atr.transferAssetFrom(from, atrTokenId, burnToken);
 	}
 
-	// Can happen when approved address transfers all approved assets.
-	// Approved address will stay as operator, even though the allowance would be 0.
-	// The transfer would not update wallets internal state.
+	/**
+	 * @notice Utility function that would resolve invalid approval state of an ERC20 asset
+	 *
+	 * @dev Invalid approval state can happen when approved address transfers all approved assets from a wallet.
+	 * Approved address will stay as operator, even though the allowance would be 0.
+	 * Transfer outside of wallet would not update wallets internal state.
+	 *
+	 * @param assetAddress Address of an asset where operator is wrongly stated
+	 * @param operator Address of an operator which is wrongly stated
+	 */
 	function resolveInvalidApproval(address assetAddress, address operator) external {
 		uint256 allowance = IERC20(assetAddress).allowance(address(this), operator);
 		if (allowance == 0) {
@@ -194,10 +273,16 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	|*  # IPWNWallet                                            *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev See {IPWNWallet-transferAsset}
+	 */
 	function transferAsset(MultiToken.Asset memory asset, address to) external onlyATRContract {
 		asset.transferAsset(to);
 	}
 
+	/**
+	 * @dev See {IPWNWallet-hasApprovalsFor}
+	 */
 	function hasApprovalsFor(address assetAddress) external view returns (bool) {
 		return _operators[assetAddress].length() > 0;
 	}
@@ -207,6 +292,9 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	|*  # IERC721Receiver                                       *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev {IERC721Receiver-onERC721Received}
+	 */
 	function onERC721Received(
 		address /*operator*/,
 		address /*from*/,
@@ -221,6 +309,9 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	|*  # IERC1155Receiver                                       *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev {IERC1155Receiver-onERC1155Received}
+	 */
 	function onERC1155Received(
 		address /*operator*/,
 		address /*from*/,
@@ -231,6 +322,9 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 		return IERC1155Receiver.onERC1155Received.selector;
 	}
 
+	/**
+	 * @dev {IERC1155Receiver-onERC1155BatchReceived}
+	 */
 	function onERC1155BatchReceived(
 		address /*operator*/,
 		address /*from*/,
@@ -246,6 +340,9 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	|*  # IERC165                                               *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev {IERC165-supportsInterface}
+	 */
 	function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
 		return
 			interfaceId == type(IPWNWallet).interfaceId ||
@@ -256,9 +353,16 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 
 	/*----------------------------------------------------------*|
-	|*  # Private                                               *|
+	|*  # PRIVATE                                               *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev Find asset in an asset list
+	 *
+	 * @param assets List of MultiToken.Asset structs
+	 * @param asset Asset that is being looked for
+	 * @return Index of an asset or list length, in case the asset was not found
+	 */
 	function _find(MultiToken.Asset[] memory assets, MultiToken.Asset memory asset) private pure returns (uint256) {
 		for (uint256 i = 0; i < assets.length; ++i) {
 			if (assets[i].assetAddress == address(0))

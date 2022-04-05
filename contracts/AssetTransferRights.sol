@@ -8,40 +8,100 @@ import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
 
-
+/**
+ * @title Asset Transfer Rights contract
+ * @author PWN Finance
+ * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
+ * ATR token can be used in lending protocols instead of an underlying asset
+ */
 contract AssetTransferRights is ERC721 {
 	using EnumerableSet for EnumerableSet.UintSet;
 	using MultiToken for MultiToken.Asset;
 
+
+	/*----------------------------------------------------------*|
+	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @notice Last minted token id
+	 * @dev First used token id is 1
+	 * If lastTokenId == 0, there is no ATR token minted yet
+	 */
 	uint256 public lastTokenId;
+
+	/**
+	 * @notice Address of pwn wallet factory
+	 * @dev Wallet factory is used to determine valid pwn wallet addresses
+	 */
 	PWNWalletFactory public walletFactory;
 
-	// Mapping of ATR token id to tokenized asset
-	// (ATR token id => Asset)
+	/**
+	 * @notice Mapping of ATR token id to underlying asset
+	 * @dev (ATR token id => Asset)
+	 */
 	mapping (uint256 => MultiToken.Asset) internal _assets;
 
-	// Mapping of address to set of ATR ids, that belongs to assets in the addresses pwn wallet
-	// The ATR token itself doesn't have to be in the wallet
-	// Used in PWNWallet to enumerate over all tokenized assets after arbitrary execution
-	// (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
+	/**
+	 * @notice Mapping of address to set of ATR ids, that belongs to assets in the addresses pwn wallet
+	 * @dev The ATR token itself doesn't have to be in the wallet
+	 * Used in PWNWallet to enumerate over all tokenized assets after execution of arbitrary calldata
+	 * (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
+	 */
 	mapping (address => EnumerableSet.UintSet) internal _ownedAssetATRIds;
 
-	// Number of tokenized assets from collection in wallet
-	// Used in PWNWallet to check if owner can setApprovalForAll on given collection
-	// (owner => tokenAddress => number of tokenized assets from given collection currently in owners wallet)
+	/**
+	 * @notice Number of tokenized assets from asset contract in a wallet
+	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
+	 * (owner => tokenAddress => number of tokenized assets from given asset contract currently in owners wallet)
+	 */
 	mapping (address => mapping (address => uint256)) internal _ownedFromCollection;
 
 
+	/*----------------------------------------------------------*|
+	|*  # EVENTS & ERRORS DEFINITIONS                           *|
+	|*----------------------------------------------------------*/
+
+	// No events nor error defined
+
+
+	/*----------------------------------------------------------*|
+	|*  # MODIFIERS                                             *|
+	|*----------------------------------------------------------*/
+
+	// No modifiers defined
+
+
+	/*----------------------------------------------------------*|
+	|*  # CONSTRUCTOR                                           *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @notice Contract constructor
+	 * @dev Contract will deploy its own wallet factory to not have to define setter and access rights for the setter
+	 */
 	constructor() ERC721("Asset Transfer Rights", "ATR") {
 		walletFactory = new PWNWalletFactory(address(this));
 	}
 
 
 	/*----------------------------------------------------------*|
-	|*  # Asset transfer rights token                           *|
+	|*  # ASSET TRANSFER RIGHTS TOKEN                           *|
 	|*----------------------------------------------------------*/
 
-	// Tokenize given assets transfer rights
+	/**
+	 * @notice Tokenize given assets transfer rights and mint ATR token
+	 *
+	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
+	 *
+	 * Requirements:
+	 *
+	 * - caller has to be PWNWallet
+	 * - cannot tokenize invalid asset. See {MultiToken-isValid}
+	 * - cannot have operator set for that asset contract (setApprovalForAll) (ERC721 / ERC1155)
+	 * - in case of ERC721 assets, cannot tokenize approved asset, but other tokens can be approved
+	 * - in case of ERC20 assets, asset cannot have any approval
+	 */
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external {
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
@@ -94,8 +154,17 @@ contract AssetTransferRights is ERC721 {
 		_mint(msg.sender, atrTokenId);
 	}
 
-	// Burn ATR token and "untokenize" that assets transfer rights
-	// Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function
+	/**
+	 * @notice Burn ATR token and "untokenize" that assets transfer rights
+	 * @dev Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function
+	 *
+	 * @param atrTokenId ATR token id which should be burned
+	 *
+	 * Requirements:
+	 *
+	 * - caller has to be ATR token owner
+	 * - ATR token has to be in the same wallet as tokenized asset
+	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) external {
 		// Load asset
 		MultiToken.Asset memory asset = getAsset(atrTokenId);
@@ -107,7 +176,7 @@ contract AssetTransferRights is ERC721 {
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
 		// Check that ATR token is in the same wallet as tokenized asset
-		// @dev Without this condition ATR would not know from which address to remove the ATR token
+		// Without this condition ATR contract would not know from which address to remove the ATR token
 		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
 
 		// Clear asset data
@@ -123,13 +192,25 @@ contract AssetTransferRights is ERC721 {
 
 
 	/*----------------------------------------------------------*|
-	|*  # Transfer asset with ATR token                         *|
+	|*  # TRANSFER ASSET WITH ATR TOKEN                         *|
 	|*----------------------------------------------------------*/
 
-	// Transfer assets via ATR token
-	// Asset can be transferred only to caller (claim) which has to be another PWN Wallet
-	// Caller has to be ATR token owner
-	// Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
+	/**
+	 * @notice Transfer assets via ATR token
+	 * @dev Asset can be transferred only to caller (claim)
+	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
+	 * Caller has to be ATR token owner
+	 *
+	 * @param from PWN Wallet address from which to transfer asset
+	 * @param atrTokenId ATR token id which is used for the transfer
+	 * @param burnToken Flag to burn ATR token in the same transaction
+	 *
+	 * Requirements:
+	 *
+	 * - caller has to be ATR token owner
+	 * - if `burnToken` is false, caller has to be PWN Wallet, otherwise it could be any address
+	 * - if `burnToken` is false, caller must not have any approvals for asset contract
+	 */
 	function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external {
 		address to = msg.sender;
 
@@ -171,17 +252,28 @@ contract AssetTransferRights is ERC721 {
 
 
 	/*----------------------------------------------------------*|
-	|*  # Utility                                               *|
+	|*  # UTILITY                                               *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @param atrTokenId ATR token id
+	 * @return Underlying asset of an ATR token
+	 */
 	function getAsset(uint256 atrTokenId) public view returns (MultiToken.Asset memory) {
 		return _assets[atrTokenId];
 	}
 
+	/**
+	 * @return List of tokenized assets owned by caller represented by their ATR tokens
+	 */
 	function ownedAssetATRIds() public view returns (uint256[] memory) {
 		return _ownedAssetATRIds[msg.sender].values();
 	}
 
+	/**
+	 * @param assetAddress Address of asset contract
+	 * @return Number of tokenized assets owned by caller from asset contract
+	 */
 	function ownedFromCollection(address assetAddress) external view returns (uint256) {
 		return _ownedFromCollection[msg.sender][assetAddress];
 	}
