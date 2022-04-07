@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
+import "./ERC165Checker.sol"; // OpenZeppelin ERC165Checker with small changes
 
 /**
  * @title Asset Transfer Rights contract
@@ -106,10 +109,50 @@ contract AssetTransferRights is ERC721 {
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
+		// (?) Move to `MultiToken.isValid()`?
+		// Check that provided asset category is correct
+		if (ERC165Checker.supportsERC165(asset.assetAddress)) {
+
+			if (asset.category == MultiToken.Category.ERC721) {
+				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC721).interfaceId), "Invalid provided category");
+
+			} else if (asset.category == MultiToken.Category.ERC1155) {
+				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC1155).interfaceId), "Invalid provided category");
+
+			} else if (asset.category == MultiToken.Category.ERC20) {
+				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
+
+			} else {
+				revert("Invalid provided category");
+			}
+
+		} else {
+
+			// TODO: How to check this better?
+			if (asset.category == MultiToken.Category.ERC20) {
+
+				try IERC20(asset.assetAddress).totalSupply() returns (uint256) {
+				} catch { revert("Invalid provided category"); }
+
+			} else if (asset.category == MultiToken.Category.ERC721) {
+
+				try IERC721(asset.assetAddress).ownerOf(asset.id) returns (address) {
+				} catch { revert("Invalid provided category"); }
+
+			} else if (asset.category == MultiToken.Category.ERC1155) {
+
+				try IERC1155(asset.assetAddress).balanceOf(address(this), asset.id) returns (uint256) {
+				} catch { revert("Invalid provided category"); }
+
+			} else {
+				revert("Invalid provided category");
+			}
+		}
+
 		// Check that msg.sender is PWNWallet
 		require(walletFactory.isValidWallet(msg.sender) == true, "Caller is not a PWN Wallet");
 
-		// Check that amount is correctly set
+		// Check that given asset is valid
 		require(asset.isValid(), "MultiToken.Asset is not valid");
 
 		// Check that asset collection doesn't have approvals
@@ -135,7 +178,8 @@ contract AssetTransferRights is ERC721 {
 		for (uint256 i = 0; i < atrs.length; ++i) {
 			MultiToken.Asset memory _asset = getAsset(atrs[i]);
 
-			if (asset.isSameAs(_asset)) {
+			if (asset.assetAddress == _asset.assetAddress && asset.id == _asset.id) {
+				require(asset.category == _asset.category, "Incorrect asset category");
 				require(balance >= _asset.amount, "Insufficient balance to tokenize");
 				balance -= _asset.amount;
 			}
@@ -247,6 +291,7 @@ contract AssetTransferRights is ERC721 {
 			_ownedFromCollection[to][asset.assetAddress] += 1;
 		}
 
+		// Transfer asset from `from` wallet
 		IPWNWallet(from).transferAsset(asset, to);
 	}
 

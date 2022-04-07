@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 contract T1155 is ERC1155("uri://") {
 
+	bool private _supportingERC165 = true;
+
 	function foo() external {
 
 	}
@@ -17,4 +19,13 @@ contract T1155 is ERC1155("uri://") {
 	function burn(address owner, uint256 id, uint256 amount) external {
 		_burn(owner, id, amount);
 	}
+
+	function supportERC165(bool support) external {
+		_supportingERC165 = support;
+	}
+
+	function supportsInterface(bytes4 interfaceId) public override view returns (bool) {
+		return _supportingERC165 && super.supportsInterface(interfaceId);
+	}
+
 }

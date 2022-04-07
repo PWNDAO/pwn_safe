@@ -17,7 +17,6 @@ contract PWNWalletFactory {
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
 	|*----------------------------------------------------------*/
 
-	//
 	/**
 	 * @notice Mapping of valid pwn wallet addresses
 	 * @dev Is used by AssetTransferRights contract to check that tokenized asset is transferred to valid PWN Wallet

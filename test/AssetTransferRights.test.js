@@ -71,7 +71,7 @@ describe("AssetTransferRights", function() {
 			await t721.mint(other.address, 333);
 
 			await expect(
-				atr.connect(other).mintAssetTransferRightsToken( [t721.address, 1, 1, 333] )
+				atr.connect(other).mintAssetTransferRightsToken([t721.address, 1, 1, 333])
 			).to.be.revertedWith("Caller is not a PWN Wallet");
 		});
 
@@ -104,6 +104,141 @@ describe("AssetTransferRights", function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
 			).to.be.revertedWith("Tokenized asset has an approved address");
+		});
+
+		describe("Asset category", function() {
+
+			describe("Asset implementing ERC165", function() {
+
+				it("Should fail when passing ERC20 asset with ERC721 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t20.address, 1, 1, 132])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should fail when passing ERC20 asset with ERC1155 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t20.address, 2, tokenAmount, 0])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should fail when passing ERC721 asset with ERC20 category", async function() {
+					await t721.mint(wallet.address, 0);
+
+					await expect(
+						wallet.mintAssetTransferRightsToken([t721.address, 0, 1, 0])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should fail when passing ERC721 asset with ERC1155 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t721.address, 2, 1, tokenId])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should fail when passing ERC1155 asset with ERC20 category", async function() {
+					await t1155.mint(wallet.address, 0, tokenAmount);
+
+					await expect(
+						wallet.mintAssetTransferRightsToken([t1155.address, 0, tokenAmount, 0])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should fail when passing ERC1155 asset with ERC721 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t1155.address, 1, 1, tokenId])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should mint ATR token for ERC20 asset with ERC20 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0])
+					).to.not.be.reverted;
+				});
+
+				it("Should mint ATR token for ERC721 asset with ERC721 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
+					).to.not.be.reverted;
+				});
+
+				it("Should mint ATR token for ERC1155 asset with ERC1155 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId])
+					).to.not.be.reverted;
+				});
+
+			});
+
+			describe("Asset not implementing ERC165", function() {
+
+				beforeEach(async function() {
+					await t20.supportERC165(false);
+					await t721.supportERC165(false);
+					await t1155.supportERC165(false);
+				});
+
+
+				it("Should fail when passing ERC20 asset with ERC721 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t20.address, 1, 1, 132])
+					).to.be.reverted;
+				});
+
+				it("Should fail when passing ERC20 asset with ERC1155 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t20.address, 2, tokenAmount, 0])
+					).to.be.reverted;
+				});
+
+				it("Should fail when passing ERC721 asset with ERC20 category", async function() {
+					await t721.mint(wallet.address, 0);
+
+					await expect(
+						wallet.mintAssetTransferRightsToken([t721.address, 0, 1, 0])
+					).to.be.revertedWith("Invalid provided category");
+				});
+
+				it("Should fail when passing ERC721 asset with ERC1155 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t721.address, 2, 1, tokenId])
+					).to.be.reverted;
+				});
+
+				it("Should fail when passing ERC1155 asset with ERC20 category", async function() {
+					await t1155.mint(wallet.address, 0, tokenAmount);
+
+					await expect(
+						wallet.mintAssetTransferRightsToken([t1155.address, 0, tokenAmount, 0])
+					).to.be.reverted;
+				});
+
+				it("Should fail when passing ERC1155 asset with ERC721 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t1155.address, 1, 1, tokenId])
+					).to.be.reverted;
+				});
+
+				it("Should mint ATR token for ERC20 asset with ERC20 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0])
+					).to.not.be.reverted;
+				});
+
+				it("Should mint ATR token for ERC721 asset with ERC721 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
+					).to.not.be.reverted;
+				});
+
+				it("Should mint ATR token for ERC1155 asset with ERC1155 category", async function() {
+					await expect(
+						wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId])
+					).to.not.be.reverted;
+				});
+
+			});
+
 		});
 
 		it("Should fail when ERC20 asset doesn't have enough untokenized balance to tokenize without any tokenized asset", async function() {
