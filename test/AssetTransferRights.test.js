@@ -89,6 +89,12 @@ describe("AssetTransferRights", function() {
 			).to.be.revertedWith("Attempting to tokenize zero address asset");
 		});
 
+		it("Should fail when trying to tokenize ATR token", async function() {
+			await expect(
+				wallet.mintAssetTransferRightsToken([atr.address, 1, 1, 3232])
+			).to.be.revertedWith("Attempting to tokenize ATR token");
+		});
+
 		it("Should fail when asset is invalid", async function() {
 			await expect(
 				wallet.mintAssetTransferRightsToken([t721.address, 1, 0, tokenId])

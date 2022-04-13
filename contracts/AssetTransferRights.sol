@@ -111,6 +111,9 @@ contract AssetTransferRights is ERC721 {
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
+		// Check that asset address is not ATR contract address
+		require(asset.assetAddress != address(this), "Attempting to tokenize ATR token");
+
 		// (?) Move to `MultiToken.isValid()`?
 		// Check that provided asset category is correct
 		if (asset.category == MultiToken.Category.ERC20) {
