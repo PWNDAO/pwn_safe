@@ -9,7 +9,8 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
-import "./ERC165Checker.sol"; // OpenZeppelin ERC165Checker with small changes
+import "./openzeppelin/ERC165Checker.sol";
+import "./openzeppelin/EnumerableMap.sol";
 
 /**
  * @title Asset Transfer Rights contract
@@ -19,6 +20,7 @@ import "./ERC165Checker.sol"; // OpenZeppelin ERC165Checker with small changes
  */
 contract AssetTransferRights is ERC721 {
 	using EnumerableSet for EnumerableSet.UintSet;
+	using EnumerableMap for EnumerableMap.UintToUintMap;
 	using MultiToken for MultiToken.Asset;
 
 
@@ -54,11 +56,11 @@ contract AssetTransferRights is ERC721 {
 	mapping (address => EnumerableSet.UintSet) internal _ownedAssetATRIds;
 
 	/**
-	 * @notice Number of tokenized assets from asset contract in a wallet
+	 * @notice Balance of tokenized assets from asset contract in a wallet
 	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
-	 * (owner => tokenAddress => number of tokenized assets from given asset contract currently in owners wallet)
+	 * (owner => asset address => asset id => balance of tokenized assets currently in owners wallet)
 	 */
-	mapping (address => mapping (address => uint256)) internal _ownedFromCollection;
+	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal _ownedFromCollection;
 
 
 	/*----------------------------------------------------------*|
@@ -111,42 +113,27 @@ contract AssetTransferRights is ERC721 {
 
 		// (?) Move to `MultiToken.isValid()`?
 		// Check that provided asset category is correct
-		if (ERC165Checker.supportsERC165(asset.assetAddress)) {
+		if (asset.category == MultiToken.Category.ERC20) {
 
-			if (asset.category == MultiToken.Category.ERC721) {
-				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC721).interfaceId), "Invalid provided category");
-
-			} else if (asset.category == MultiToken.Category.ERC1155) {
-				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC1155).interfaceId), "Invalid provided category");
-
-			} else if (asset.category == MultiToken.Category.ERC20) {
+			if (ERC165Checker.supportsERC165(asset.assetAddress)) {
 				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
 
 			} else {
-				revert("Invalid provided category");
-			}
 
-		} else {
-
-			// TODO: How to check this better?
-			if (asset.category == MultiToken.Category.ERC20) {
-
+				// TODO: How to check it with bigger confidence?
 				try IERC20(asset.assetAddress).totalSupply() returns (uint256) {
 				} catch { revert("Invalid provided category"); }
 
-			} else if (asset.category == MultiToken.Category.ERC721) {
-
-				try IERC721(asset.assetAddress).ownerOf(asset.id) returns (address) {
-				} catch { revert("Invalid provided category"); }
-
-			} else if (asset.category == MultiToken.Category.ERC1155) {
-
-				try IERC1155(asset.assetAddress).balanceOf(address(this), asset.id) returns (uint256) {
-				} catch { revert("Invalid provided category"); }
-
-			} else {
-				revert("Invalid provided category");
 			}
+
+		} else if (asset.category == MultiToken.Category.ERC721) {
+			require(ERC165Checker.supportsInterface(asset.assetAddress, type(IERC721).interfaceId), "Invalid provided category");
+
+		} else if (asset.category == MultiToken.Category.ERC1155) {
+			require(ERC165Checker.supportsInterface(asset.assetAddress, type(IERC1155).interfaceId), "Invalid provided category");
+
+		} else {
+			revert("Invalid provided category");
 		}
 
 		// Check that msg.sender is PWNWallet
@@ -168,23 +155,10 @@ contract AssetTransferRights is ERC721 {
 
 		// Check if asset can be tokenized
 		uint256 balance = asset.balanceOf(msg.sender);
-		require(balance >= asset.amount, "Insufficient balance to tokenize");
+		(, uint256 tokenizedBalance) = _ownedFromCollection[msg.sender][asset.assetAddress].tryGet(asset.id);
+		require(balance - tokenizedBalance >= asset.amount, "Insufficient balance to tokenize");
 
-		unchecked {
-			balance -= asset.amount;
-		}
-
-		uint256[] memory atrs = ownedAssetATRIds();
-		for (uint256 i = 0; i < atrs.length; ++i) {
-			MultiToken.Asset memory _asset = getAsset(atrs[i]);
-
-			if (asset.assetAddress == _asset.assetAddress && asset.id == _asset.id) {
-				require(asset.category == _asset.category, "Incorrect asset category");
-				require(balance >= _asset.amount, "Insufficient balance to tokenize");
-				balance -= _asset.amount;
-			}
-		}
-
+		// Set ATR token id
 		uint256 atrTokenId = ++lastTokenId;
 
 		// Store asset data
@@ -192,7 +166,7 @@ contract AssetTransferRights is ERC721 {
 
 		// Update internal state
 		_ownedAssetATRIds[msg.sender].add(atrTokenId);
-		_ownedFromCollection[msg.sender][asset.assetAddress] += 1;
+		_increaseTokenizedBalance(msg.sender, asset);
 
 		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
@@ -228,7 +202,7 @@ contract AssetTransferRights is ERC721 {
 
 		// Update internal state
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in a wallet");
-		_ownedFromCollection[msg.sender][asset.assetAddress] -= 1;
+		_decreaseTokenizedBalance(msg.sender, asset);
 
 		// Burn ATR token
 		_burn(atrTokenId);
@@ -272,7 +246,7 @@ contract AssetTransferRights is ERC721 {
 
 		// Update internal state
 		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in a target wallet");
-		_ownedFromCollection[from][asset.assetAddress] -= 1;
+		_decreaseTokenizedBalance(from, asset);
 
 		if (burnToken) {
 			// Burn the ATR token
@@ -288,7 +262,7 @@ contract AssetTransferRights is ERC721 {
 
 			// Update internal state
 			_ownedAssetATRIds[to].add(atrTokenId);
-			_ownedFromCollection[to][asset.assetAddress] += 1;
+			_increaseTokenizedBalance(to, asset);
 		}
 
 		// Transfer asset from `from` wallet
@@ -320,7 +294,47 @@ contract AssetTransferRights is ERC721 {
 	 * @return Number of tokenized assets owned by caller from asset contract
 	 */
 	function ownedFromCollection(address assetAddress) external view returns (uint256) {
-		return _ownedFromCollection[msg.sender][assetAddress];
+		return _ownedFromCollection[msg.sender][assetAddress].length();
+	}
+
+	/**
+	 * @param asset MultiToken Asset struct representing asset whos balance is in question
+	 * @return tokenizedBalance Balance of tokenized asset in callers wallet
+	 */
+	function tokenizedBalanceOf(MultiToken.Asset memory asset) external view returns (uint256 tokenizedBalance) {
+		(, tokenizedBalance) = _ownedFromCollection[msg.sender][asset.assetAddress].tryGet(asset.id);
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # PRIVATE                                               *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @dev Increase stored tokenized asset balances per user address
+	 * @param owner Address owning `asset`
+	 * @param asset MultiToken Asset struct representing asset that should be added to tokenized balance
+	 */
+	function _increaseTokenizedBalance(address owner, MultiToken.Asset memory asset) private {
+		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
+		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
+		map.set(asset.id, tokenizedBalance + asset.amount);
+	}
+
+	/**
+	 * @dev Decrease stored tokenized asset balances per user address
+	 * @param owner Address owning `asset`
+	 * @param asset MultiToken Asset struct representing asset that should be deducted from tokenized balance
+	 */
+	function _decreaseTokenizedBalance(address owner, MultiToken.Asset memory asset) private {
+		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
+		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
+
+		if (tokenizedBalance == asset.amount) {
+			map.remove(asset.id);
+		} else {
+			map.set(asset.id, tokenizedBalance - asset.amount);
+		}
 	}
 
 }

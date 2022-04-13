@@ -64,6 +64,7 @@ const ATR = new ethers.utils.Interface([
 	"function getAsset(uint256 atrTokenId) public view returns (tuple(address assetAddress, uint8 category, uint256 amount, uint256 id))",
 	"function ownedAssetATRIds() public view returns (uint256[] memory)",
 	"function ownedFromCollection(address assetAddress) external view returns (uint256)",
+	"function tokenizedBalanceOf(tuple(address assetAddress, uint8 category, uint256 amount, uint256 id)) external view returns (uint256 tokenizedBalance)",
 ]);
 
 module.exports = { walletFactory, ERC20, ERC721, ERC1155, T20, T721, T1155, ATR };

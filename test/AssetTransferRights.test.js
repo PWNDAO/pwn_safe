@@ -225,16 +225,16 @@ describe("AssetTransferRights", function() {
 					).to.not.be.reverted;
 				});
 
-				it("Should mint ATR token for ERC721 asset with ERC721 category", async function() {
+				it("Should fail when passing ERC721 which doesn't implement ERC165", async function() {
 					await expect(
 						wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId])
-					).to.not.be.reverted;
+					).to.be.revertedWith("Invalid provided category");
 				});
 
-				it("Should mint ATR token for ERC1155 asset with ERC1155 category", async function() {
+				it("Should fail when passing ERC1155 which doesn't implement ERC165", async function() {
 					await expect(
 						wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId])
-					).to.not.be.reverted;
+					).to.be.revertedWith("Invalid provided category");
 				});
 
 			});
@@ -665,6 +665,7 @@ describe("AssetTransferRights", function() {
 			ownedFromERC20Collection = Iface.ATR.decodeFunctionResult("ownedFromCollection", ownedFromERC20Collection)[0];
 			expect(ownedFromERC20Collection.toNumber()).to.equal(0);
 
+
 			let ownedFromERC721Collection = await wallet.callStatic.execute(
 				atr.address,
 				Iface.ATR.encodeFunctionData("ownedFromCollection", [t721.address])
@@ -672,6 +673,118 @@ describe("AssetTransferRights", function() {
 
 			ownedFromERC721Collection = Iface.ATR.decodeFunctionResult("ownedFromCollection", ownedFromERC721Collection)[0];
 			expect(ownedFromERC721Collection.toNumber()).to.equal(2);
+
+			await wallet.burnAssetTransferRightsToken(1);
+			await wallet.burnAssetTransferRightsToken(2);
+
+			ownedFromERC721Collection = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("ownedFromCollection", [t721.address])
+			);
+
+			ownedFromERC721Collection = Iface.ATR.decodeFunctionResult("ownedFromCollection", ownedFromERC721Collection)[0];
+			expect(ownedFromERC721Collection.toNumber()).to.equal(0);
+		});
+
+	});
+
+
+	describe("Tokenized balance of", function() {
+
+		it("Should return balance of tokenized fungible asset in callers wallet", async function() {
+			let res, balance;
+
+			await t20.mint(wallet.address, 100);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(0);
+
+
+			await wallet.mintAssetTransferRightsToken([t20.address, 0, 10, 0]);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(10);
+
+
+			await wallet.mintAssetTransferRightsToken([t20.address, 0, 70, 0]);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(80);
+
+
+			await wallet.burnAssetTransferRightsToken(1);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(70);
+
+
+			await wallet.burnAssetTransferRightsToken(2);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(0);
+		});
+
+		it("Should return balance of tokenized non-fungible asset in callers wallet", async function() {
+			let res, balance;
+
+			await t721.mint(wallet.address, 1);
+			await t721.mint(wallet.address, 2);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t721.address, 1, 1, 1]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(0);
+
+
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 1]);
+			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 2]);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t721.address, 1, 1, 1]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(1);
+
+
+			await wallet.burnAssetTransferRightsToken(1);
+
+			res = await wallet.callStatic.execute(
+				atr.address,
+				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t721.address, 1, 1, 1]])
+			);
+			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
+
+			expect(balance).to.equal(0);
 		});
 
 	});

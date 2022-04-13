@@ -194,23 +194,12 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 		// Assert that tokenized asset balances did not change
 		uint256[] memory atrs = _atr.ownedAssetATRIds();
-		MultiToken.Asset[] memory balances = new MultiToken.Asset[](atrs.length);
-		uint256 nextEmptyIndex;
 		for (uint256 i = 0; i < atrs.length; ++i) {
 			MultiToken.Asset memory asset = _atr.getAsset(atrs[i]);
 
-			// Check that wallet owns at least that amount
-			// Need to add fungible token amounts together
-
-			uint256 assetIndex = _find(balances, asset);
-			if (assetIndex == balances.length) {
-				assetIndex = nextEmptyIndex++;
-				balances[assetIndex] = asset;
-			} else {
-				balances[assetIndex].amount += asset.amount;
-			}
-
-			require(balances[assetIndex].amount <= asset.balanceOf(address(this)), "One of the tokenized asset moved from the wallet");
+			uint256 balance = asset.balanceOf(address(this));
+			uint256 tokenizedBalance = _atr.tokenizedBalanceOf(asset);
+			require(balance >= tokenizedBalance, "One of the tokenized asset moved from the wallet");
 		}
 
 
@@ -348,30 +337,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			interfaceId == type(IERC721Receiver).interfaceId ||
 			interfaceId == type(IERC1155Receiver).interfaceId ||
 			interfaceId == type(IERC165).interfaceId;
-	}
-
-
-	/*----------------------------------------------------------*|
-	|*  # PRIVATE                                               *|
-	|*----------------------------------------------------------*/
-
-	/**
-	 * @dev Find asset in an asset list
-	 *
-	 * @param assets List of MultiToken.Asset structs
-	 * @param asset Asset that is being looked for
-	 * @return Index of an asset or list length, in case the asset was not found
-	 */
-	function _find(MultiToken.Asset[] memory assets, MultiToken.Asset memory asset) private pure returns (uint256) {
-		for (uint256 i = 0; i < assets.length; ++i) {
-			if (assets[i].assetAddress == address(0))
-				break;
-
-			if (asset.assetAddress == assets[i].assetAddress && asset.id == assets[i].id)
-				return i;
-		}
-
-		return assets.length;
 	}
 
 }
