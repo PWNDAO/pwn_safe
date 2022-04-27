@@ -16,6 +16,17 @@ const ERC20 = new ethers.utils.Interface([
 	"function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool)",
 ]);
 
+const ERC777 = new ethers.utils.Interface([
+	"function authorizeOperator(address operator) external",
+	"function revokeOperator(address operator) external",
+	"function defaultOperators() external view returns (address[] memory)",
+]);
+
+const ERC1363 = new ethers.utils.Interface([
+	"function approveAndCall(address spender, uint256 value) external returns (bool)",
+	"function approveAndCall(address spender, uint256 value, bytes memory data) external returns (bool)",
+]);
+
 const ERC721 = new ethers.utils.Interface([
 	"function balanceOf(address owner) external view returns (uint256 balance)",
 	"function ownerOf(uint256 tokenId) external view returns (address owner)",
