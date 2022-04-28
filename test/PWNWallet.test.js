@@ -489,6 +489,22 @@ describe("PWNWallet", function() {
 				).to.not.be.reverted;
 			});
 
+			it("Should call tokenize balance check on ATR contract", async function() {
+				const fakeAtr = await smock.fake("AssetTransferRights");
+				const mockWalletFactory = await smock.mock("PWNWallet");
+				const mockWallet = await mockWalletFactory.deploy();
+				await mockWallet.initialize(owner.address, fakeAtr.address);
+
+				await t721.mint(mockWallet.address, 3030);
+
+				await mockWallet.execute(
+					t721.address,
+					Iface.ERC721.encodeFunctionData("transferFrom", [mockWallet.address, other.address, 3030])
+				);
+
+				expect(fakeAtr.checkTokenizedBalance).to.have.been.calledOnce;
+			});
+
 			// Tokenized
 
 			it("Should fail when transferring tokenized ERC20 asset", async function() {
@@ -501,7 +517,7 @@ describe("PWNWallet", function() {
 						t20.address,
 						Iface.ERC20.encodeFunctionData("transfer", [other.address, 1])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should fail when transferring tokenized ERC777 asset", async function() {
@@ -514,7 +530,7 @@ describe("PWNWallet", function() {
 						t777.address,
 						Iface.ERC20.encodeFunctionData("transfer", [other.address, 1])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should fail when transferring tokenized ERC1363 asset", async function() {
@@ -527,7 +543,7 @@ describe("PWNWallet", function() {
 						t1363.address,
 						Iface.ERC20.encodeFunctionData("transfer", [other.address, 1])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should fail when transferring tokenized ERC721 asset", async function() {
@@ -540,7 +556,7 @@ describe("PWNWallet", function() {
 						t721.address,
 						Iface.ERC721.encodeFunctionData("transferFrom", [wallet.address, other.address, tokenId])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should fail when transferring tokenized ERC1155 asset", async function() {
@@ -553,7 +569,7 @@ describe("PWNWallet", function() {
 						t1155.address,
 						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 1, "0x"])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			// Tokenized fungible assets
@@ -581,7 +597,7 @@ describe("PWNWallet", function() {
 						t20.address,
 						Iface.ERC20.encodeFunctionData("transfer", [other.address, 101])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should transfer untokenized amount of ERC777 asset", async function() {
@@ -607,7 +623,7 @@ describe("PWNWallet", function() {
 						t777.address,
 						Iface.ERC20.encodeFunctionData("transfer", [other.address, 101])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should transfer untokenized amount of ERC1363 asset", async function() {
@@ -633,7 +649,7 @@ describe("PWNWallet", function() {
 						t1363.address,
 						Iface.ERC20.encodeFunctionData("transfer", [other.address, 101])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 			it("Should transfer untokenized amount of ERC1155 asset", async function() {
@@ -674,7 +690,7 @@ describe("PWNWallet", function() {
 						t1155.address,
 						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 41, "0x"])
 					)
-				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+				).to.be.revertedWith("Insufficient tokenized balance");
 			});
 
 		});

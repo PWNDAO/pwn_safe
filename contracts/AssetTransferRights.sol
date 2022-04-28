@@ -271,6 +271,25 @@ contract AssetTransferRights is ERC721 {
 
 
 	/*----------------------------------------------------------*|
+	|*  # CHECK TOKENIZED BALANCE                               *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @dev Checks that caller has sufficient balance of tokenized assets.
+	 * Fails if tokenized balance is insufficient.
+	 */
+	function checkTokenizedBalance() external view {
+		uint256[] memory atrs = ownedAssetATRIds();
+		for (uint256 i; i < atrs.length; ++i) {
+			MultiToken.Asset memory asset = getAsset(atrs[i]);
+
+			(, uint256 tokenizedBalance) = _ownedFromCollection[msg.sender][asset.assetAddress].tryGet(asset.id);
+			require(asset.balanceOf(msg.sender) >= tokenizedBalance, "Insufficient tokenized balance");
+		}
+	}
+
+
+	/*----------------------------------------------------------*|
 	|*  # UTILITY                                               *|
 	|*----------------------------------------------------------*/
 
@@ -295,14 +314,6 @@ contract AssetTransferRights is ERC721 {
 	 */
 	function ownedFromCollection(address assetAddress) external view returns (uint256) {
 		return _ownedFromCollection[msg.sender][assetAddress].length();
-	}
-
-	/**
-	 * @param asset MultiToken Asset struct representing asset whos balance is in question
-	 * @return tokenizedBalance Balance of tokenized asset in callers wallet
-	 */
-	function tokenizedBalanceOf(MultiToken.Asset memory asset) external view returns (uint256 tokenizedBalance) {
-		(, tokenizedBalance) = _ownedFromCollection[msg.sender][asset.assetAddress].tryGet(asset.id);
 	}
 
 

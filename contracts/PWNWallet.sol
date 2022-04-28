@@ -219,12 +219,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 
 		// Assert that tokenized asset balances did not change
-		uint256[] memory atrs = _atr.ownedAssetATRIds();
-		for (uint256 i; i < atrs.length; ++i) {
-			MultiToken.Asset memory asset = _atr.getAsset(atrs[i]);
-
-			require(asset.balanceOf(address(this)) >= _atr.tokenizedBalanceOf(asset), "One of the tokenized asset moved from the wallet");
-		}
+		_atr.checkTokenizedBalance();
 
 
 
@@ -301,7 +296,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
         if (implementer == assetAddress) {
         	address[] memory defaultOperators = IERC777(assetAddress).defaultOperators();
 
-        	for (uint256 i = 0; i < defaultOperators.length; ++i)
+        	for (uint256 i; i < defaultOperators.length; ++i)
 	            if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], address(this)))
 	            	return true;
         }

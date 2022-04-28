@@ -595,6 +595,23 @@ describe("AssetTransferRights", function() {
 	});
 
 
+	// Currently cannot be tested.
+	// It would require to update `_ownedAssetATRIds` property, but array types are not yet supported by smocks `setVariable` function.
+	// See: https://github.com/defi-wonderland/smock/issues/31
+	// This function is at least tested through PWNWallet tests
+	xdescribe("Check tokenized balance", function() {
+
+		it("Should fail when missing tokenized non-fungible asset");
+
+		it("Should pass when holding tokenized non-fungible asset");
+
+		it("Should fail when insufficient balance of tokenized fungible asset");
+
+		it("Should pass when sufficient balance of tokenized fungible asset");
+
+	});
+
+
 	describe("Get asset", function() {
 
 		async function areEqual(assetId, values) {
@@ -693,107 +710,6 @@ describe("AssetTransferRights", function() {
 
 			ownedFromERC721Collection = Iface.ATR.decodeFunctionResult("ownedFromCollection", ownedFromERC721Collection)[0];
 			expect(ownedFromERC721Collection.toNumber()).to.equal(0);
-		});
-
-	});
-
-
-	describe("Tokenized balance of", function() {
-
-		it("Should return balance of tokenized fungible asset in callers wallet", async function() {
-			let res, balance;
-
-			await t20.mint(wallet.address, 100);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(0);
-
-
-			await wallet.mintAssetTransferRightsToken([t20.address, 0, 10, 0]);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(10);
-
-
-			await wallet.mintAssetTransferRightsToken([t20.address, 0, 70, 0]);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(80);
-
-
-			await wallet.burnAssetTransferRightsToken(1);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(70);
-
-
-			await wallet.burnAssetTransferRightsToken(2);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t20.address, 0, 1, 0]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(0);
-		});
-
-		it("Should return balance of tokenized non-fungible asset in callers wallet", async function() {
-			let res, balance;
-
-			await t721.mint(wallet.address, 1);
-			await t721.mint(wallet.address, 2);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t721.address, 1, 1, 1]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(0);
-
-
-			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 1]);
-			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 2]);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t721.address, 1, 1, 1]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(1);
-
-
-			await wallet.burnAssetTransferRightsToken(1);
-
-			res = await wallet.callStatic.execute(
-				atr.address,
-				Iface.ATR.encodeFunctionData("tokenizedBalanceOf", [[t721.address, 1, 1, 1]])
-			);
-			balance = Iface.ATR.decodeFunctionResult("tokenizedBalanceOf", res)[0];
-
-			expect(balance).to.equal(0);
 		});
 
 	});
