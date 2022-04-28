@@ -2,6 +2,12 @@ const { ethers } = require("hardhat");
 
 async function deploy1820Registry(fundProvider) {
 
+	// Check that registry is not already deployed
+	const registryCode = await ethers.provider.getCode("0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24");
+	if (registryCode != "0x") {
+		return;
+	}
+
 	// Transfer funds to single-use registry deployment account
 	await fundProvider.sendTransaction({
 		to: "0xa990077c3205cbDf861e17Fa532eeB069cE9fF96",

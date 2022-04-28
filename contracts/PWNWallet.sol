@@ -185,6 +185,26 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			_operators[target].remove(operator);
 		}
 
+		// ERC1363 - approveAndCall
+		else if (funcSelector == 0x3177029f) {
+			// Block any approveAndCall call if there is at least one tokenized asset from a collection
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
+
+			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
+
+			_handleERC20Approval(target, operator, amount);
+		}
+
+		// ERC1363 - approveAndCall(bytes)
+		else if (funcSelector == 0xcae9ca51) {
+			// Block any approveAndCall call if there is at least one tokenized asset from a collection
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
+
+			(address operator, uint256 amount,) = abi.decode(data[4:], (address, uint256, bytes));
+
+			_handleERC20Approval(target, operator, amount);
+		}
+
 
 
 		// Execute call
