@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 const { smock } = require("@defi-wonderland/smock");
 const utils = ethers.utils;
 const Iface = require("./sharedIfaces.js");
+const { deploy1820Registry } = require("../scripts/testDeploy1820Registry.js");
 
 const expect = chai.expect;
 chai.use(smock.matchers);
@@ -24,6 +25,8 @@ describe("AssetTransferRights", function() {
 		T1155 = await ethers.getContractFactory("T1155");
 
 		[owner, other] = await ethers.getSigners();
+
+		await deploy1820Registry(other);
 	});
 
 	beforeEach(async function() {

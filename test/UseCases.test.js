@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const Iface = require("./sharedIfaces.js");
+const { deploy1820Registry } = require("../scripts/testDeploy1820Registry.js");
 
 
 describe("Use cases", function() {
@@ -19,6 +20,8 @@ describe("Use cases", function() {
 		T1155 = await ethers.getContractFactory("T1155");
 
 		[owner, other, addr1, addr2] = await ethers.getSigners();
+
+		await deploy1820Registry(other);
 	});
 
 	beforeEach(async function() {

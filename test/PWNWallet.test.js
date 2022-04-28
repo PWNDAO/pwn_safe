@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 const { smock } = require("@defi-wonderland/smock");
 const utils = ethers.utils;
 const Iface = require("./sharedIfaces.js");
+const { deploy1820Registry } = require("../scripts/testDeploy1820Registry.js");
 
 const expect = chai.expect;
 chai.use(smock.matchers);
@@ -13,17 +14,20 @@ describe("PWNWallet", function() {
 	let ATR, atr;
 	let wallet, walletOther;
 	let factory;
-	let T20, T721, T1155;
-	let t20, t721, t1155;
-	let owner, other;
+	let T20, T721, T1155, T777
+	let t20, t721, t1155, t777;
+	let owner, other, defaultOperator;
 
 	before(async function() {
 		ATR = await ethers.getContractFactory("AssetTransferRights");
 		T20 = await ethers.getContractFactory("T20");
 		T721 = await ethers.getContractFactory("T721");
 		T1155 = await ethers.getContractFactory("T1155");
+		T777 = await ethers.getContractFactory("T777");
 
-		[owner, other] = await ethers.getSigners();
+		[owner, other, defaultOperator] = await ethers.getSigners();
+
+		await deploy1820Registry(other);
 	});
 
 	beforeEach(async function() {
@@ -40,6 +44,9 @@ describe("PWNWallet", function() {
 
 		t1155 = await T1155.deploy();
 		await t1155.deployed();
+
+		t777 = await T777.deploy([]);
+		await t777.deployed();
 
 		const walletTx = await factory.connect(owner).newWallet();
 		const walletRes = await walletTx.wait();
@@ -60,6 +67,10 @@ describe("PWNWallet", function() {
 			await t20.mint(wallet.address, tokenAmount);
 			await t721.mint(wallet.address, tokenId);
 			await t1155.mint(wallet.address, tokenId, tokenAmount);
+
+			await t777.mint(owner.address, tokenAmount);
+			await t777.transfer(wallet.address, tokenAmount);
+
 		});
 
 
@@ -144,9 +155,32 @@ describe("PWNWallet", function() {
 				).to.not.be.reverted;
 			});
 
+			it("Should authorize operator of ERC777 asset when there is no tokenized asset from collection", async function() {
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC777.encodeFunctionData("authorizeOperator", [defaultOperator.address])
+					)
+				).to.not.be.reverted;
+			});
+
+			it("Should revoke operator of ERC777 asset when there is no tokenized asset from collection", async function() {
+				await wallet.execute(
+					t777.address,
+					Iface.ERC777.encodeFunctionData("authorizeOperator", [defaultOperator.address])
+				);
+
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC777.encodeFunctionData("revokeOperator", [other.address])
+					)
+				).to.not.be.reverted;
+			});
+
 			// Try to approve with tokenized asset
 
-			it("Should fail when trying to approve ERC20 asset and other asset is tokenized from that collection", async function() {
+			it("Should fail trying to approve ERC20 asset when other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
 
 				await expect(
@@ -157,7 +191,7 @@ describe("PWNWallet", function() {
 				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
-			it("Should fail when trying to increase allowance of ERC20 asset and other asset is tokenized from that collection", async function() {
+			it("Should fail trying to increase allowance of ERC20 asset when other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
 
 				await expect(
@@ -168,18 +202,16 @@ describe("PWNWallet", function() {
 				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
-			it("Should fail when trying to decrease allowance of ERC20 asset and other asset is tokenized from that collection", async function() {
+			it("Should decrease allowance of ERC20 asset when other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
 
-				await expect(
-					wallet.execute(
-						t20.address,
-						Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 0])
-					)
-				).to.be.revertedWith("Some asset from collection has transfer right token minted");
+				await wallet.execute(
+					t20.address,
+					Iface.ERC20.encodeFunctionData("decreaseAllowance", [other.address, 0])
+				);
 			});
 
-			it("Should fail when trying to approve ERC721 asset and other asset is tokenized from that collection", async function() {
+			it("Should fail trying to approve ERC721 asset when other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
 				await t721.mint(wallet.address, 444);
 
@@ -191,7 +223,7 @@ describe("PWNWallet", function() {
 				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
-			it("Should fail when trying to approve for all ERC721 asset and other asset is tokenized from that collection", async function() {
+			it("Should fail trying to approve for all ERC721 asset when other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
 
 				await expect(
@@ -202,7 +234,7 @@ describe("PWNWallet", function() {
 				).to.be.revertedWith("Some asset from collection has transfer right token minted");
 			});
 
-			it("Should fail when trying to approve for all ERC1155 asset and other asset is tokenized from that collection", async function() {
+			it("Should fail trying to approve for all ERC1155 asset when other asset is tokenized from that collection", async function() {
 				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
 
 				await expect(
@@ -211,6 +243,26 @@ describe("PWNWallet", function() {
 						Iface.ERC1155.encodeFunctionData("setApprovalForAll", [other.address, true])
 					)
 				).to.be.revertedWith("Some asset from collection has transfer right token minted");
+			});
+
+			it("Should fail trying to authorize operator for ERC777 asset when other asset is tokenized from that collection", async function() {
+				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount, 0]);
+
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC777.encodeFunctionData("authorizeOperator", [defaultOperator.address])
+					)
+				).to.be.revertedWith("Some asset from collection has transfer right token minted");
+			});
+
+			it("Should revoke operator for ERC777 asset when other asset is tokenized from that collection", async function() {
+				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount, 0]);
+
+				await wallet.execute(
+					t777.address,
+					Iface.ERC777.encodeFunctionData("revokeOperator", [other.address])
+				);
 			});
 
 			// Set / remove operator on approval / revoke
@@ -293,6 +345,22 @@ describe("PWNWallet", function() {
 				expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(false, "ERC1155 approval for all revoke should remove stored operator");
 			});
 
+			it("Should update stored operators depending on authorized / revoked operator of ERC777 asset", async function() {
+				await wallet.execute(
+					t777.address,
+					Iface.ERC777.encodeFunctionData("authorizeOperator", [defaultOperator.address])
+				);
+
+				expect(await wallet.hasApprovalsFor(t777.address)).to.equal(true, "ERC777 authorizeOperator should store operator");
+
+				await wallet.execute(
+					t777.address,
+					Iface.ERC777.encodeFunctionData("revokeOperator", [defaultOperator.address])
+				);
+
+				expect(await wallet.hasApprovalsFor(t777.address)).to.equal(false, "ERC777 revokeOperator should remove stored operator");
+			});
+
 		});
 
 		describe("Asset transfers", function() {
@@ -322,6 +390,15 @@ describe("PWNWallet", function() {
 					wallet.execute(
 						t1155.address,
 						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, tokenAmount, "0x"])
+					)
+				).to.not.be.reverted;
+			});
+
+			it("Should transfer ERC777 asset when it don't have tokenized transfer rights", async function() {
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, tokenAmount])
 					)
 				).to.not.be.reverted;
 			});
@@ -363,6 +440,19 @@ describe("PWNWallet", function() {
 					wallet.execute(
 						t1155.address,
 						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 1, "0x"])
+					)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
+
+			it("Should fail when transferring tokenized ERC777 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount, 0]);
+
+				// try to transfer asset as wallet owner
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, 1])
 					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
@@ -432,6 +522,32 @@ describe("PWNWallet", function() {
 					wallet.execute(
 						t1155.address,
 						Iface.ERC1155.encodeFunctionData("safeTransferFrom", [wallet.address, other.address, tokenId, 41, "0x"])
+					)
+				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
+			});
+
+			it("Should transfer untokenized amount of ERC777 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount - 100, 0]);
+
+				// transfer asset as wallet owner
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, 100])
+					)
+				).to.not.be.reverted;
+			});
+
+			it("Should fail when transferring amount biggen than untokenized amount of ERC777 asset", async function() {
+				// mint ATR token
+				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount - 100, 0]);
+
+				// try to transfer asset as wallet owner
+				await expect(
+					wallet.execute(
+						t777.address,
+						Iface.ERC20.encodeFunctionData("transfer", [other.address, 101])
 					)
 				).to.be.revertedWith("One of the tokenized asset moved from the wallet");
 			});
@@ -590,6 +706,17 @@ describe("PWNWallet", function() {
 			expect(fakeToken.safeTransferFrom).to.have.been.calledOnce;
 		});
 
+		it("Should transfer asset to receiver as ERC777", async function() {
+			const fakeToken = await smock.fake("T777");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, other.address);
+
+			await mockWallet.connect(other).transferAsset([fakeToken.address, 0, 1, 1], walletOther.address);
+
+			expect(fakeToken.transfer).to.have.been.calledOnce;
+		});
+
 	});
 
 
@@ -602,6 +729,13 @@ describe("PWNWallet", function() {
 			);
 
 			expect(await wallet.hasApprovalsFor(t1155.address)).to.equal(true);
+		});
+
+		it("Should return true if token has default operator", async function() {
+			t777 = await T777.deploy([defaultOperator.address]);
+			await t777.deployed();
+
+			expect(await wallet.hasApprovalsFor(t777.address)).to.equal(true);
 		});
 
 		it("Should return false if collection has no operator stored", async function() {

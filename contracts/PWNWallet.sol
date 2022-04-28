@@ -5,9 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 import "@pwnfinance/multitoken/contracts/MultiToken.sol";
 import "./AssetTransferRights.sol";
 import "./IPWNWallet.sol";
@@ -26,6 +28,8 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	/*----------------------------------------------------------*|
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
 	|*----------------------------------------------------------*/
+
+	IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	/**
 	 * @notice Address of AssetTransferRights contract
@@ -119,18 +123,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			// ERC20 contract doesn't provide possibility to list all addresses that are approved to transfer asset on behalf of an owner.
 			// That's why a wallet has to track operators.
 
-			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
-
-				if (allowance != 0 && amount == 0) {
-					_operators[target].remove(operator);
-				}
-
-				else if (allowance == 0 && amount != 0) {
-					_operators[target].add(operator);
-				}
-
-			} catch {}
-
+			_handleERC20Approval(target, operator, amount);
 		}
 
 		// ERC20 - increaseAllowance
@@ -147,10 +140,6 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 		// ERC20 - decreaseAllowance
 		else if (funcSelector == 0xa457c2d7) {
-			// Block any decreaseAllowance call if there is at least one tokenized asset from a collection
-			// (?) Is this check necessary?
-			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
-
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
 			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
@@ -179,6 +168,23 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			}
 		}
 
+		// ERC777 - authorizeOperator
+		else if (funcSelector == 0x959b8c3f) {
+			// Block any authorizeOperator call if there is at least one tokenized asset from a collection
+			require(_atr.ownedFromCollection(target) == 0, "Some asset from collection has transfer right token minted");
+
+			address operator = abi.decode(data[4:], (address));
+
+			_operators[target].add(operator);
+		}
+
+		// ERC777 - revokeOperator
+		else if (funcSelector == 0xfad8b32a) {
+			address operator = abi.decode(data[4:], (address));
+
+			_operators[target].remove(operator);
+		}
+
 
 
 		// Execute call
@@ -194,12 +200,10 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 		// Assert that tokenized asset balances did not change
 		uint256[] memory atrs = _atr.ownedAssetATRIds();
-		for (uint256 i = 0; i < atrs.length; ++i) {
+		for (uint256 i; i < atrs.length; ++i) {
 			MultiToken.Asset memory asset = _atr.getAsset(atrs[i]);
 
-			uint256 balance = asset.balanceOf(address(this));
-			uint256 tokenizedBalance = _atr.tokenizedBalanceOf(asset);
-			require(balance >= tokenizedBalance, "One of the tokenized asset moved from the wallet");
+			require(asset.balanceOf(address(this)) >= _atr.tokenizedBalanceOf(asset), "One of the tokenized asset moved from the wallet");
 		}
 
 
@@ -272,6 +276,16 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 * @dev See {IPWNWallet-hasApprovalsFor}
 	 */
 	function hasApprovalsFor(address assetAddress) external view returns (bool) {
+		// ERC777 defines `defaultOperators`
+		address implementer = _ERC1820_REGISTRY.getInterfaceImplementer(assetAddress, keccak256("ERC777Token"));
+        if (implementer == assetAddress) {
+        	address[] memory defaultOperators = IERC777(assetAddress).defaultOperators();
+
+        	for (uint256 i = 0; i < defaultOperators.length; ++i)
+	            if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], address(this)))
+	            	return true;
+        }
+
 		return _operators[assetAddress].length() > 0;
 	}
 
@@ -337,6 +351,25 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 			interfaceId == type(IERC721Receiver).interfaceId ||
 			interfaceId == type(IERC1155Receiver).interfaceId ||
 			interfaceId == type(IERC165).interfaceId;
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # PRIVATE                                               *|
+	|*----------------------------------------------------------*/
+
+	function _handleERC20Approval(address target, address operator, uint256 amount) private {
+		try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
+
+			if (allowance != 0 && amount == 0) {
+				_operators[target].remove(operator);
+			}
+
+			else if (allowance == 0 && amount != 0) {
+				_operators[target].add(operator);
+			}
+
+		} catch {}
 	}
 
 }

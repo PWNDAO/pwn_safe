@@ -114,7 +114,6 @@ contract AssetTransferRights is ERC721 {
 		// Check that asset address is not ATR contract address
 		require(asset.assetAddress != address(this), "Attempting to tokenize ATR token");
 
-		// (?) Move to `MultiToken.isValid()`?
 		// Check that provided asset category is correct
 		if (asset.category == MultiToken.Category.ERC20) {
 
@@ -123,7 +122,7 @@ contract AssetTransferRights is ERC721 {
 
 			} else {
 
-				// TODO: How to check it with bigger confidence?
+				// Fallback check for ERC20 tokens not implementing ERC165
 				try IERC20(asset.assetAddress).totalSupply() returns (uint256) {
 				} catch { revert("Invalid provided category"); }
 
@@ -148,9 +147,7 @@ contract AssetTransferRights is ERC721 {
 		// Check that asset collection doesn't have approvals
 		require(IPWNWallet(msg.sender).hasApprovalsFor(asset.assetAddress) == false, "Some asset from collection has an approval");
 
-		// Check that tokenized asset don't have approval
-		// ERC721 operator can approve concrete asset without triggering any action in wallet nor ATR contract
-		// Without this check it would be possible to tokenize approved ERC721 asset
+		// Check that ERC721 asset don't have approval
 		if (asset.category == MultiToken.Category.ERC721) {
 			address approved = IERC721(asset.assetAddress).getApproved(asset.id);
 			require(approved == address(0), "Tokenized asset has an approved address");
