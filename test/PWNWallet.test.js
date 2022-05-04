@@ -4,6 +4,8 @@ const { smock } = require("@defi-wonderland/smock");
 const utils = ethers.utils;
 const Iface = require("./sharedIfaces.js");
 const { deploy1820Registry } = require("../scripts/testDeploy1820Registry.js");
+const { CATEGORY } = require("./test-helpers.js");
+const { ERC20, ERC721, ERC1155 } = CATEGORY;
 
 const expect = chai.expect;
 chai.use(smock.matchers);
@@ -204,7 +206,7 @@ describe("PWNWallet", function() {
 			// Try to approve with tokenized asset
 
 			it("Should fail trying to approve ERC20 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
+				await wallet.mintAssetTransferRightsToken([t20.address, ERC20, tokenAmount - 10, 0]);
 
 				await expect(
 					wallet.execute(
@@ -215,7 +217,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to increase allowance of ERC20 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 10, 0]);
+				await wallet.mintAssetTransferRightsToken([t20.address, ERC20, tokenAmount - 10, 0]);
 
 				await expect(
 					wallet.execute(
@@ -226,7 +228,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should decrease allowance of ERC20 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
+				await wallet.mintAssetTransferRightsToken([t20.address, ERC20, tokenAmount, 0]);
 
 				await wallet.execute(
 					t20.address,
@@ -235,7 +237,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to authorize operator for ERC777 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount, 0]);
+				await wallet.mintAssetTransferRightsToken([t777.address, ERC20, tokenAmount, 0]);
 
 				await expect(
 					wallet.execute(
@@ -246,7 +248,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should revoke operator for ERC777 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount, 0]);
+				await wallet.mintAssetTransferRightsToken([t777.address, ERC20, tokenAmount, 0]);
 
 				await wallet.execute(
 					t777.address,
@@ -255,7 +257,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to approveAndCall ERC1363 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t1363.address, 0, tokenAmount - 10, 0]);
+				await wallet.mintAssetTransferRightsToken([t1363.address, ERC20, tokenAmount - 10, 0]);
 
 				await expect(
 					wallet.execute(
@@ -266,7 +268,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to approveAndCall(bytes) ERC1363 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t1363.address, 0, tokenAmount - 10, 0]);
+				await wallet.mintAssetTransferRightsToken([t1363.address, ERC20, tokenAmount - 10, 0]);
 
 				await expect(
 					wallet.execute(
@@ -277,7 +279,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to approve ERC721 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, tokenId]);
 				await t721.mint(wallet.address, 444);
 
 				await expect(
@@ -289,7 +291,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to approve for all ERC721 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, tokenId]);
 
 				await expect(
 					wallet.execute(
@@ -300,7 +302,7 @@ describe("PWNWallet", function() {
 			});
 
 			it("Should fail trying to approve for all ERC1155 asset when other asset is tokenized from that collection", async function() {
-				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, tokenAmount, tokenId]);
 
 				await expect(
 					wallet.execute(
@@ -509,7 +511,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring tokenized ERC20 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount, 0]);
+				await wallet.mintAssetTransferRightsToken([t20.address, ERC20, tokenAmount, 0]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -522,7 +524,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring tokenized ERC777 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount, 0]);
+				await wallet.mintAssetTransferRightsToken([t777.address, ERC20, tokenAmount, 0]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -535,7 +537,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring tokenized ERC1363 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1363.address, 0, tokenAmount, 0]);
+				await wallet.mintAssetTransferRightsToken([t1363.address, ERC20, tokenAmount, 0]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -548,7 +550,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring tokenized ERC721 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, tokenId]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -561,7 +563,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring tokenized ERC1155 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, tokenAmount, tokenId]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -576,7 +578,7 @@ describe("PWNWallet", function() {
 
 			it("Should transfer untokenized amount of ERC20 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 100, 0]);
+				await wallet.mintAssetTransferRightsToken([t20.address, ERC20, tokenAmount - 100, 0]);
 
 				// transfer asset as wallet owner
 				await expect(
@@ -589,7 +591,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring amount biggen than untokenized amount of ERC20 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t20.address, 0, tokenAmount - 100, 0]);
+				await wallet.mintAssetTransferRightsToken([t20.address, ERC20, tokenAmount - 100, 0]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -602,7 +604,7 @@ describe("PWNWallet", function() {
 
 			it("Should transfer untokenized amount of ERC777 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount - 100, 0]);
+				await wallet.mintAssetTransferRightsToken([t777.address, ERC20, tokenAmount - 100, 0]);
 
 				// transfer asset as wallet owner
 				await expect(
@@ -615,7 +617,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring amount biggen than untokenized amount of ERC777 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t777.address, 0, tokenAmount - 100, 0]);
+				await wallet.mintAssetTransferRightsToken([t777.address, ERC20, tokenAmount - 100, 0]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -628,7 +630,7 @@ describe("PWNWallet", function() {
 
 			it("Should transfer untokenized amount of ERC1363 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1363.address, 0, tokenAmount - 100, 0]);
+				await wallet.mintAssetTransferRightsToken([t1363.address, ERC20, tokenAmount - 100, 0]);
 
 				// transfer asset as wallet owner
 				await expect(
@@ -641,7 +643,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring amount biggen than untokenized amount of ERC1363 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1363.address, 0, tokenAmount - 100, 0]);
+				await wallet.mintAssetTransferRightsToken([t1363.address, ERC20, tokenAmount - 100, 0]);
 
 				// try to transfer asset as wallet owner
 				await expect(
@@ -654,7 +656,7 @@ describe("PWNWallet", function() {
 
 			it("Should transfer untokenized amount of ERC1155 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount - 40, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, tokenAmount - 40, tokenId]);
 
 				// transfer asset as wallet owner
 				await expect(
@@ -669,7 +671,7 @@ describe("PWNWallet", function() {
 				await t1155.mint(wallet.address, 45, tokenAmount);
 
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, tokenAmount, tokenId]);
 
 				// transfer asset as wallet owner
 				await expect(
@@ -682,7 +684,7 @@ describe("PWNWallet", function() {
 
 			it("Should fail when transferring amount biggen than untokenized amount of ERC1155 asset", async function() {
 				// mint ATR token
-				await wallet.mintAssetTransferRightsToken([t1155.address, 2, tokenAmount - 40, tokenId]);
+				await wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, tokenAmount - 40, tokenId]);
 
 				// transfer asset as wallet owner
 				await expect(
@@ -702,7 +704,7 @@ describe("PWNWallet", function() {
 
 		it("Should fail when sender is not wallet owner", async function() {
 			await expect(
-				wallet.connect(other).mintAssetTransferRightsToken([t721.address, 1, 1, 40])
+				wallet.connect(other).mintAssetTransferRightsToken([t721.address, ERC721, 1, 40])
 			).to.be.reverted;
 		});
 
@@ -712,9 +714,9 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, fakeAtr.address);
 
-			await mockWallet.mintAssetTransferRightsToken([t721.address, 1, 1, 40]);
+			await mockWallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 40]);
 
-			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith([t721.address, 1, 1, 40]);
+			expect(fakeAtr.mintAssetTransferRightsToken).to.have.been.calledOnceWith([t721.address, ERC721, 1, 40]);
 		});
 
 	});
@@ -804,13 +806,13 @@ describe("PWNWallet", function() {
 			await t721.mint(wallet.address, tokenId);
 
 			// ATR token with id 1
-			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, tokenId]);
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, tokenId]);
 		});
 
 
 		it("Should fail when sender is not ATR contract", async function() {
 			await expect(
-				wallet.transferAsset([t721.address, 1, 1, 1], walletOther.address)
+				wallet.transferAsset([t721.address, ERC721, 1, 1], walletOther.address)
 			).to.be.revertedWith("Caller is not asset transfer rights contract");
 		});
 
@@ -820,7 +822,7 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, other.address);
 
-			await mockWallet.connect(other).transferAsset([fakeToken.address, 0, 1, 1], walletOther.address);
+			await mockWallet.connect(other).transferAsset([fakeToken.address, ERC20, 1, 1], walletOther.address);
 
 			expect(fakeToken.transfer).to.have.been.calledOnce;
 		});
@@ -831,7 +833,7 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, other.address);
 
-			await mockWallet.connect(other).transferAsset([fakeToken.address, 0, 1, 1], walletOther.address);
+			await mockWallet.connect(other).transferAsset([fakeToken.address, ERC20, 1, 1], walletOther.address);
 
 			expect(fakeToken.transfer).to.have.been.calledOnce;
 		});
@@ -842,7 +844,7 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, other.address);
 
-			await mockWallet.connect(other).transferAsset([fakeToken.address, 0, 1, 1], walletOther.address);
+			await mockWallet.connect(other).transferAsset([fakeToken.address, ERC20, 1, 1], walletOther.address);
 
 			expect(fakeToken.transfer).to.have.been.calledOnce;
 		});
@@ -853,7 +855,7 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, other.address);
 
-			await mockWallet.connect(other).transferAsset([fakeToken.address, 1, 1, 1], walletOther.address);
+			await mockWallet.connect(other).transferAsset([fakeToken.address, ERC721, 1, 1], walletOther.address);
 
 			expect(fakeToken["safeTransferFrom(address,address,uint256)"]).to.have.been.calledOnce;
 		});
@@ -864,7 +866,7 @@ describe("PWNWallet", function() {
 			const mockWallet = await mockWalletFactory.deploy();
 			await mockWallet.initialize(owner.address, other.address);
 
-			await mockWallet.connect(other).transferAsset([fakeToken.address, 2, 1, 1], walletOther.address);
+			await mockWallet.connect(other).transferAsset([fakeToken.address, ERC1155, 1, 1], walletOther.address);
 
 			expect(fakeToken.safeTransferFrom).to.have.been.calledOnce;
 		});

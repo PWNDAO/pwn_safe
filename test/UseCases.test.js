@@ -2,6 +2,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const Iface = require("./sharedIfaces.js");
 const { deploy1820Registry } = require("../scripts/testDeploy1820Registry.js");
+const { CATEGORY } = require("./test-helpers.js");
+const { ERC20, ERC721, ERC1155 } = CATEGORY;
 
 
 describe("Use cases", function() {
@@ -81,7 +83,7 @@ describe("Use cases", function() {
 
 			// 4:
 			await expect(
-				wallet.mintAssetTransferRightsToken([t20.address, 0, 300, 0])
+				wallet.mintAssetTransferRightsToken([t20.address, ERC20, 300, 0])
 			).to.be.reverted;
 
 			// 5:
@@ -92,7 +94,7 @@ describe("Use cases", function() {
 
 			// 7:
 			await expect(
-				wallet.mintAssetTransferRightsToken([t20.address, 0, 300, 0])
+				wallet.mintAssetTransferRightsToken([t20.address, ERC20, 300, 0])
 			).to.be.reverted;
 
 			// 8:
@@ -102,7 +104,7 @@ describe("Use cases", function() {
 			);
 
 			// 9:
-			await wallet.mintAssetTransferRightsToken([t20.address, 0, 300, 0]);
+			await wallet.mintAssetTransferRightsToken([t20.address, ERC20, 300, 0]);
 
 			// 10:
 			await expect(
@@ -131,7 +133,7 @@ describe("Use cases", function() {
 			await t20.mint(wallet.address, 900);
 
 			// 2:
-			await wallet.mintAssetTransferRightsToken([t20.address, 0, 300, 0]);
+			await wallet.mintAssetTransferRightsToken([t20.address, ERC20, 300, 0]);
 
 			// 3:
 			await expect(
@@ -199,7 +201,7 @@ describe("Use cases", function() {
 			await t20.mint(wallet.address, 600);
 
 			// 2:
-			await wallet.mintAssetTransferRightsToken([t20.address, 0, 200, 0]);
+			await wallet.mintAssetTransferRightsToken([t20.address, ERC20, 200, 0]);
 
 			// 3:
 			await wallet.execute(
@@ -258,11 +260,11 @@ describe("Use cases", function() {
 			await t721.mint(wallet.address, 3);
 
 			// 5:
-			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 2]);
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 2]);
 
 			// 6:
 			await expect(
-				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 1])
+				wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 1])
 			).to.be.reverted;
 
 			// 7:
@@ -324,7 +326,7 @@ describe("Use cases", function() {
 
 			// 4:
 			await expect(
-				wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 1])
+				wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 1])
 			).to.be.reverted;
 
 			// 5:
@@ -334,7 +336,7 @@ describe("Use cases", function() {
 			);
 
 			// 6:
-			await wallet.mintAssetTransferRightsToken([t721.address, 1, 1, 1]);
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 1]);
 
 			// 7:
 			await expect(
@@ -392,7 +394,7 @@ describe("Use cases", function() {
 
 			// 4:
 			await expect(
-				wallet.mintAssetTransferRightsToken([t1155.address, 2, 600, 1])
+				wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, 600, 1])
 			).to.be.reverted;
 
 			// 5:
@@ -402,7 +404,7 @@ describe("Use cases", function() {
 			);
 
 			// 6:
-			await wallet.mintAssetTransferRightsToken([t1155.address, 2, 600, 1]);
+			await wallet.mintAssetTransferRightsToken([t1155.address, ERC1155, 600, 1]);
 
 			// 7:
 			await expect(
