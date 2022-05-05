@@ -87,7 +87,7 @@ describe("PWNWallet", function() {
 					t721.address,
 					Iface.T721.encodeFunctionData("foo", [])
 				)
-			).to.be.reverted;
+			).to.be.revertedWith("Ownable: caller is not the owner");
 		});
 
 		it("Should fail with execution revert message", async function() {
@@ -705,7 +705,7 @@ describe("PWNWallet", function() {
 		it("Should fail when sender is not wallet owner", async function() {
 			await expect(
 				wallet.connect(other).mintAssetTransferRightsToken([t721.address, ERC721, 1, 40])
-			).to.be.reverted;
+			).to.be.revertedWith("Ownable: caller is not the owner");
 		});
 
 		it("Should call mint on ATR contract", async function() {
@@ -727,7 +727,7 @@ describe("PWNWallet", function() {
 		it("Should fail when sender is not wallet owner", async function() {
 			await expect(
 				wallet.connect(other).burnAssetTransferRightsToken(332)
-			).to.be.reverted;
+			).to.be.revertedWith("Ownable: caller is not the owner");
 		});
 
 		it("Should call burn on ATR contract", async function() {
@@ -749,7 +749,7 @@ describe("PWNWallet", function() {
 		it("Should fail when sender is not wallet owner", async function() {
 			await expect(
 				wallet.connect(other).transferAssetFrom(ethers.constants.AddressZero, 0, true)
-			).to.be.reverted;
+			).to.be.revertedWith("Ownable: caller is not the owner");
 		});
 
 		it("Should call transfer asset from on ATR contract", async function() {
@@ -761,6 +761,77 @@ describe("PWNWallet", function() {
 			await mockWallet.transferAssetFrom(ethers.constants.AddressZero, 0, true);
 
 			expect(fakeAtr.transferAssetFrom).to.have.been.calledOnceWith(ethers.constants.AddressZero, 0, true);
+		});
+
+	});
+
+
+	describe("Transfer ATR token from", function() {
+
+		it("Should fail when sender is not wallet owner", async function() {
+			await expect(
+				wallet.connect(other).transferAtrTokenFrom(owner.address, other.address, 1)
+			).to.be.revertedWith("Ownable: caller is not the owner");
+		});
+
+		it("Should call transfer from on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet.transferAtrTokenFrom(owner.address, other.address, 332);
+
+			expect(fakeAtr.transferFrom).to.have.been.calledOnceWith(owner.address, other.address, 332);
+		});
+
+	});
+
+
+	describe("Safe transfer ATR token from", function() {
+
+		const fSelector = "safeTransferAtrTokenFrom(address,address,uint256)";
+
+		it("Should fail when sender is not wallet owner", async function() {
+			await expect(
+				wallet.connect(other)[fSelector](owner.address, other.address, 1)
+			).to.be.revertedWith("Ownable: caller is not the owner");
+		});
+
+		it("Should call safe transfer from on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet[fSelector](owner.address, other.address, 332);
+
+			expect(fakeAtr["safeTransferFrom(address,address,uint256)"]).to.have.been.calledOnceWith(owner.address, other.address, 332);
+		});
+
+	});
+
+
+	describe("Safe transfer ATR token from with bytes", function() {
+
+		const fSelector = "safeTransferAtrTokenFrom(address,address,uint256,bytes)";
+
+
+		it("Should fail when sender is not wallet owner", async function() {
+			await expect(
+				wallet.connect(other)[fSelector](owner.address, other.address, 1, "0x")
+			).to.be.revertedWith("Ownable: caller is not the owner");
+		});
+
+		it("Should call safe transfer from with bytes on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet[fSelector](owner.address, other.address, 332, "0x32");
+
+			expect(fakeAtr["safeTransferFrom(address,address,uint256,bytes)"]).to.have.been.calledOnceWith(owner.address, other.address, 332, "0x32");
 		});
 
 	});

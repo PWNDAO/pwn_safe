@@ -259,6 +259,52 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	}
 
 	/**
+	 * @notice Utility function for transferring ATR token
+	 *
+	 * @dev ATR contract is trusted and ATR token itself cannot tokenize its transfer rights
+	 * Thus there is no need to check tokenized balance while transferring ATR token
+	 * User can safe gas by transferring ATR token via this function instead of general `execute` function
+	 *
+	 * @param from Address of current ATR token owner
+	 * @param to Address of recipient
+	 * @param atrTokenId ATR token id to transfer
+	 */
+	function transferAtrTokenFrom(address from, address to, uint256 atrTokenId) external onlyOwner {
+		_atr.transferFrom(from, to, atrTokenId);
+	}
+
+	/**
+	 * @notice Utility function for transferring ATR token
+	 *
+	 * @dev ATR contract is trusted and ATR token itself cannot tokenize its transfer rights
+	 * Thus there is no need to check tokenized balance while transferring ATR token
+	 * User can safe gas by transferring ATR token via this function instead of general `execute` function
+	 *
+	 * @param from Address of current ATR token owner
+	 * @param to Address of recipient
+	 * @param atrTokenId ATR token id to transfer
+	 */
+	function safeTransferAtrTokenFrom(address from, address to, uint256 atrTokenId) external onlyOwner {
+		_atr.safeTransferFrom(from, to, atrTokenId);
+	}
+
+	/**
+	 * @notice Utility function for transferring ATR token
+	 *
+	 * @dev ATR contract is trusted and ATR token itself cannot tokenize its transfer rights
+	 * Thus there is no need to check tokenized balance while transferring ATR token
+	 * User can safe gas by transferring ATR token via this function instead of general `execute` function
+	 *
+	 * @param from Address of current ATR token owner
+	 * @param to Address of recipient
+	 * @param atrTokenId ATR token id to transfer
+	 * @param data Additional data passet into `onERC721Received` handle with no specific format
+	 */
+	function safeTransferAtrTokenFrom(address from, address to, uint256 atrTokenId, bytes calldata data) external onlyOwner {
+		_atr.safeTransferFrom(from, to, atrTokenId, data);
+	}
+
+	/**
 	 * @notice Utility function that would resolve invalid approval state of an ERC20 asset
 	 *
 	 * @dev Invalid approval state can happen when approved address transfers all approved assets from a wallet.
