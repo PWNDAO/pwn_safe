@@ -260,7 +260,11 @@ contract AssetTransferRights is ERC721 {
 	 * - if `burnToken` is false, caller has to be PWN Wallet, otherwise it could be any address
 	 * - if `burnToken` is false, caller must not have any approvals for asset contract
 	 */
-	function transferAssetFrom(address from, uint256 atrTokenId, bool burnToken) external {
+	function transferAssetFrom(
+		address from,
+		uint256 atrTokenId,
+		bool burnToken
+	) external {
 		// Process asset transfer
 		MultiToken.Asset memory asset = _processTransferAssetFrom(from, msg.sender, atrTokenId, burnToken);
 
@@ -286,7 +290,13 @@ contract AssetTransferRights is ERC721 {
 	 * - if `burnToken` is false, recipient has to be PWN Wallet, otherwise it could be any address
 	 * - if `burnToken` is false, recipient must not have any approvals for asset contract
 	 */
-	function transferAssetWithPermissionFrom(address from, uint256 atrTokenId, bool burnToken, RecipientPermission calldata permission, bytes calldata permissionSignature) external {
+	function transferAssetWithPermissionFrom(
+		address from,
+		uint256 atrTokenId,
+		bool burnToken,
+		RecipientPermission calldata permission,
+		bytes calldata permissionSignature
+	) external {
 		// Process permission signature
 		_processRecipientPermission(permission, permissionSignature);
 
@@ -308,7 +318,10 @@ contract AssetTransferRights is ERC721 {
 	 * @param permissionHash EIP-712 Structured hash of `RecipientPermission` struct
 	 * @param permissionSignature Signed `permissionHash` by wallet owner
 	 */
-	function revokeRecipientPermisison(bytes32 permissionHash, bytes calldata permissionSignature) external {
+	function revokeRecipientPermisison(
+		bytes32 permissionHash,
+		bytes calldata permissionSignature
+	) external {
 		// Check that caller is permission signer
 		require(ECDSA.recover(permissionHash, permissionSignature) == msg.sender, "Sender is not a recipient permission signer");
 
@@ -379,7 +392,10 @@ contract AssetTransferRights is ERC721 {
 	 * @param owner Address owning `asset`
 	 * @param asset MultiToken Asset struct representing asset that should be added to tokenized balance
 	 */
-	function _increaseTokenizedBalance(address owner, MultiToken.Asset memory asset) private {
+	function _increaseTokenizedBalance(
+		address owner,
+		MultiToken.Asset memory asset
+	) private {
 		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 		map.set(asset.id, tokenizedBalance + asset.amount);
@@ -390,7 +406,10 @@ contract AssetTransferRights is ERC721 {
 	 * @param owner Address owning `asset`
 	 * @param asset MultiToken Asset struct representing asset that should be deducted from tokenized balance
 	 */
-	function _decreaseTokenizedBalance(address owner, MultiToken.Asset memory asset) private {
+	function _decreaseTokenizedBalance(
+		address owner,
+		MultiToken.Asset memory asset
+	) private {
 		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 
@@ -407,7 +426,10 @@ contract AssetTransferRights is ERC721 {
 	 * @param permission Provided `RecipientPermission` struct to check
 	 * @param permissionSignature Signed `RecipientPermission` struct by wallet owner
 	 */
-	function _processRecipientPermission(RecipientPermission calldata permission, bytes calldata permissionSignature) private {
+	function _processRecipientPermission(
+		RecipientPermission calldata permission,
+		bytes calldata permissionSignature
+	) private {
 		// Compute EIP-712 structured data hash
 		bytes32 permissionHash = keccak256(abi.encodePacked(
 			"\x19\x01",
@@ -449,7 +471,12 @@ contract AssetTransferRights is ERC721 {
 	 * @param atrTokenId Id of an ATR token which represents the underlying asset
 	 * @param burnToken Flag to burn ATR token in the same transaction
 	 */
-	function _processTransferAssetFrom(address from, address to, uint256 atrTokenId, bool burnToken) private returns (MultiToken.Asset memory) {
+	function _processTransferAssetFrom(
+		address from,
+		address to,
+		uint256 atrTokenId,
+		bool burnToken
+	) private returns (MultiToken.Asset memory) {
 		// Load asset
 		MultiToken.Asset memory asset = getAsset(atrTokenId);
 

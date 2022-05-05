@@ -941,7 +941,47 @@ describe("AssetTransferRights", function() {
 	});
 
 
-	xdescribe("Revoke recipient permisison");
+	describe("Revoke recipient permisison", function() {
+
+		const nonce = ethers.utils.solidityKeccak256([ "string" ], [ "nonce" ]);
+		let permission, permissionHash, permissionSignature;
+
+		before(async function() {
+			permission = [owner.address, wallet.address, nonce];
+			permissionHash = getPermissionHashBytes(permission, atr.address);
+			permissionSignature = await signPermission(permission, atr.address, owner);
+		});
+
+
+		it("Should fail when caller didn't sign given permission", async function() {
+			await expect(
+				atr.connect(other).revokeRecipientPermisison(permissionHash, permissionSignature)
+			).to.be.revertedWith("Sender is not a recipient permission signer");
+		});
+
+		it("Should fail when permission is already revoked", async function() {
+			await atr.revokeRecipientPermisison(permissionHash, permissionSignature);
+
+			await expect(
+				atr.revokeRecipientPermisison(permissionHash, permissionSignature)
+			).to.be.revertedWith("Recipient permission is revoked");
+		});
+
+		it("Should revoke permission", async function() {
+			await atr.revokeRecipientPermisison(permissionHash, permissionSignature);
+
+			expect(await atr.revokedPermissions(permissionHash)).to.be.true;
+		});
+
+		it("Should emit `RecipientPermissionRevoked` event", async function() {
+			await expect(
+				atr.revokeRecipientPermisison(permissionHash, permissionSignature)
+			).to.emit(atr, "RecipientPermissionRevoked").withArgs(
+				ethers.utils.hexValue(permissionHash)
+			);
+		});
+
+	});
 
 
 	// Currently cannot be tested.
