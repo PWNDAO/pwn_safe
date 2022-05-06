@@ -17,7 +17,9 @@ import "./openzeppelin/EnumerableMap.sol";
 
 /**
  * @title Asset Transfer Rights contract
+ *
  * @author PWN Finance
+ *
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
  * ATR token can be used in lending protocols instead of an underlying asset
  */
@@ -45,6 +47,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Struct representing recipient permission to transfer asset to its PWN Wallet
+	 *
 	 * @param owner Wallet owner which is also a permission signer
 	 * @param wallet Address of PWN Wallet to which is the permission granted
 	 * @param nonce Additional nonce to distinguish same permissions
@@ -57,6 +60,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Last minted token id
+	 *
 	 * @dev First used token id is 1
 	 * If lastTokenId == 0, there is no ATR token minted yet
 	 */
@@ -64,18 +68,21 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Address of pwn wallet factory
+	 *
 	 * @dev Wallet factory is used to determine valid pwn wallet addresses
 	 */
 	PWNWalletFactory public walletFactory;
 
 	/**
 	 * @notice Mapping of ATR token id to underlying asset
+	 *
 	 * @dev (ATR token id => Asset)
 	 */
 	mapping (uint256 => MultiToken.Asset) internal _assets;
 
 	/**
 	 * @notice Mapping of address to set of ATR ids, that belongs to assets in the addresses pwn wallet
+	 *
 	 * @dev The ATR token itself doesn't have to be in the wallet
 	 * Used in PWNWallet to enumerate over all tokenized assets after execution of arbitrary calldata
 	 * (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
@@ -84,6 +91,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Balance of tokenized assets from asset contract in a wallet
+	 *
 	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
 	 * (owner => asset address => asset id => balance of tokenized assets currently in owners wallet)
 	 */
@@ -114,6 +122,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Contract constructor
+	 *
 	 * @dev Contract will deploy its own wallet factory to not have to define setter and access rights for the setter
 	 */
 	constructor() ERC721("Asset Transfer Rights", "ATR") {
@@ -205,6 +214,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Burn ATR token and "untokenize" that assets transfer rights
+	 *
 	 * @dev Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function
 	 *
 	 * @param atrTokenId ATR token id which should be burned
@@ -246,6 +256,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Transfer assets via ATR token to caller
+	 *
 	 * @dev Asset can be transferred only to caller
 	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
 	 * Caller has to be ATR token owner
@@ -274,6 +285,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Transfer assets via ATR token to recipient wallet
+	 *
 	 * @dev Asset can be transferred only to wallet that granted the permission
 	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
 	 * Caller has to be ATR token owner
@@ -314,7 +326,9 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @notice Revoke granted recipient permission to transfer asset to its PWN Wallet
+	 *
 	 * @dev Caller has to be permission signer
+	 *
 	 * @param permissionHash EIP-712 Structured hash of `RecipientPermission` struct
 	 * @param permissionSignature Signed `permissionHash` by wallet owner
 	 */
@@ -343,24 +357,64 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @dev Checks that caller has sufficient balance of tokenized assets.
 	 * Fails if tokenized balance is insufficient.
+	 *
+	 * @param owner Address to check its tokenized balance
 	 */
-	function checkTokenizedBalance() external view {
-		uint256[] memory atrs = ownedAssetATRIds();
+	function checkTokenizedBalance(address owner) external view {
+		uint256[] memory atrs = ownedAssetATRIds(owner);
 		for (uint256 i; i < atrs.length; ++i) {
 			MultiToken.Asset memory asset = getAsset(atrs[i]);
 
-			(, uint256 tokenizedBalance) = _ownedFromCollection[msg.sender][asset.assetAddress].tryGet(asset.id);
-			require(asset.balanceOf(msg.sender) >= tokenizedBalance, "Insufficient tokenized balance");
+			(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
+			require(asset.balanceOf(owner) >= tokenizedBalance, "Insufficient tokenized balance");
 		}
 	}
 
 
 	/*----------------------------------------------------------*|
-	|*  # UTILITY                                               *|
+	|*  # Confict resolution                                    *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @notice Recover PWN Wallets invalid tokenized balance
+	 *
+	 * @dev Invalid tokenized balance could happen only when an asset with tokenized transfer rights leaves the wallet non-standard way.
+	 * This function is meant to recover PWN Wallets affected by Stalking attack.
+	 * Stalking attack is type of attack where attacker transfer malicious tokenized asset to victims wallet
+	 * and then transfers it away through some non-standard way, leaving wallet in state, where every call of `execution` function
+	 * will fail on `Insufficient tokenized balance` error.
+	 *
+	 * @param owner PWN Wallet address with invalid tokenized balance
+	 * @param atrTokenId ATR token id representing underyling asset in question
+	 */
+	function recoverInvalidTokenizedBalance(address owner, uint256 atrTokenId) external {
+		// Check that asset is in callers wallet
+		require(_ownedAssetATRIds[owner].contains(atrTokenId), "Asset is not in callers wallet");
+
+		// Load asset
+		MultiToken.Asset memory asset = getAsset(atrTokenId);
+
+		// Get tokenized balance
+		(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
+
+		// Check if state is really invalid
+		require(asset.balanceOf(owner) < tokenizedBalance, "Tokenized balance is not invalid");
+
+		// Decrease tokenized balance
+		_decreaseTokenizedBalance(owner, asset);
+
+		// Remove ATR token id from tokenized asset set
+		_ownedAssetATRIds[owner].remove(atrTokenId);
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # VIEW                                                  *|
 	|*----------------------------------------------------------*/
 
 	/**
 	 * @param atrTokenId ATR token id
+	 *
 	 * @return Underlying asset of an ATR token
 	 */
 	function getAsset(uint256 atrTokenId) public view returns (MultiToken.Asset memory) {
@@ -368,18 +422,22 @@ contract AssetTransferRights is ERC721 {
 	}
 
 	/**
-	 * @return List of tokenized assets owned by caller represented by their ATR tokens
+	 * @param owner PWN Wallet address in question
+	 *
+	 * @return List of tokenized assets owned by `owner` represented by their ATR tokens
 	 */
-	function ownedAssetATRIds() public view returns (uint256[] memory) {
-		return _ownedAssetATRIds[msg.sender].values();
+	function ownedAssetATRIds(address owner) public view returns (uint256[] memory) {
+		return _ownedAssetATRIds[owner].values();
 	}
 
 	/**
+	 * @param owner PWN Wallet address in question
 	 * @param assetAddress Address of asset contract
-	 * @return Number of tokenized assets owned by caller from asset contract
+	 *
+	 * @return Number of tokenized assets owned by `owner` from asset contract
 	 */
-	function ownedFromCollection(address assetAddress) external view returns (uint256) {
-		return _ownedFromCollection[msg.sender][assetAddress].length();
+	function ownedFromCollection(address owner, address assetAddress) external view returns (uint256) {
+		return _ownedFromCollection[owner][assetAddress].length();
 	}
 
 
@@ -389,6 +447,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @dev Increase stored tokenized asset balances per user address
+	 *
 	 * @param owner Address owning `asset`
 	 * @param asset MultiToken Asset struct representing asset that should be added to tokenized balance
 	 */
@@ -403,6 +462,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @dev Decrease stored tokenized asset balances per user address
+	 *
 	 * @param owner Address owning `asset`
 	 * @param asset MultiToken Asset struct representing asset that should be deducted from tokenized balance
 	 */
@@ -423,6 +483,7 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @dev Process recipient permission checks
 	 * Signer has to be stated in a `RecipientPermission` struct as an owner
+	 *
 	 * @param permission Provided `RecipientPermission` struct to check
 	 * @param permissionSignature Signed `RecipientPermission` struct by wallet owner
 	 */
@@ -466,6 +527,7 @@ contract AssetTransferRights is ERC721 {
 
 	/**
 	 * @dev Process internal state of asset transfer
+	 *
 	 * @param from Address from which an asset will be transferred
 	 * @param to Address to which an asset will be transferred
 	 * @param atrTokenId Id of an ATR token which represents the underlying asset

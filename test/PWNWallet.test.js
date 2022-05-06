@@ -869,6 +869,22 @@ describe("PWNWallet", function() {
 	});
 
 
+	describe("Recover invalid tokenized balance", function() {
+
+		it("Should call recover invalid tokenized balance on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet.recoverInvalidTokenizedBalance(9939);
+
+			expect(fakeAtr.recoverInvalidTokenizedBalance).to.have.been.calledOnceWith(mockWallet.address, 9939);
+		});
+
+	});
+
+
 	describe("Transfer asset", function() {
 
 		const tokenId = 123;
