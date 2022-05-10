@@ -5,7 +5,7 @@
     "test": "npx hardhat test test/UseCases.test.js test/PWNWalletFactory.test.js test/AssetTransferRights.test.js test/PWNWallet.test.js"
   },
   "author": "PWN Finance",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "devDependencies": {
     "@defi-wonderland/smock": "^2.0.7",
     "@nomiclabs/hardhat-ethers": "^2.0.5",

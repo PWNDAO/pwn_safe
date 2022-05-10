@@ -348,6 +348,31 @@ describe("AssetTransferRights", function() {
 	});
 
 
+	describe("Mint batch", function() {
+
+		beforeEach(async function() {
+			await t721.mint(wallet.address, 322);
+			await t721.mint(wallet.address, 1231);
+		});
+
+
+		it("Should accept empty list", async function() {
+			await expect(
+				wallet.mintAssetTransferRightsTokenBatch([])
+			).to.not.be.reverted;
+		});
+
+		it("Should tokenized transfer rights of all items in a list", async function() {
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 322]);
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 1231]);
+
+			expect(await atr.ownerOf(1)).to.equal(wallet.address);
+			expect(await atr.ownerOf(2)).to.equal(wallet.address);
+		});
+
+	});
+
+
 	describe("Burn", function() {
 
 		const tokenId = 123;
@@ -413,6 +438,33 @@ describe("AssetTransferRights", function() {
 			await expect(
 				atr.ownerOf(1)
 			).to.be.reverted;
+		});
+
+	});
+
+
+	describe("Burn batch", function() {
+
+		beforeEach(async function() {
+			await t721.mint(wallet.address, 123);
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 123]);
+
+			await t721.mint(wallet.address, 321);
+			await wallet.mintAssetTransferRightsToken([t721.address, ERC721, 1, 321]);
+		});
+
+
+		it("Should accept empty list", async function() {
+			await expect(
+				wallet.burnAssetTransferRightsTokenBatch([])
+			).to.not.be.reverted;
+		});
+
+		it("Should burn asset transfer right token of all items in a list", async function() {
+			await wallet.burnAssetTransferRightsTokenBatch([1, 2]);
+
+			await expect(atr.ownerOf(1)).to.be.reverted;
+			await expect(atr.ownerOf(2)).to.be.reverted;
 		});
 
 	});

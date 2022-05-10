@@ -147,7 +147,7 @@ contract AssetTransferRights is ERC721 {
 	 * - in case of ERC721 assets, cannot tokenize approved asset, but other tokens can be approved
 	 * - in case of ERC20 assets, asset cannot have any approval
 	 */
-	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external {
+	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public {
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
@@ -213,6 +213,21 @@ contract AssetTransferRights is ERC721 {
 	}
 
 	/**
+	 * @notice Tokenize given asset batch transfer rights and mint ATR tokens
+	 *
+	 * @dev Function will iterate over given list and all `mintAssetTransferRightsToken` on each of them
+	 *
+	 * @param assets List of assets to tokenize theirs transfer rights
+	 *
+	 * Requirements: See {AssetTransferRights-mintAssetTransferRightsToken}.
+	 */
+	function mintAssetTransferRightsTokenBatch(MultiToken.Asset[] calldata assets) external {
+		for (uint256 i; i < assets.length; ++i) {
+			mintAssetTransferRightsToken(assets[i]);
+		}
+	}
+
+	/**
 	 * @notice Burn ATR token and "untokenize" that assets transfer rights
 	 *
 	 * @dev Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function
@@ -224,7 +239,7 @@ contract AssetTransferRights is ERC721 {
 	 * - caller has to be ATR token owner
 	 * - ATR token has to be in the same wallet as tokenized asset
 	 */
-	function burnAssetTransferRightsToken(uint256 atrTokenId) external {
+	function burnAssetTransferRightsToken(uint256 atrTokenId) public {
 		// Load asset
 		MultiToken.Asset memory asset = getAsset(atrTokenId);
 
@@ -247,6 +262,21 @@ contract AssetTransferRights is ERC721 {
 
 		// Burn ATR token
 		_burn(atrTokenId);
+	}
+
+	/**
+	 * @notice Burn ATR token list and "untokenize" assets transfer rights
+	 *
+	 * @dev Function will iterate over given list and all `burnAssetTransferRightsToken` on each of them
+	 *
+	 * @param atrTokenIds ATR token id list which should be burned
+	 *
+	 * Requirements: See {AssetTransferRights-burnAssetTransferRightsToken}.
+	 */
+	function burnAssetTransferRightsTokenBatch(uint256[] calldata atrTokenIds) external {
+		for (uint256 i; i < atrTokenIds.length; ++i) {
+			burnAssetTransferRightsToken(atrTokenIds[i]);
+		}
 	}
 
 

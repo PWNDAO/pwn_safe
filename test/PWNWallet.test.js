@@ -722,6 +722,28 @@ describe("PWNWallet", function() {
 	});
 
 
+	describe("Mint ATR token batch", function() {
+
+		it("Should fail when sender is not wallet owner", async function() {
+			await expect(
+				wallet.connect(other).mintAssetTransferRightsTokenBatch([[t721.address, ERC721, 1, 40]])
+			).to.be.revertedWith("Ownable: caller is not the owner");
+		});
+
+		it("Should call mint batch on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet.mintAssetTransferRightsTokenBatch([[t721.address, ERC721, 1, 40]]);
+
+			expect(fakeAtr.mintAssetTransferRightsTokenBatch).to.have.been.calledOnceWith([[t721.address, ERC721, 1, 40]]);
+		});
+
+	});
+
+
 	describe("Burn ATR token", function() {
 
 		it("Should fail when sender is not wallet owner", async function() {
@@ -739,6 +761,28 @@ describe("PWNWallet", function() {
 			await mockWallet.burnAssetTransferRightsToken(332);
 
 			expect(fakeAtr.burnAssetTransferRightsToken).to.have.been.calledOnceWith(332);
+		});
+
+	});
+
+
+	describe("Burn ATR token batch", function() {
+
+		it("Should fail when sender is not wallet owner", async function() {
+			await expect(
+				wallet.connect(other).burnAssetTransferRightsTokenBatch([332, 3232])
+			).to.be.revertedWith("Ownable: caller is not the owner");
+		});
+
+		it("Should call mint batch on ATR contract", async function() {
+			const fakeAtr = await smock.fake("AssetTransferRights");
+			const mockWalletFactory = await smock.mock("PWNWallet");
+			const mockWallet = await mockWalletFactory.deploy();
+			await mockWallet.initialize(owner.address, fakeAtr.address);
+
+			await mockWallet.burnAssetTransferRightsTokenBatch([332, 3232]);
+
+			expect(fakeAtr.burnAssetTransferRightsTokenBatch).to.have.been.calledOnceWith([332, 3232]);
 		});
 
 	});

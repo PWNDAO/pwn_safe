@@ -239,12 +239,30 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	}
 
 	/**
+	 * @dev See {AssetTransferRights-mintAssetTransferRightsTokenBatch}
+	 *
+	 * @param assets Asset struct list defined in MultiToken library. See {MultiToken-Asset}
+	 */
+	function mintAssetTransferRightsTokenBatch(MultiToken.Asset[] memory assets) external onlyOwner {
+		_atr.mintAssetTransferRightsTokenBatch(assets);
+	}
+
+	/**
 	 * @dev See {AssetTransferRights-burnAssetTransferRightsToken}
 	 *
 	 * @param atrTokenId ATR token id which should be burned
 	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) external onlyOwner {
 		_atr.burnAssetTransferRightsToken(atrTokenId);
+	}
+
+	/**
+	 * @dev See {AssetTransferRights-burnAssetTransferRightsTokenBatch}
+	 *
+	 * @param atrTokenIds ATR token id list which should be burned
+	 */
+	function burnAssetTransferRightsTokenBatch(uint256[] calldata atrTokenIds) external onlyOwner {
+		_atr.burnAssetTransferRightsTokenBatch(atrTokenIds);
 	}
 
 	/**
