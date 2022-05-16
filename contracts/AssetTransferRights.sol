@@ -137,15 +137,15 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @notice Tokenize given assets transfer rights and mint ATR token
 	 *
-	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
-	 *
-	 * Requirements:
+	 * @dev Requirements:
 	 *
 	 * - caller has to be PWNWallet
 	 * - cannot tokenize invalid asset. See {MultiToken-isValid}
 	 * - cannot have operator set for that asset contract (setApprovalForAll) (ERC721 / ERC1155)
 	 * - in case of ERC721 assets, cannot tokenize approved asset, but other tokens can be approved
 	 * - in case of ERC20 assets, asset cannot have any approval
+	 *
+	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
 	 */
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public {
 		// Check that asset address is not zero address
@@ -215,11 +215,10 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @notice Tokenize given asset batch transfer rights and mint ATR tokens
 	 *
-	 * @dev Function will iterate over given list and all `mintAssetTransferRightsToken` on each of them
+	 * @dev Function will iterate over given list and all `mintAssetTransferRightsToken` on each of them.
+	 * Requirements: See {AssetTransferRights-mintAssetTransferRightsToken}.
 	 *
 	 * @param assets List of assets to tokenize theirs transfer rights
-	 *
-	 * Requirements: See {AssetTransferRights-mintAssetTransferRightsToken}.
 	 */
 	function mintAssetTransferRightsTokenBatch(MultiToken.Asset[] calldata assets) external {
 		for (uint256 i; i < assets.length; ++i) {
@@ -230,14 +229,14 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @notice Burn ATR token and "untokenize" that assets transfer rights
 	 *
-	 * @dev Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function
-	 *
-	 * @param atrTokenId ATR token id which should be burned
+	 * @dev Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function.
 	 *
 	 * Requirements:
 	 *
 	 * - caller has to be ATR token owner
 	 * - ATR token has to be in the same wallet as tokenized asset
+	 *
+	 * @param atrTokenId ATR token id which should be burned
 	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) public {
 		// Load asset
@@ -267,11 +266,12 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @notice Burn ATR token list and "untokenize" assets transfer rights
 	 *
-	 * @dev Function will iterate over given list and all `burnAssetTransferRightsToken` on each of them
+	 * @dev Function will iterate over given list and all `burnAssetTransferRightsToken` on each of them.
+	 *
+	 * Requirements: See {AssetTransferRights-burnAssetTransferRightsToken}.
 	 *
 	 * @param atrTokenIds ATR token id list which should be burned
 	 *
-	 * Requirements: See {AssetTransferRights-burnAssetTransferRightsToken}.
 	 */
 	function burnAssetTransferRightsTokenBatch(uint256[] calldata atrTokenIds) external {
 		for (uint256 i; i < atrTokenIds.length; ++i) {
@@ -288,18 +288,18 @@ contract AssetTransferRights is ERC721 {
 	 * @notice Transfer assets via ATR token to caller
 	 *
 	 * @dev Asset can be transferred only to caller
-	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
-	 * Caller has to be ATR token owner
-	 *
-	 * @param from PWN Wallet address from which to transfer asset
-	 * @param atrTokenId ATR token id which is used for the transfer
-	 * @param burnToken Flag to burn ATR token in the same transaction
+	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet).
+	 * Caller has to be ATR token owner.
 	 *
 	 * Requirements:
 	 *
 	 * - caller has to be ATR token owner
 	 * - if `burnToken` is false, caller has to be PWN Wallet, otherwise it could be any address
 	 * - if `burnToken` is false, caller must not have any approvals for asset contract
+	 *
+	 * @param from PWN Wallet address from which to transfer asset
+	 * @param atrTokenId ATR token id which is used for the transfer
+	 * @param burnToken Flag to burn ATR token in the same transaction
 	 */
 	function transferAssetFrom(
 		address from,
@@ -316,21 +316,21 @@ contract AssetTransferRights is ERC721 {
 	/**
 	 * @notice Transfer assets via ATR token to recipient wallet
 	 *
-	 * @dev Asset can be transferred only to wallet that granted the permission
-	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet)
-	 * Caller has to be ATR token owner
-	 *
-	 * @param from PWN Wallet address from which to transfer asset
-	 * @param atrTokenId ATR token id which is used for the transfer
-	 * @param burnToken Flag to burn ATR token in the same transaction
-	 * @param permission `RecipientPermission` struct of permission data
-	 * @param permissionSignature Signed `RecipientPermission` struct signed by recipient
+	 * @dev Asset can be transferred only to wallet that granted the permission.
+	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet).
+	 * Caller has to be ATR token owner.
 	 *
 	 * Requirements:
 	 *
 	 * - caller has to be ATR token owner
 	 * - if `burnToken` is false, recipient has to be PWN Wallet, otherwise it could be any address
 	 * - if `burnToken` is false, recipient must not have any approvals for asset contract
+	 *
+	 * @param from PWN Wallet address from which to transfer asset
+	 * @param atrTokenId ATR token id which is used for the transfer
+	 * @param burnToken Flag to burn ATR token in the same transaction
+	 * @param permission `RecipientPermission` struct of permission data
+	 * @param permissionSignature Signed `RecipientPermission` struct signed by recipient
 	 */
 	function transferAssetWithPermissionFrom(
 		address from,

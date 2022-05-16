@@ -1,6 +1,7 @@
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
-require('dotenv').config();
+require("hardhat-docgen");
+require("dotenv").config();
 
 module.exports = {
   solidity: {
@@ -30,4 +31,10 @@ module.exports = {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
   },
+  docgen: {
+    path: './docs',
+    clear: true,
+    runOnCompile: true,
+    except: ["^contracts/test/", "^contracts/openzeppelin/"],
+  }
 };
