@@ -738,7 +738,7 @@ describe("AssetTransferRights", function() {
 			const atrTokenId = await mint721();
 
 			const permisisonHash = getPermissionHashBytes(permission, atr.address);
-			await atr.connect(owner).revokeRecipientPermisison(permisisonHash, permissionSignature);
+			await atr.connect(owner).revokeRecipientPermission(permisisonHash, permissionSignature);
 
 			await expect(
 				atr.connect(addr1).transferAssetWithPermissionFrom(walletOther.address, atrTokenId, false, permission, permissionSignature)
@@ -983,27 +983,27 @@ describe("AssetTransferRights", function() {
 
 		it("Should fail when caller didn't sign given permission", async function() {
 			await expect(
-				atr.connect(other).revokeRecipientPermisison(permissionHash, permissionSignature)
+				atr.connect(other).revokeRecipientPermission(permissionHash, permissionSignature)
 			).to.be.revertedWith("Sender is not a recipient permission signer");
 		});
 
 		it("Should fail when permission is already revoked", async function() {
-			await atr.revokeRecipientPermisison(permissionHash, permissionSignature);
+			await atr.revokeRecipientPermission(permissionHash, permissionSignature);
 
 			await expect(
-				atr.revokeRecipientPermisison(permissionHash, permissionSignature)
+				atr.revokeRecipientPermission(permissionHash, permissionSignature)
 			).to.be.revertedWith("Recipient permission is revoked");
 		});
 
 		it("Should revoke permission", async function() {
-			await atr.revokeRecipientPermisison(permissionHash, permissionSignature);
+			await atr.revokeRecipientPermission(permissionHash, permissionSignature);
 
 			expect(await atr.revokedPermissions(permissionHash)).to.be.true;
 		});
 
 		it("Should emit `RecipientPermissionRevoked` event", async function() {
 			await expect(
-				atr.revokeRecipientPermisison(permissionHash, permissionSignature)
+				atr.revokeRecipientPermission(permissionHash, permissionSignature)
 			).to.emit(atr, "RecipientPermissionRevoked").withArgs(
 				ethers.utils.hexValue(permissionHash)
 			);

@@ -362,7 +362,7 @@ contract AssetTransferRights is ERC721 {
 	 * @param permissionHash EIP-712 Structured hash of `RecipientPermission` struct
 	 * @param permissionSignature Signed `permissionHash` by wallet owner
 	 */
-	function revokeRecipientPermisison(
+	function revokeRecipientPermission(
 		bytes32 permissionHash,
 		bytes calldata permissionSignature
 	) external {
