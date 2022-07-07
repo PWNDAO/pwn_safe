@@ -104,7 +104,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 * @return Any response from a call as bytes
 	 */
 	function execute(address target, bytes calldata data) external payable onlyOwner returns (bytes memory) {
-		// Gen function selector from calldata
+		// Get function selector from calldata
 		bytes4 funcSelector;
 		assembly {
 			funcSelector := calldataload(data.offset)
