@@ -7,13 +7,13 @@ import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin-contracts/contracts/utils/structs/EnumerableMap.sol";
 import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
 import "MultiToken/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
-import "./openzeppelin/ERC165Checker.sol";
 
 /**
  * @title Asset Transfer Rights contract
@@ -158,7 +158,7 @@ contract AssetTransferRights is ERC721 {
 		if (asset.category == MultiToken.Category.ERC20) {
 
 			if (ERC165Checker.supportsERC165(asset.assetAddress)) {
-				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
+				require(ERC165Checker.supportsERC165InterfaceUnchecked(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
 
 			} else {
 
