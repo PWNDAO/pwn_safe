@@ -1,23 +1,6 @@
 {
   "name": "@pwnfinance/pwnwallet",
   "version": "0.1.0",
-  "scripts": {
-    "test": "npx hardhat test test/UseCases.test.js test/PWNWalletFactory.test.js test/AssetTransferRights.test.js test/PWNWallet.test.js"
-  },
   "author": "PWN Finance",
-  "license": "GPL-3.0-only",
-  "devDependencies": {
-    "@defi-wonderland/smock": "^2.0.7",
-    "@nomiclabs/hardhat-ethers": "^2.0.5",
-    "@nomiclabs/hardhat-waffle": "^2.0.2",
-    "@openzeppelin/contracts": "^4.5.0",
-    "@pwnfinance/multitoken": "1.1.0",
-    "chai": "^4.3.6",
-    "dotenv": "^16.0.0",
-    "ethereum-waffle": "^3.4.0",
-    "ethers": "^5.5.4",
-    "hardhat": "2.9.1",
-    "hardhat-docgen": "^1.3.0",
-    "hardhat-gas-reporter": "^1.0.8"
-  }
+  "license": "GPL-3.0-only"
 }
