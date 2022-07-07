@@ -253,7 +253,7 @@ contract AssetTransferRights is ERC721 {
 		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
 
 		// Clear asset data
-		_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
+		_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
 
 		// Update internal state
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in a wallet");
@@ -587,7 +587,7 @@ contract AssetTransferRights is ERC721 {
 
 		if (burnToken == true) {
 			// Burn the ATR token
-			_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
+			_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
 
 			_burn(atrTokenId);
 		} else {
