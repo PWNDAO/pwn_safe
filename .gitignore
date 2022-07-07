@@ -1,6 +1,6 @@
 .env
-node_modules
+.idea
 
-#Hardhat files
+broadcast
 cache
-artifacts
+out
