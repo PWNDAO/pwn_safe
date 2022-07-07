@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import "openzeppelin-contracts/contracts/proxy/Clones.sol";
 import "./PWNWallet.sol";
 
 /**

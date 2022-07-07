@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.9;
 
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 
 
 

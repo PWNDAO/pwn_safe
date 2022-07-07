@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import "@pwnfinance/multitoken/contracts/MultiToken.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
+import "MultiToken/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
 import "./openzeppelin/ERC165Checker.sol";
