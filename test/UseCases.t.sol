@@ -11,6 +11,10 @@ import "../src/test/T1155.sol";
 import "MultiToken/MultiToken.sol";
 
 
+/*----------------------------------------------------------*|
+|*  # ERC20                                                 *|
+|*----------------------------------------------------------*/
+
 contract UseCases_ERC20_Test is Test {
 
 	AssetTransferRights atr = new AssetTransferRights();
@@ -206,6 +210,10 @@ contract UseCases_ERC20_Test is Test {
 }
 
 
+/*----------------------------------------------------------*|
+|*  # ERC721                                                *|
+|*----------------------------------------------------------*/
+
 contract UseCases_ERC721_Test is Test {
 
 	AssetTransferRights atr = new AssetTransferRights();
@@ -370,6 +378,10 @@ contract UseCases_ERC721_Test is Test {
 
 }
 
+
+/*----------------------------------------------------------*|
+|*  # ERC1155                                               *|
+|*----------------------------------------------------------*/
 
 contract UseCases_ERC1155_Test is Test {
 
