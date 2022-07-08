@@ -74,13 +74,15 @@ contract PWNWalletFactory {
 	 * @dev Deploy minimal proxy contract and point it to wallets master implementation.
 	 * Emits {NewWallet} event.
 	 */
-	function newWallet() external {
+	function newWallet() external returns (address) {
 		address walletAddress = _masterImplementation.clone();
 		isValidWallet[walletAddress] = true;
 
 		PWNWallet(walletAddress).initialize(msg.sender, _atr);
 
 		emit NewWallet(walletAddress, msg.sender);
+
+		return walletAddress;
 	}
 
 }
