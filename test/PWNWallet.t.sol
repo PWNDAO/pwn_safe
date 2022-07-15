@@ -4,7 +4,6 @@ pragma solidity 0.8.15;
 import "forge-std/Test.sol";
 import "../src/AssetTransferRights.sol";
 import "../src/PWNWallet.sol";
-import "../src/PWNWalletFactory.sol";
 import "../src/test/T20.sol";
 import "../src/test/T721.sol";
 import "../src/test/T777.sol";
@@ -16,15 +15,14 @@ import "MultiToken/MultiToken.sol";
 
 abstract contract PWNWalletTest is Test {
 
-	AssetTransferRights atr;
-	PWNWalletFactory factory;
 	PWNWallet wallet;
 	PWNWallet walletOther;
 	T20 t20;
 	T721 t721;
 	T777 t777;
 	T1155 t1155;
-	T1363 t11363;
+	T1363 t1363;
+	address constant atr = address(0x0a15);
 	address constant alice = address(0xa11ce);
 	address constant bob = address(0xb0b);
 	address constant notOwner = address(0xffff);
@@ -38,20 +36,23 @@ abstract contract PWNWalletTest is Test {
 			abi.encodeWithSignature("getInterfaceImplementer(address,bytes32)"),
 			abi.encode(address(0))
 		);
+
+		vm.etch(atr, bytes("data"));
 	}
 
 	function superSetUp() internal {
-		atr = new AssetTransferRights();
-		factory = PWNWalletFactory(atr.walletFactory());
-		wallet = PWNWallet(factory.newWallet());
-		walletOther = PWNWallet(factory.newWallet());
+		wallet = new PWNWallet();
+		wallet.initialize(address(this), atr);
+
+		walletOther = new PWNWallet();
+		walletOther.initialize(address(this), atr);
 
 		t20 = new T20();
 		t721 = new T721();
 		address[] memory defaultOperators;
 		t777 = new T777(defaultOperators);
 		t1155 = new T1155();
-		t11363 = new T1363();
+		t1363 = new T1363();
 	}
 
 }
@@ -88,7 +89,7 @@ contract PWNWallet_Execute_Test is PWNWalletTest {
 		vm.expectCall(
 			address(atr),
 			0,
-			abi.encodeWithSelector(atr.checkTokenizedBalance.selector, address(wallet))
+			abi.encodeWithSelector(AssetTransferRights.checkTokenizedBalance.selector, address(wallet))
 		);
 		wallet.execute(
 			address(t721),
@@ -99,43 +100,223 @@ contract PWNWallet_Execute_Test is PWNWalletTest {
 
 	// ---> Approvals when not tokenized
 	function test_shouldApproveERC20_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t20),
+			abi.encodeWithSelector(t20.approve.selector),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t20),
+			abi.encodeWithSelector(t20.approve.selector, alice, 300e18)
+		);
+		wallet.execute(
+			address(t20),
+			abi.encodeWithSelector(t20.approve.selector, alice, 300e18)
+		);
 	}
 
 	function test_shouldIncreaseAllowanceERC20_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t20),
+			abi.encodeWithSelector(t20.increaseAllowance.selector),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t20),
+			abi.encodeWithSelector(t20.increaseAllowance.selector, alice, 300e18)
+		);
+		wallet.execute(
+			address(t20),
+			abi.encodeWithSelector(t20.increaseAllowance.selector, alice, 300e18)
+		);
 	}
 
 	function test_shouldDecreaseAllowanceERC20_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t20),
+			abi.encodeWithSelector(t20.decreaseAllowance.selector),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t20),
+			abi.encodeWithSelector(t20.decreaseAllowance.selector, alice, 300e18)
+		);
+		wallet.execute(
+			address(t20),
+			abi.encodeWithSelector(t20.decreaseAllowance.selector, alice, 300e18)
+		);
 	}
 
 	function test_shouldAuthorizeOperatorERC777_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t777),
+			abi.encodeWithSelector(t777.authorizeOperator.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t777),
+			abi.encodeWithSelector(t777.authorizeOperator.selector, alice)
+		);
+		wallet.execute(
+			address(t777),
+			abi.encodeWithSelector(t777.authorizeOperator.selector, alice)
+		);
 	}
 
 	function test_shouldRevokeOperatorERC777_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t777),
+			abi.encodeWithSelector(t777.revokeOperator.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t777),
+			abi.encodeWithSelector(t777.revokeOperator.selector, alice)
+		);
+		wallet.execute(
+			address(t777),
+			abi.encodeWithSelector(t777.revokeOperator.selector, alice)
+		);
 	}
 
 	function test_shouldApproveAndCallERC1363_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t1363),
+			abi.encodeWithSignature("approveAndCall(address,uint256)"),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t1363),
+			abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 300e18)
+		);
+		wallet.execute(
+			address(t1363),
+			abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 300e18)
+		);
 	}
 
 	function test_shouldApproveAndCallWithBytesERC1363_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t1363),
+			abi.encodeWithSignature("approveAndCall(address,uint256,bytes)"),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t1363),
+			abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 300e18, "some data")
+		);
+		wallet.execute(
+			address(t1363),
+			abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 300e18, "some data")
+		);
 	}
 
 	function test_shouldApproveERC721_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t721),
+			abi.encodeWithSelector(t721.approve.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t721),
+			abi.encodeWithSelector(t721.approve.selector, alice, 42)
+		);
+		wallet.execute(
+			address(t721),
+			abi.encodeWithSelector(t721.approve.selector, alice, 42)
+		);
 	}
 
 	function test_shouldApproveForAllERC721_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t721),
+			abi.encodeWithSelector(t721.setApprovalForAll.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t721),
+			abi.encodeWithSelector(t721.setApprovalForAll.selector, alice, true)
+		);
+		wallet.execute(
+			address(t721),
+			abi.encodeWithSelector(t721.setApprovalForAll.selector, alice, true)
+		);
 	}
 
 	function test_shouldApproveForAllERC1155_whenNotTokenized() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.ownedFromCollection.selector),
+			abi.encode(uint256(0))
+		);
+		vm.mockCall(
+			address(t1155),
+			abi.encodeWithSelector(t1155.setApprovalForAll.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t1155),
+			abi.encodeWithSelector(t1155.setApprovalForAll.selector, alice, true)
+		);
+		wallet.execute(
+			address(t1155),
+			abi.encodeWithSelector(t1155.setApprovalForAll.selector, alice, true)
+		);
 	}
 	// <--- Approvals when not tokenized
 
