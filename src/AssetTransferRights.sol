@@ -560,6 +560,9 @@ contract AssetTransferRights is ERC721 {
 
 		// Mark used permission as revoked
 		revokedPermissions[permissionHash] = true;
+
+		// Emit event
+		emit RecipientPermissionRevoked(permissionHash);
 	}
 
 	/**
