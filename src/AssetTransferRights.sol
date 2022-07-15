@@ -387,7 +387,7 @@ contract AssetTransferRights is ERC721 {
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @dev Checks that caller has sufficient balance of tokenized assets.
+	 * @dev Checks that address has sufficient balance of tokenized assets.
 	 * Fails if tokenized balance is insufficient.
 	 *
 	 * @param owner Address to check its tokenized balance
@@ -472,6 +472,28 @@ contract AssetTransferRights is ERC721 {
 		return _ownedFromCollection[owner][assetAddress].length();
 	}
 
+	/// TODO: Doc
+	function recipientPermissionHash(RecipientPermission calldata permission) public view returns (bytes32) {
+		return keccak256(abi.encodePacked(
+			"\x19\x01",
+			// Domain separator is composing to prevent repay attack in case of an Ethereum fork
+			keccak256(abi.encode(
+				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+				keccak256(bytes("ATR")), // ?
+				keccak256(bytes("0.1")),
+				block.chainid,
+				address(this)
+			)),
+			// Compute recipient permission struct hash according to EIP-712
+			keccak256(abi.encode(
+				RECIPIENT_PERMISSION_TYPEHASH,
+				permission.owner,
+				permission.wallet,
+				permission.nonce
+			))
+		));
+	}
+
 
 	/*----------------------------------------------------------*|
 	|*  # PRIVATE                                               *|
@@ -524,24 +546,7 @@ contract AssetTransferRights is ERC721 {
 		bytes calldata permissionSignature
 	) private {
 		// Compute EIP-712 structured data hash
-		bytes32 permissionHash = keccak256(abi.encodePacked(
-			"\x19\x01",
-			// Domain separator is composing to prevent repay attack in case of an Ethereum fork
-			keccak256(abi.encode(
-				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-				keccak256(bytes("ATR")), // ?
-				keccak256(bytes("0.1")),
-				block.chainid,
-				address(this)
-			)),
-			// Compute recipient permission struct hash according to EIP-712
-			keccak256(abi.encode(
-				RECIPIENT_PERMISSION_TYPEHASH,
-				permission.owner,
-				permission.wallet,
-				permission.nonce
-			))
-		));
+		bytes32 permissionHash = recipientPermissionHash(permission);
 
 		// Check valid signature
 		if (permission.owner.code.length > 0) {
