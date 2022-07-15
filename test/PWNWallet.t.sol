@@ -68,15 +68,32 @@ contract PWNWallet_Execute_Test is PWNWalletTest {
 
 	// ---> Basic checks
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.execute(
+			address(t721),
+			abi.encodeWithSelector(t721.transferFrom.selector, alice, bob, 42)
+		);
 	}
 
 	function test_shouldFailWithExecutionRevertMessage() external {
-
+		vm.expectRevert("50m3 6u5t0m err0r m3ssag3");
+		wallet.execute(
+			address(t721),
+			abi.encodeWithSelector(t721.revertWithMessage.selector)
+		);
 	}
 
 	function test_shouldCallTokenizedBalanceCheck() external {
-
+		vm.expectCall(
+			address(atr),
+			0,
+			abi.encodeWithSelector(atr.checkTokenizedBalance.selector, address(wallet))
+		);
+		wallet.execute(
+			address(t721),
+			abi.encodeWithSelector(t721.foo.selector)
+		);
 	}
 	// <--- Basic checks
 
