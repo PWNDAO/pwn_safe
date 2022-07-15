@@ -147,7 +147,7 @@ contract AssetTransferRights is ERC721 {
 	 *
 	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
 	 */
-	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public {
+	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public returns (uint256) {
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
@@ -210,6 +210,8 @@ contract AssetTransferRights is ERC721 {
 
 		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
+
+		return atrTokenId;
 	}
 
 	/**

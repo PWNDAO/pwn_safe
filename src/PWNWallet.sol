@@ -234,8 +234,8 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 *
 	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
 	 */
-	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external onlyOwner {
-		_atr.mintAssetTransferRightsToken(asset);
+	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external onlyOwner returns (uint256) {
+		return _atr.mintAssetTransferRightsToken(asset);
 	}
 
 	/**
