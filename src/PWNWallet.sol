@@ -38,7 +38,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	/**
 	 * @notice Set of operators per asset address
-	 * @dev Operator is any address that can trasnfer asset on behalf of an owner
+	 * @dev Operator is any address that can transfer asset on behalf of an owner
 	 * @dev Could have allowance (ERC20) or could approval for all owned assets (ERC721/1155-setApprovalForAll)
 	 * @dev Operator is not address approved to transfer concrete ERC721 asset. This approvals are not tracked by wallet.
 	 */
