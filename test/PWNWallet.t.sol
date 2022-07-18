@@ -1190,8 +1190,32 @@ contract PWNWallet_ResolveInvalidApproval_Test is PWNWalletTest {
 	}
 
 
-	function test_shouldResolveInvalidApproval_whenERC20TransferredByApprovedAddress() external {
+	function test_shouldRemoveOperator_whenERC20AllowanceIsZero() external {
+		_mockOperator(address(wallet), address(t20), alice);
 
+		vm.mockCall(
+			address(t20),
+			abi.encodeWithSelector(t20.allowance.selector),
+			abi.encode(uint256(0))
+		);
+
+		wallet.resolveInvalidApproval(address(t20), alice);
+
+		_checkOperator(address(wallet), address(t20), address(0));
+	}
+
+	function test_shouldKeepOperator_whenERC20AllowanceIsNotZero() external {
+		_mockOperator(address(wallet), address(t20), alice);
+
+		vm.mockCall(
+			address(t20),
+			abi.encodeWithSelector(t20.allowance.selector),
+			abi.encode(uint256(10))
+		);
+
+		wallet.resolveInvalidApproval(address(t20), alice);
+
+		_checkOperator(address(wallet), address(t20), alice);
 	}
 
 }
