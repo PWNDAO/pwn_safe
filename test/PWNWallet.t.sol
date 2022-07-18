@@ -897,11 +897,26 @@ contract PWNWallet_MintATRToken_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 2, 1)
+		);
 	}
 
 	function test_shouldCallMintOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.mintAssetTransferRightsToken.selector),
+			abi.encode(4)
+		);
 
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 2, 1);
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.mintAssetTransferRightsToken.selector, asset)
+		);
+		wallet.mintAssetTransferRightsToken(asset);
 	}
 
 }
