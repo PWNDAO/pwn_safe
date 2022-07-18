@@ -92,25 +92,25 @@ abstract contract PWNWalletTest is Test {
 		);
 	}
 
-	function _mockOperator(address wallet, address collection, address operator) internal {
+	function _mockOperator(address walletAddr, address collection, address operator) internal {
 		// Mock stored operator
 		vm.store( // Operators set size
-			wallet, _operatorsSlotFor(collection), bytes32(uint256(1))
+			walletAddr, _operatorsSlotFor(collection), bytes32(uint256(1))
 		);
 		vm.store( // Operator value
-			wallet, _operatorsValuesSlotFor(collection), bytes32(uint256(uint160(operator)))
+			walletAddr, _operatorsValuesSlotFor(collection), bytes32(uint256(uint160(operator)))
 		);
 		vm.store( // Operator index
-			wallet, _operatorsIndexSlotFor(collection, operator), bytes32(uint256(1))
+			walletAddr, _operatorsIndexSlotFor(collection, operator), bytes32(uint256(1))
 		);
 	}
 
-	function _checkOperator(address wallet, address collection, address operator) internal {
+	function _checkOperator(address walletAddr, address collection, address operator) internal {
 		bytes32 operatorsCount = vm.load(
-			wallet, _operatorsSlotFor(collection)
+			walletAddr, _operatorsSlotFor(collection)
 		);
 		bytes32 operators = vm.load(
-			wallet, _operatorsValuesSlotFor(collection)
+			walletAddr, _operatorsValuesSlotFor(collection)
 		);
 		assertEq(uint256(operatorsCount), operator == address(0) ? 0 : 1);
 		assertEq(address(uint160(uint256(operators) + 0)), operator);
