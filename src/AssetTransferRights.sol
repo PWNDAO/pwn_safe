@@ -146,6 +146,8 @@ contract AssetTransferRights is ERC721 {
 	 * - in case of ERC20 assets, asset cannot have any approval
 	 *
 	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
+	 *
+	 * @return Id of newly minted ATR token
 	 */
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public returns (uint256) {
 		// Check that asset address is not zero address
