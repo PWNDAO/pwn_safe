@@ -1012,11 +1012,33 @@ contract PWNWallet_BurnATRTokenBatch_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
+		uint256[] memory ids = new uint256[](3);
+		ids[0] = 392;
+		ids[1] = 1;
+		ids[2] = 9391023;
 
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.burnAssetTransferRightsTokenBatch(ids);
 	}
 
 	function test_shouldCallBurnBatchOnATRContract() external {
+		uint256[] memory ids = new uint256[](3);
+		ids[0] = 392;
+		ids[1] = 1;
+		ids[2] = 9391023;
 
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.burnAssetTransferRightsTokenBatch.selector),
+			abi.encode("")
+		);
+
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.burnAssetTransferRightsTokenBatch.selector, ids)
+		);
+		wallet.burnAssetTransferRightsTokenBatch(ids);
 	}
 }
 
