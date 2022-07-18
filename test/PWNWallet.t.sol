@@ -934,11 +934,33 @@ contract PWNWallet_MintATRTokenBatch_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](3);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 2, 1);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 3, 1);
+		assets[2] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 4, 1);
 
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.mintAssetTransferRightsTokenBatch(assets);
 	}
 
 	function test_shouldCallMintBatchOnATRContract() external {
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](3);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 2, 1);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 3, 1);
+		assets[2] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 4, 1);
 
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.mintAssetTransferRightsTokenBatch.selector),
+			abi.encode("")
+		);
+
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.mintAssetTransferRightsTokenBatch.selector, assets)
+		);
+		wallet.mintAssetTransferRightsTokenBatch(assets);
 	}
 
 }
