@@ -1040,6 +1040,7 @@ contract PWNWallet_BurnATRTokenBatch_Test is PWNWalletTest {
 		);
 		wallet.burnAssetTransferRightsTokenBatch(ids);
 	}
+
 }
 
 
@@ -1055,12 +1056,25 @@ contract PWNWallet_TransferAssetFrom_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.transferAssetFrom(address(walletOther), 42, true);
 	}
 
 	function test_shouldCallTransferAssetFromOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.transferAssetFrom.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.transferAssetFrom.selector, address(walletOther), 42, true)
+		);
+		wallet.transferAssetFrom(address(walletOther), 42, true);
 	}
+
 }
 
 
