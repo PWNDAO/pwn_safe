@@ -1261,27 +1261,101 @@ contract PWNWallet_TransferAsset_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotATRContract() external {
-
+		vm.expectRevert("Caller is not asset transfer rights contract");
+		wallet.transferAsset(
+			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1),
+			alice
+		);
 	}
 
 	function test_shouldTransferERC20() external {
+		vm.mockCall(
+			address(t20),
+			abi.encodeWithSelector(t20.transfer.selector),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t20),
+			abi.encodeWithSelector(t20.transfer.selector, alice, 100e18)
+		);
+		vm.prank(atr);
+		wallet.transferAsset(
+			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 100e18),
+			alice
+		);
 	}
 
 	function test_shouldTransferERC777() external {
+		vm.mockCall(
+			address(t777),
+			abi.encodeWithSelector(t777.transfer.selector),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t777),
+			abi.encodeWithSelector(t777.transfer.selector, alice, 100e18)
+		);
+		vm.prank(atr);
+		wallet.transferAsset(
+			MultiToken.Asset(MultiToken.Category.ERC20, address(t777), 0, 100e18),
+			alice
+		);
 	}
 
 	function test_shouldTransferERC1363() external {
+		vm.mockCall(
+			address(t1363),
+			abi.encodeWithSelector(t1363.transfer.selector),
+			abi.encode(true)
+		);
 
+		vm.expectCall(
+			address(t1363),
+			abi.encodeWithSelector(t1363.transfer.selector, alice, 100e18)
+		);
+		vm.prank(atr);
+		wallet.transferAsset(
+			MultiToken.Asset(MultiToken.Category.ERC20, address(t1363), 0, 100e18),
+			alice
+		);
 	}
 
 	function test_shouldTransferERC721() external {
+		vm.mockCall(
+			address(t721),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256)"),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t721),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(wallet), alice, 42)
+		);
+		vm.prank(atr);
+		wallet.transferAsset(
+			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1),
+			alice
+		);
 	}
 
 	function test_shouldTransferERC1155() external {
+		vm.mockCall(
+			address(t1155),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256,uint256,bytes)"),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(t1155),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256,uint256,bytes)", address(wallet), alice, 42, 100, "")
+		);
+		vm.prank(atr);
+		wallet.transferAsset(
+			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 100),
+			alice
+		);
 	}
 
 }
