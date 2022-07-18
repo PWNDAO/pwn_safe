@@ -978,11 +978,23 @@ contract PWNWallet_BurnATRToken_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.burnAssetTransferRightsToken(102);
 	}
 
 	function test_shouldCallBurnOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.burnAssetTransferRightsToken.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.burnAssetTransferRightsToken.selector, 102)
+		);
+		wallet.burnAssetTransferRightsToken(102);
 	}
 
 }
