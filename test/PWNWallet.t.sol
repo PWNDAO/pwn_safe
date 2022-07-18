@@ -1233,7 +1233,17 @@ contract PWNWallet_RecoverInvalidTokenizedBalance_Test is PWNWalletTest {
 
 
 	function test_shouldCallRecoverInvalidTokenizedBalanceOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.recoverInvalidTokenizedBalance.selector),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSelector(AssetTransferRights.recoverInvalidTokenizedBalance.selector, address(wallet), 42)
+		);
+		wallet.recoverInvalidTokenizedBalance(42);
 	}
 
 }
