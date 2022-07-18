@@ -882,66 +882,6 @@ contract PWNWallet_Execute_Test is PWNWalletTest {
 		_checkOperator(address(wallet), address(t1155), address(0));
 	}
 	// <--- Set / remove operator
-
-	// ---> Transfers not tokenized transfer rights
-	function test_shouldTransferERC20_whenNotTokenized() external {
-
-	}
-
-	function test_shouldTransferERC777_whenNotTokenized() external {
-
-	}
-
-	function test_shouldTransferERC1363_whenNotTokenized() external {
-
-	}
-
-	function test_shouldTransferERC721_whenNotTokenized() external {
-
-	}
-
-	function test_shouldTransferERC1155_whenNotTokenized() external {
-
-	}
-	// <--- Transfers not tokenized transfer rights
-
-	// ---> Transfers tokenized transfer rights
-	function test_shouldTransferERC20_whenEnoughUntokenized() external {
-
-	}
-
-	function test_shouldFailToTransferERC20_whenNotEnoughUntokenized() external {
-
-	}
-
-	function test_shouldTransferERC777_whenEnoughUntokenized() external {
-
-	}
-
-	function test_shouldFailToTransferERC777_whenNotEnoughUntokenized() external {
-
-	}
-
-	function test_shouldTransferERC1363_whenEnoughUntokenized() external {
-
-	}
-
-	function test_shouldFailToTransferERC1363_whenNotEnoughUntokenized() external {
-
-	}
-
-	function test_shouldFailToTransferERC721_whenTokenized() external {
-
-	}
-
-	function test_shouldTransferERC1155_whenEnoughUntokenizedForId() external {
-
-	}
-
-	function test_shouldFailToTransferERC1155_whenNotEnoughUntokenizedForId() external {
-
-	}
-	// <--- Transfers tokenized transfer rights
 }
 
 
