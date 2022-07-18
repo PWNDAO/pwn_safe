@@ -1090,11 +1090,23 @@ contract PWNWallet_TransferATRTokenFrom_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.transferAtrTokenFrom(address(walletOther), address(wallet), 42);
 	}
 
 	function test_shouldCallTransferFromOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSignature("transferFrom(address,address,uint256)"),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSignature("transferFrom(address,address,uint256)", address(walletOther), address(wallet), 42)
+		);
+		wallet.transferAtrTokenFrom(address(walletOther), address(wallet), 42);
 	}
 
 }
@@ -1112,11 +1124,23 @@ contract PWNWallet_SafeTransferATRTokenFrom_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.safeTransferAtrTokenFrom(address(walletOther), address(wallet), 42);
 	}
 
 	function test_shouldCallSafeTransferFromOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256)"),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(walletOther), address(wallet), 42)
+		);
+		wallet.safeTransferAtrTokenFrom(address(walletOther), address(wallet), 42);
 	}
 }
 
@@ -1133,11 +1157,23 @@ contract PWNWallet_SafeTransferATRTokenFromWithBytes_Test is PWNWalletTest {
 
 
 	function test_shouldFail_whenSenderIsNotWalletOwner() external {
-
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		wallet.safeTransferAtrTokenFrom(address(walletOther), address(wallet), 42, "some data");
 	}
 
 	function test_shouldCallSafeTransferFromWithBytesOnATRContract() external {
+		vm.mockCall(
+			address(atr),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256,bytes)"),
+			abi.encode("")
+		);
 
+		vm.expectCall(
+			address(atr),
+			abi.encodeWithSignature("safeTransferFrom(address,address,uint256,bytes)", address(walletOther), address(wallet), 42, "bytes bro")
+		);
+		wallet.safeTransferAtrTokenFrom(address(walletOther), address(wallet), 42, "bytes bro");
 	}
 
 }
