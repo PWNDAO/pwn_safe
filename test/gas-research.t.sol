@@ -137,7 +137,7 @@ contract GasResearch_TransferAsset_Test is GasResearchTest {
 			left = gasleft();
 			wallet.execute(
 				address(atr),
-				abi.encodeWithSignature("transferFrom(address,address,uint256)", address(wallet), alice, atrId)
+				abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(wallet), alice, atrId)
 			);
 
 			emit log_uint(left - gasleft());
@@ -158,7 +158,7 @@ contract GasResearch_TransferAsset_Test is GasResearchTest {
 			left = gasleft();
 			wallet.execute(
 				address(atr),
-				abi.encodeWithSignature("transferFrom(address,address,uint256)", address(wallet), alice, atrId)
+				abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(wallet), alice, atrId)
 			);
 
 			emit log_uint(left - gasleft());
@@ -179,7 +179,7 @@ contract GasResearch_TransferAsset_Test is GasResearchTest {
 			left = gasleft();
 			wallet.execute(
 				address(atr),
-				abi.encodeWithSignature("transferFrom(address,address,uint256)", address(wallet), alice, atrId)
+				abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(wallet), alice, atrId)
 			);
 
 			emit log_uint(left - gasleft());
@@ -200,7 +200,7 @@ contract GasResearch_TransferAsset_Test is GasResearchTest {
 			left = gasleft();
 			wallet.execute(
 				address(atr),
-				abi.encodeWithSignature("transferFrom(address,address,uint256)", address(wallet), alice, atrId)
+				abi.encodeWithSignature("safeTransferFrom(address,address,uint256)", address(wallet), alice, atrId)
 			);
 
 			emit log_uint(left - gasleft());
