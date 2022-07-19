@@ -1365,7 +1365,7 @@ contract PWNWallet_TransferAsset_Test is PWNWalletTest {
 |*  # HAS OPERATOR FOR                                      *|
 |*----------------------------------------------------------*/
 
-contract PWNWallet_HasOperatorFor_Test is PWNWalletTest {
+contract PWNWallet_HasApprovalsFor_Test is PWNWalletTest {
 
 	function setUp() external {
 		superSetUp();
@@ -1373,15 +1373,33 @@ contract PWNWallet_HasOperatorFor_Test is PWNWalletTest {
 
 
 	function test_shouldReturnTrue_whenCollectionHasOperator() external {
+		_mockOperator(address(wallet), address(t20), alice);
 
+		bool hasApproval = wallet.hasApprovalsFor(address(t20));
+
+		assertEq(hasApproval, true);
 	}
 
-	function test_shouldReturnTrue_whenERC77WithDefaultOperator() external {
+	function test_shouldReturnTrue_whenERC777WithDefaultOperator() external {
+		address[] memory defaultOperators = new address[](1);
+		defaultOperators[0] = alice;
+		t777 = new T777(defaultOperators);
 
+		vm.mockCall(
+			erc1820Registry,
+			abi.encodeWithSignature("getInterfaceImplementer(address,bytes32)"),
+			abi.encode(address(t777))
+		);
+
+		bool hasApproval = wallet.hasApprovalsFor(address(t777));
+
+		assertEq(hasApproval, true);
 	}
 
 	function test_shouldReturnFalse_whenCollectionHasNoOperator() external {
+		bool hasApproval = wallet.hasApprovalsFor(address(t20));
 
+		assertEq(hasApproval, false);
 	}
 
 }
