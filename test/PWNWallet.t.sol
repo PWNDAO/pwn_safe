@@ -4,12 +4,16 @@ pragma solidity 0.8.15;
 import "forge-std/Test.sol";
 import "../src/AssetTransferRights.sol";
 import "../src/PWNWallet.sol";
+import "../src/IPWNWallet.sol";
 import "../src/test/T20.sol";
 import "../src/test/T721.sol";
 import "../src/test/T777.sol";
 import "../src/test/T1155.sol";
 import "../src/test/T1363.sol";
 import "../src/test/ContractWallet.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import "MultiToken/MultiToken.sol";
 
 
@@ -1417,7 +1421,9 @@ contract PWNWallet_IERC721Receiver_Test is PWNWalletTest {
 
 
 	function test_shouldReturnCorrectValue_whenOnERC721Received() external {
+		bytes4 value = wallet.onERC721Received(address(0), address(0), 123, "");
 
+		assertEq(value, IERC721Receiver.onERC721Received.selector);
 	}
 
 }
@@ -1435,11 +1441,17 @@ contract PWNWallet_IERC1155Receiver_Test is PWNWalletTest {
 
 
 	function test_shouldReturnCorrectValue_whenOnERC1155Received() external {
+		bytes4 value = wallet.onERC1155Received(address(0), address(0), 123, 3300, "");
 
+		assertEq(value, IERC1155Receiver.onERC1155Received.selector);
 	}
 
 	function test_shouldReturnCorrectValue_whenOnERC1155BatchReceived() external {
+		uint256[] memory ids;
+		uint256[] memory values;
+		bytes4 value = wallet.onERC1155BatchReceived(address(0), address(0), ids, values, "");
 
+		assertEq(value, IERC1155Receiver.onERC1155BatchReceived.selector);
 	}
 
 }
@@ -1457,19 +1469,31 @@ contract PWNWallet_SupportsInterface_Test is PWNWalletTest {
 
 
 	function test_shouldSupport_IPWNWallet() external {
-
+		assertEq(
+			wallet.supportsInterface(type(IPWNWallet).interfaceId),
+			true
+		);
 	}
 
 	function test_shouldSupport_IERC721Receiver() external {
-
+		assertEq(
+			wallet.supportsInterface(type(IERC721Receiver).interfaceId),
+			true
+		);
 	}
 
 	function test_shouldSupport_IERC1155Receiver() external {
-
+		assertEq(
+			wallet.supportsInterface(type(IERC1155Receiver).interfaceId),
+			true
+		);
 	}
 
 	function test_shouldSupport_IERC165() external {
-
+		assertEq(
+			wallet.supportsInterface(type(IERC165).interfaceId),
+			true
+		);
 	}
 
 }
