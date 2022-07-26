@@ -6,11 +6,25 @@ import "../src/PWNWallet.sol";
 import "../src/PWNWalletFactory.sol";
 
 
+contract PWNWalletFactoryTest is Test {
+
+	function _validWalletSlotFor(address walletAddr) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				walletAddr, // Wallet address as a mapping key
+				uint256(0) // isValidWallet mapping position
+			)
+		);
+	}
+
+}
+
+
 /*----------------------------------------------------------*|
 |*  # NEW WALLET                                            *|
 |*----------------------------------------------------------*/
 
-contract PWNWalletFactory_newWallet_Test is Test {
+contract PWNWalletFactory_newWallet_Test is PWNWalletFactoryTest {
 
 	PWNWalletFactory factory;
 	address constant atr = address(0xa74);
@@ -27,8 +41,8 @@ contract PWNWalletFactory_newWallet_Test is Test {
 
 		// Minimal proxy code should mathce regex 0x363d3d373d3d3d363d73.{40}5af43d82803e903d91602b57fd5bf3
 		bytes memory code = wallet.code;
-		bytes memory mask = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff";
-		bytes memory result = "\x36\x3d\x3d\x37\x3d\x3d\x3d\x36\x3d\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x5a\xf4\x3d\x82\x80\x3e\x90\x3d\x91\x60\x2b\x57\xfd\x5b\xf3";
+		bytes memory mask = hex"ffffffffffffffffffff0000000000000000000000000000000000000000ffffffffffffffffffffffffffffff";
+		bytes memory result = hex"363d3d373d3d3d363d7300000000000000000000000000000000000000005af43d82803e903d91602b57fd5bf3";
 
 		assertEq(code.length, result.length);
 		for (uint256 i; i < code.length; ++i) {
@@ -39,14 +53,15 @@ contract PWNWalletFactory_newWallet_Test is Test {
 	function test_shouldSetNewContractAddressAsValidWallet() external {
 		address wallet = factory.newWallet();
 
-		assertEq(factory.isValidWallet(wallet), true);
+		bytes32 isValid = vm.load(address(factory), _validWalletSlotFor(wallet));
+		assertEq(uint256(isValid), 1);
 	}
 
 	function test_shouldCallInitializeOnNewlyDeployedWallet() external {
 		address wallet = factory.newWallet();
 
-		vm.expectRevert("Initializable: contract is already initialized");
-		PWNWallet(wallet).initialize(address(0x02), address(0x03));
+		bytes32 initializedValue = (vm.load(address(wallet), bytes32(0)) >> 160) & bytes32(uint256(0xff));
+		assertEq(uint256(initializedValue), 1);
 	}
 
 	function test_shouldEmitNewWalletEvent() external {
@@ -65,7 +80,7 @@ contract PWNWalletFactory_newWallet_Test is Test {
 |*  # IS VALID WALLET                                       *|
 |*----------------------------------------------------------*/
 
-contract PWNWalletFactory_isValidWallet_Test is Test {
+contract PWNWalletFactory_isValidWallet_Test is PWNWalletFactoryTest {
 	using stdStorage for StdStorage;
 
 	PWNWalletFactory factory;
@@ -81,7 +96,8 @@ contract PWNWalletFactory_isValidWallet_Test is Test {
 	}
 
 	function test_shouldReturnTrue_whenAddressIsValidWallet() external {
-		address wallet = factory.newWallet();
+		address wallet = address(0x07abcd);
+		vm.store(address(factory), _validWalletSlotFor(wallet), bytes32(uint256(1)));
 
 		assertEq(factory.isValidWallet(wallet), true);
 	}
