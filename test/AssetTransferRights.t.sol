@@ -1689,6 +1689,12 @@ contract AssetTransferRights_SetUseWhitelist_Test is AssetTransferRightsTest {
 	}
 
 
+	function test_shouldFail_whenCallerIsNotOwner() external {
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(alice);
+		atr.setUseWhitelist(true);
+	}
+
 	function test_shouldSetUseWhitelistStoredValue() external {
 		vm.store(address(atr), USE_WHITELIST_SLOT, bytes32(uint256(0)));
 
@@ -1713,6 +1719,12 @@ contract AssetTransferRights_SetIsWhitelisted_Test is AssetTransferRightsTest {
 		superSetUp();
 	}
 
+
+	function test_shouldFail_whenCallerIsNotOwner() external {
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(alice);
+		atr.setIsWhitelisted(address(0x07), true);
+	}
 
 	function test_shouldSetIsWhitelistedMappingValue() external {
 		address assetAddress = address(0x11223344aabbcc);
