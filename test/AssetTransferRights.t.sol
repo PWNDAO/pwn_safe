@@ -14,6 +14,14 @@ import "MultiToken/MultiToken.sol";
 
 abstract contract AssetTransferRightsTest is Test {
 
+	uint256 constant USE_WHITELIST_SLOT = 7; // useWhitelist flag position
+	uint256 constant IS_WHITELISTED_SLOT = 8; // isWhitelisted mapping position
+	uint256 constant LAST_TOKEN_ID_SLOT = 9; // lastTokenId property position
+	uint256 constant ASSETS_SLOT = 11; // _assets mapping position
+	uint256 constant OWNED_ASSET_ATR_IDS_SLOT = 12; // _ownedAssetATRIds mapping position
+	uint256 constant OWNED_FROM_COLLECTION_SLOT = 13; // _ownedFromCollection mapping position
+	uint256 constant REVOKED_PERMISSION_SLOT = 14; // revokedPermissions mapping position
+
 	AssetTransferRights atr;
 	PWNWalletFactory factory;
 	PWNWallet wallet;
@@ -39,6 +47,8 @@ abstract contract AssetTransferRightsTest is Test {
 		factory = PWNWalletFactory(atr.walletFactory());
 		wallet = PWNWallet(factory.newWallet());
 
+		atr.setUseWhitelist(false);
+
 		t20 = new T20();
 		t721 = new T721();
 		t1155 = new T1155();
@@ -49,7 +59,7 @@ abstract contract AssetTransferRightsTest is Test {
 		return keccak256(
 			abi.encode(
 				atrId, // ATR token id as a mapping key
-				uint256(8) // _assets mapping position
+				ASSETS_SLOT
 			)
 		);
 	}
@@ -58,7 +68,7 @@ abstract contract AssetTransferRightsTest is Test {
 		return keccak256(
 			abi.encode(
 				owner, // Owner address as a mapping key
-				uint256(9) // _ownedAssetATRIds Mapping position
+				OWNED_ASSET_ATR_IDS_SLOT
 			)
 		);
 	}
@@ -79,7 +89,7 @@ abstract contract AssetTransferRightsTest is Test {
 				keccak256(
 					abi.encode(
 						owner, // Owner address as a mapping key
-						uint256(10) // _ownedAssetATRIds Mapping position
+						OWNED_FROM_COLLECTION_SLOT
 					)
 				)
 			)
@@ -99,12 +109,13 @@ abstract contract AssetTransferRightsTest is Test {
 		return keccak256(
 			abi.encode(
 				permissionHash, // Permission hash as a mapping key
-				uint256(11) // revokedPermissions Mapping position
+				REVOKED_PERMISSION_SLOT
 			)
 		);
 	}
 
 }
+
 
 /*----------------------------------------------------------*|
 |*  # MINT                                                  *|
@@ -479,7 +490,7 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 
 	function test_shouldIncreaseATRTokenId() external {
 		uint256 lastAtrId = 736;
-		vm.store(address(atr), bytes32(uint256(6)), bytes32(lastAtrId));
+		vm.store(address(atr), bytes32(LAST_TOKEN_ID_SLOT), bytes32(lastAtrId));
 		t721.mint(address(wallet), 42);
 
 		vm.prank(address(wallet));
@@ -487,13 +498,13 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
 		);
 
-		bytes32 atrId = vm.load(address(atr), bytes32(uint256(6)));
+		bytes32 atrId = vm.load(address(atr), bytes32(LAST_TOKEN_ID_SLOT));
 		assertEq(uint256(atrId), lastAtrId + 1);
 	}
 
 	function test_shouldStoreTokenizedAssetData() external {
 		uint256 lastAtrId = 736;
-		vm.store(address(atr), bytes32(uint256(6)), bytes32(lastAtrId));
+		vm.store(address(atr), bytes32(LAST_TOKEN_ID_SLOT), bytes32(lastAtrId));
 		t721.mint(address(wallet), 42);
 
 		vm.prank(address(wallet));
@@ -519,7 +530,7 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 
 	function test_shouldStoreTokenizedAssetOwner() external {
 		uint256 lastTokenId = 736;
-		vm.store(address(atr), bytes32(uint256(6)), bytes32(lastTokenId));
+		vm.store(address(atr), bytes32(LAST_TOKEN_ID_SLOT), bytes32(lastTokenId));
 		t721.mint(address(wallet), 42);
 
 		vm.prank(address(wallet));
