@@ -58,10 +58,16 @@ contract AssetTransferRights is Ownable, ERC721 {
 		bytes32 nonce;
 	}
 
-	/// TODO: Doc
+	/**
+	 * @notice Stored flag that incidates, whether ATR token minting is enabled only to whitelisted assets
+	 */
 	bool public useWhitelist;
 
-	/// TODO: Doc
+	/**
+	 * @notice Whitelist of asset addresses, which are enabled to mint their transfer rights
+	 *
+	 * @dev Used only if `useWhitelist` flag is set to true
+	 */
 	mapping (address => bool) public isWhitelisted;
 
 	/**
@@ -147,6 +153,8 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 * @dev Requirements:
 	 *
 	 * - caller has to be PWNWallet
+	 * - cannot tokenize transfer rights of ATR token
+	 * - in case whitelist is used, asset has to be whitelisted
 	 * - cannot tokenize invalid asset. See {MultiToken-isValid}
 	 * - cannot have operator set for that asset contract (setApprovalForAll) (ERC721 / ERC1155)
 	 * - in case of ERC721 assets, cannot tokenize approved asset, but other tokens can be approved
@@ -456,12 +464,25 @@ contract AssetTransferRights is Ownable, ERC721 {
 	|*  # SETTERS                                               *|
 	|*----------------------------------------------------------*/
 
-	/// TODO: Doc
+	/**
+	 * @notice Set if ATR token minting is restricted by whitelist
+	 *
+	 * @dev Set `useWhitelist` stored flag
+	 *
+	 * @param _useWhitelist New `useWhitelist` flag value
+	 */
 	function setUseWhitelist(bool _useWhitelist) external onlyOwner {
 		useWhitelist = _useWhitelist;
 	}
 
-	/// TODO: Doc
+	/**
+	 * @notice Set if asset address is whitelisted
+	 *
+	 * @dev Set `isWhitelisted` mapping value
+	 *
+	 * @param assetAddress Address of whitelisted asset
+	 * @param _isWhitelisted New `isWhitelisted` mapping value
+	 */
 	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyOwner {
 		isWhitelisted[assetAddress] = _isWhitelisted;
 	}
@@ -499,11 +520,17 @@ contract AssetTransferRights is Ownable, ERC721 {
 		return _ownedFromCollection[owner][assetAddress].length();
 	}
 
-	/// TODO: Doc
+	/**
+	 * @dev Compute recipient permission struct hash according to EIP-712
+	 *
+	 * @param permission RecipientPermission struct to compute hash from
+	 *
+	 * @return EIP-712 compliant recipient permission hash
+	 */
 	function recipientPermissionHash(RecipientPermission calldata permission) public view returns (bytes32) {
 		return keccak256(abi.encodePacked(
 			"\x19\x01",
-			// Domain separator is composing to prevent repay attack in case of an Ethereum fork
+			// Domain separator is composing to prevent replay attack in case of an Ethereum fork
 			keccak256(abi.encode(
 				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
 				keccak256(bytes("ATR")), // ?
@@ -511,7 +538,6 @@ contract AssetTransferRights is Ownable, ERC721 {
 				block.chainid,
 				address(this)
 			)),
-			// Compute recipient permission struct hash according to EIP-712
 			keccak256(abi.encode(
 				RECIPIENT_PERMISSION_TYPEHASH,
 				permission.owner,
