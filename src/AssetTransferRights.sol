@@ -23,7 +23,7 @@ import "./PWNWalletFactory.sol";
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
  * ATR token can be used in lending protocols instead of an underlying asset
  */
-contract AssetTransferRights is ERC721 {
+contract AssetTransferRights is Ownable, ERC721 {
 	using EnumerableSet for EnumerableSet.UintSet;
 	using EnumerableMap for EnumerableMap.UintToUintMap;
 	using MultiToken for MultiToken.Asset;
@@ -57,6 +57,12 @@ contract AssetTransferRights is ERC721 {
 		address wallet;
 		bytes32 nonce;
 	}
+
+	/// TODO: Doc
+	bool public useWhitelist;
+
+	/// TODO: Doc
+	mapping (address => bool) public isWhitelisted;
 
 	/**
 	 * @notice Last minted token id
@@ -127,6 +133,7 @@ contract AssetTransferRights is ERC721 {
 	 */
 	constructor() ERC721("Asset Transfer Rights", "ATR") {
 		walletFactory = new PWNWalletFactory(address(this));
+		useWhitelist = true;
 	}
 
 
@@ -155,6 +162,9 @@ contract AssetTransferRights is ERC721 {
 
 		// Check that asset address is not ATR contract address
 		require(asset.assetAddress != address(this), "Attempting to tokenize ATR token");
+
+		// Check that address is whitelisted
+		require(useWhitelist == false || isWhitelisted[asset.assetAddress] == true, "Asset is not whitelisted");
 
 		// Check that provided asset category is correct
 		if (asset.category == MultiToken.Category.ERC20) {
@@ -439,6 +449,21 @@ contract AssetTransferRights is ERC721 {
 
 		// Remove ATR token id from tokenized asset set
 		_ownedAssetATRIds[owner].remove(atrTokenId);
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # SETTERS                                               *|
+	|*----------------------------------------------------------*/
+
+	/// TODO: Doc
+	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyOwner {
+		isWhitelisted[assetAddress] = _isWhitelisted;
+	}
+
+	/// TODO: Doc
+	function setUseWhitelist(bool _useWhitelist) external onlyOwner {
+		useWhitelist = _useWhitelist;
 	}
 
 
