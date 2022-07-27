@@ -137,7 +137,7 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 *
 	 * @dev Contract will deploy its own wallet factory to not have to define setter and access rights for the setter
 	 */
-	constructor() ERC721("Asset Transfer Rights", "ATR") {
+	constructor() Ownable() ERC721("Asset Transfer Rights", "ATR") {
 		walletFactory = new PWNWalletFactory(address(this));
 		useWhitelist = true;
 	}
