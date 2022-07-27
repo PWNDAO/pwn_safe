@@ -14,13 +14,13 @@ import "MultiToken/MultiToken.sol";
 
 abstract contract AssetTransferRightsTest is Test {
 
-	uint256 constant USE_WHITELIST_SLOT = 7; // useWhitelist flag position
-	uint256 constant IS_WHITELISTED_SLOT = 8; // isWhitelisted mapping position
-	uint256 constant LAST_TOKEN_ID_SLOT = 9; // lastTokenId property position
-	uint256 constant ASSETS_SLOT = 11; // _assets mapping position
-	uint256 constant OWNED_ASSET_ATR_IDS_SLOT = 12; // _ownedAssetATRIds mapping position
-	uint256 constant OWNED_FROM_COLLECTION_SLOT = 13; // _ownedFromCollection mapping position
-	uint256 constant REVOKED_PERMISSION_SLOT = 14; // revokedPermissions mapping position
+	bytes32 constant USE_WHITELIST_SLOT = bytes32(uint256(7)); // useWhitelist flag position
+	bytes32 constant IS_WHITELISTED_SLOT = bytes32(uint256(8)); // isWhitelisted mapping position
+	bytes32 constant LAST_TOKEN_ID_SLOT = bytes32(uint256(9)); // lastTokenId property position
+	bytes32 constant ASSETS_SLOT = bytes32(uint256(11)); // _assets mapping position
+	bytes32 constant OWNED_ASSET_ATR_IDS_SLOT = bytes32(uint256(12)); // _ownedAssetATRIds mapping position
+	bytes32 constant OWNED_FROM_COLLECTION_SLOT = bytes32(uint256(13)); // _ownedFromCollection mapping position
+	bytes32 constant REVOKED_PERMISSION_SLOT = bytes32(uint256(14)); // revokedPermissions mapping position
 
 	AssetTransferRights atr;
 	PWNWalletFactory factory;
@@ -55,6 +55,15 @@ abstract contract AssetTransferRightsTest is Test {
 	}
 
 
+	function _isWhitelistedSlotFor(address assetAddress) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				assetAddress, // Asset address as a mapping key
+				IS_WHITELISTED_SLOT
+			)
+		);
+	}
+
 	function _assetStructSlotFor(uint256 atrId) internal pure returns (bytes32) {
 		return keccak256(
 			abi.encode(
@@ -74,7 +83,7 @@ abstract contract AssetTransferRightsTest is Test {
 	}
 
 	function _atrIdsValuesSlotFor(address owner) internal pure returns (bytes32) {
-		// Hash array position to get position of a first item
+		// Hash array position to get position of a first item in the array
 		return keccak256(
 			abi.encode(
 				_atrIdsSetSlotFor(owner)
@@ -160,6 +169,28 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 		vm.prank(address(wallet));
 		atr.mintAssetTransferRightsToken(
 			MultiToken.Asset(MultiToken.Category.ERC721, address(atr), 42, 1)
+		);
+	}
+
+	function test_shouldFail_whenUsingWhitelist_whenAssetNotWhitelisted() external {
+		t721.mint(address(wallet), 42);
+		atr.setUseWhitelist(true);
+
+		vm.expectRevert("Asset is not whitelisted");
+		vm.prank(address(wallet));
+		atr.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+		);
+	}
+
+	function test_shouldPass_whenUsingWhitelist_whenAssetWhitelisted() external {
+		t721.mint(address(wallet), 42);
+		atr.setUseWhitelist(true);
+		atr.setIsWhitelisted(address(t721), true);
+
+		vm.prank(address(wallet));
+		atr.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
 		);
 	}
 
@@ -490,7 +521,7 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 
 	function test_shouldIncreaseATRTokenId() external {
 		uint256 lastAtrId = 736;
-		vm.store(address(atr), bytes32(LAST_TOKEN_ID_SLOT), bytes32(lastAtrId));
+		vm.store(address(atr), LAST_TOKEN_ID_SLOT, bytes32(lastAtrId));
 		t721.mint(address(wallet), 42);
 
 		vm.prank(address(wallet));
@@ -498,13 +529,13 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
 		);
 
-		bytes32 atrId = vm.load(address(atr), bytes32(LAST_TOKEN_ID_SLOT));
+		bytes32 atrId = vm.load(address(atr), LAST_TOKEN_ID_SLOT);
 		assertEq(uint256(atrId), lastAtrId + 1);
 	}
 
 	function test_shouldStoreTokenizedAssetData() external {
 		uint256 lastAtrId = 736;
-		vm.store(address(atr), bytes32(LAST_TOKEN_ID_SLOT), bytes32(lastAtrId));
+		vm.store(address(atr), LAST_TOKEN_ID_SLOT, bytes32(lastAtrId));
 		t721.mint(address(wallet), 42);
 
 		vm.prank(address(wallet));
@@ -530,7 +561,7 @@ contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
 
 	function test_shouldStoreTokenizedAssetOwner() external {
 		uint256 lastTokenId = 736;
-		vm.store(address(atr), bytes32(LAST_TOKEN_ID_SLOT), bytes32(lastTokenId));
+		vm.store(address(atr), LAST_TOKEN_ID_SLOT, bytes32(lastTokenId));
 		t721.mint(address(wallet), 42);
 
 		vm.prank(address(wallet));
@@ -1642,6 +1673,57 @@ contract AssetTransferRights_RecoverInvalidTokenizedBalance_Test is AssetTransfe
 				revert("ATR token is stored after recover");
 			}
 		}
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # SET USE WHITELIST                                     *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_SetUseWhitelist_Test is AssetTransferRightsTest {
+
+	function setUp() external {
+		superSetUp();
+	}
+
+
+	function test_shouldSetUseWhitelistStoredValue() external {
+		vm.store(address(atr), USE_WHITELIST_SLOT, bytes32(uint256(0)));
+
+		atr.setUseWhitelist(true);
+
+		assertEq(
+			vm.load(address(atr), USE_WHITELIST_SLOT),
+			bytes32(uint256(1))
+		);
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # SET IS WHITELISTED                                    *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_SetIsWhitelisted_Test is AssetTransferRightsTest {
+
+	function setUp() external {
+		superSetUp();
+	}
+
+
+	function test_shouldSetIsWhitelistedMappingValue() external {
+		address assetAddress = address(0x11223344aabbcc);
+		vm.store(address(atr), _isWhitelistedSlotFor(assetAddress), bytes32(uint256(0)));
+
+		atr.setIsWhitelisted(assetAddress, true);
+
+		assertEq(
+			vm.load(address(atr), _isWhitelistedSlotFor(assetAddress)),
+			bytes32(uint256(1))
+		);
 	}
 
 }

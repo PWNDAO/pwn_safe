@@ -457,13 +457,13 @@ contract AssetTransferRights is Ownable, ERC721 {
 	|*----------------------------------------------------------*/
 
 	/// TODO: Doc
-	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyOwner {
-		isWhitelisted[assetAddress] = _isWhitelisted;
+	function setUseWhitelist(bool _useWhitelist) external onlyOwner {
+		useWhitelist = _useWhitelist;
 	}
 
 	/// TODO: Doc
-	function setUseWhitelist(bool _useWhitelist) external onlyOwner {
-		useWhitelist = _useWhitelist;
+	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyOwner {
+		isWhitelisted[assetAddress] = _isWhitelisted;
 	}
 
 
