@@ -150,6 +150,18 @@ contract PWNWallet_Execute_Test is PWNWalletTest {
 		);
 	}
 
+	function test_shouldTransferEthValue() external {
+		vm.expectCall(
+			address(t721),
+			1.3 ether,
+			abi.encodeWithSelector(t721.foo.selector)
+		);
+		wallet.execute{ value: 1.3 ether }(
+			address(t721),
+			abi.encodeWithSelector(t721.foo.selector)
+		);
+	}
+
 	function test_shouldCallTokenizedBalanceCheck() external {
 		vm.expectCall(
 			address(atr),
