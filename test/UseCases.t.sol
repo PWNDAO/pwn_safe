@@ -31,6 +31,7 @@ contract UseCases_ERC20_Test is Test {
 		walletOther = PWNWallet(atr.walletFactory().newWallet());
 
 		t20 = new T20();
+		atr.setIsWhitelisted(address(t20), true);
 
 		// ERC1820 Registry
 		vm.etch(erc1820Registry, bytes("data"));
@@ -228,6 +229,7 @@ contract UseCases_ERC721_Test is Test {
 		wallet = PWNWallet(atr.walletFactory().newWallet());
 
 		t721 = new T721();
+		atr.setIsWhitelisted(address(t721), true);
 
 		// ERC1820 Registry
 		vm.etch(erc1820Registry, bytes("data"));
@@ -397,6 +399,7 @@ contract UseCases_ERC1155_Test is Test {
 		wallet = PWNWallet(atr.walletFactory().newWallet());
 
 		t1155 = new T1155();
+		atr.setIsWhitelisted(address(t1155), true);
 
 		// ERC1820 Registry
 		vm.etch(erc1820Registry, bytes("data"));

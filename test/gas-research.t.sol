@@ -43,6 +43,10 @@ abstract contract GasResearchTest is Test {
 		t20 = new T20();
 		t721 = new T721();
 		t1155 = new T1155();
+
+		atr.setIsWhitelisted(address(t20), true);
+		atr.setIsWhitelisted(address(t721), true);
+		atr.setIsWhitelisted(address(t1155), true);
 	}
 
 }

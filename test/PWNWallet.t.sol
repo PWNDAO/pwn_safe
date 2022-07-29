@@ -1257,7 +1257,7 @@ contract PWNWallet_RecoverInvalidTokenizedBalance_Test is PWNWalletTest {
 
 		vm.expectCall(
 			address(atr),
-			abi.encodeWithSelector(AssetTransferRights.recoverInvalidTokenizedBalance.selector, address(wallet), 42)
+			abi.encodeWithSelector(AssetTransferRights.recoverInvalidTokenizedBalance.selector, 42)
 		);
 		wallet.recoverInvalidTokenizedBalance(42);
 	}
