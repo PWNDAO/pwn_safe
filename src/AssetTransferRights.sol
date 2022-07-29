@@ -42,7 +42,7 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 * EIP-712 recipient permission struct type hash
 	 */
 	bytes32 constant internal RECIPIENT_PERMISSION_TYPEHASH = keccak256(
-		"RecipientPermission(address owner,address wallet,bytes32 nonce)"
+		"RecipientPermission(address owner,address wallet,uint40 expiration,bytes32 nonce)"
 	);
 
 	/**
@@ -50,11 +50,14 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 *
 	 * @param owner Wallet owner which is also a permission signer
 	 * @param wallet Address of PWN Wallet to which is the permission granted
-	 * @param nonce Additional nonce to distinguish same permissions
+	 * @param expiration Permission expiration timestamp in seconds
+	 *        0 value means permission cannot expire
+	 * @param nonce Additional nonce to distinguish between same permissions
 	 */
 	struct RecipientPermission {
 		address owner;
 		address wallet;
+		uint40 expiration;
 		bytes32 nonce;
 	}
 
@@ -113,6 +116,7 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 * Mapping of revoked recipient permissions by recipient permission struct typed hash
 	 */
 	mapping (bytes32 => bool) public revokedPermissions;
+
 
 	/*----------------------------------------------------------*|
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
@@ -543,6 +547,7 @@ contract AssetTransferRights is Ownable, ERC721 {
 				RECIPIENT_PERMISSION_TYPEHASH,
 				permission.owner,
 				permission.wallet,
+				permission.expiration,
 				permission.nonce
 			))
 		));
@@ -599,8 +604,14 @@ contract AssetTransferRights is Ownable, ERC721 {
 		RecipientPermission calldata permission,
 		bytes calldata permissionSignature
 	) private {
+		// Check that permission is not expired
+		require(permission.expiration == 0 || block.timestamp < permission.expiration, "Recipient permission is expired");
+
 		// Compute EIP-712 structured data hash
 		bytes32 permissionHash = recipientPermissionHash(permission);
+
+		// Check that permission is not revoked
+		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
 
 		// Check valid signature
 		if (permission.owner.code.length > 0) {
@@ -608,9 +619,6 @@ contract AssetTransferRights is Ownable, ERC721 {
 		} else {
 			require(ECDSA.recover(permissionHash, permissionSignature) == permission.owner, "Permission signer is not stated as wallet owner");
 		}
-
-		// Check that permission is not revoked
-		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
 
 		// Mark used permission as revoked
 		revokedPermissions[permissionHash] = true;

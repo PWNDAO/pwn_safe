@@ -1038,7 +1038,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// ---> Basic checks
 	function test_shouldFail_whenTokenRightsAreNotTokenized() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1049,7 +1049,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldFail_whenSenderIsNotATRTokenOwner() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1060,7 +1060,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldFail_whenAssetIsNotInWallet() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
@@ -1074,7 +1074,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldFail_whenTransferringToSameAddress() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			ownerOther, address(walletOther), keccak256("nonce")
+			ownerOther, address(walletOther), 0, keccak256("nonce")
 		);
 
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerOtherPK);
@@ -1088,7 +1088,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// ---> Process
 	function test_shouldRemoveStoredTokenizedAssetInfoFromSendersWallet() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1114,7 +1114,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldRevokePermission() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
 
@@ -1129,9 +1129,37 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// <--- Process
 
 	// ---> Permission checks
+	function test_shouldFail_whenPermissionIsExpired() external {
+		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
+			owner, address(wallet), 1, keccak256("nonce")
+		);
+		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
+
+		bytes32 revokedPermissionSlot = _revokedPermissionsSlotFor(permissionHash);
+		vm.store(address(atr), revokedPermissionSlot, bytes32(uint256(1)));
+
+		vm.expectRevert("Recipient permission is expired");
+		vm.prank(address(walletOther));
+		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
+	}
+
+	function test_shouldFail_whenPermissionIsRevoked() external {
+		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
+			owner, address(wallet), 0, keccak256("nonce")
+		);
+		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
+
+		bytes32 revokedPermissionSlot = _revokedPermissionsSlotFor(permissionHash);
+		vm.store(address(atr), revokedPermissionSlot, bytes32(uint256(1)));
+
+		vm.expectRevert("Recipient permission is revoked");
+		vm.prank(address(walletOther));
+		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
+	}
+
 	function test_shouldFail_whenPermissionNotSignedByStatedEOAWalletOwner() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerOtherPK);
 
@@ -1148,25 +1176,11 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 		wallet.transferOwnership(address(contractWallet));
 
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			address(contractWallet), address(wallet), keccak256("nonce")
+			address(contractWallet), address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerOtherPK);
 
 		vm.expectRevert("Signature on behalf of contract is invalid");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenPermissionIsRevoked() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
-
-		bytes32 revokedPermissionSlot = _revokedPermissionsSlotFor(permissionHash);
-		vm.store(address(atr), revokedPermissionSlot, bytes32(uint256(1)));
-
-		vm.expectRevert("Recipient permission is revoked");
 		vm.prank(address(walletOther));
 		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
 	}
@@ -1176,7 +1190,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 		wallet.transferOwnership(alice);
 
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1187,7 +1201,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldEmitRecipientPermissionRevokedEvent() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
 
@@ -1202,7 +1216,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// ---> EOA caller
 	function test_shouldTransferERC20Asset_whenCallerIsEOA() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1220,7 +1234,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldTransferERC721Asset_whenCallerIsEOA() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1235,7 +1249,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldTransferERC1155Asset_whenCallerIsEOA() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1255,7 +1269,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// ---> Contract wallet caller
 	function test_shouldTransferERC20Asset_whenCallerIsContractWallet() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1275,7 +1289,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldTransferERC721Asset_whenCallerIsContractWallet() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1292,7 +1306,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldTransferERC1155Asset_whenCallerIsContractWallet() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1314,7 +1328,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// ---> Without `burnToken` flag
 	function test_shouldStoreThatRecipientHasTokenizedAsset_whenWithoutBurnFlag() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1340,7 +1354,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldFail_whenRecipientHasApprovalForAsset_whenWithoutBurnFlag() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1357,7 +1371,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldFail_whenTransferringToNotPWNWallet_whenWithoutBurnFlag() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, owner, keccak256("nonce")
+			owner, owner, 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1370,7 +1384,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 	// ---> With `burnToken` flag
 	function test_shouldClearStoredTokenizedAssetData_whenWithBurnFlag() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1392,7 +1406,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldBurnATRToken_whenWithBurnFlag() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1405,7 +1419,7 @@ contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransf
 
 	function test_shouldTransferAssetToAnyWallet_whenWithBurnFlag() external {
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, owner, keccak256("nonce")
+			owner, owner, 0, keccak256("nonce")
 		);
 		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
@@ -1435,7 +1449,7 @@ contract AssetTransferRights_RevokeRecipientPermission_Test is AssetTransferRigh
 		superSetUp();
 
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
+			owner, address(wallet), 0, keccak256("nonce")
 		);
 		permissionHash = atr.recipientPermissionHash(permission);
 		(uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPK, permissionHash);
@@ -1847,9 +1861,9 @@ contract AssetTransferRights_RecipientPermissionHash_Test is AssetTransferRights
 
 
 	function test_shouldReturnRecipientPermissionTypedStructHash() external {
-		bytes32 hash = bytes32(uint256(0x94e6c42bee4a11932b7a7dbb2ddf8e5dc59fef266486d69cb7cc466229eb689a));
+		bytes32 hash = bytes32(0x23d078422db7a423860f681ae629d66abc333d56a38cf0120b7027c7dbcdf20a);
 		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			alice, address(wallet), keccak256("nonce")
+			alice, address(wallet), 1, keccak256("nonce")
 		);
 
 		bytes32 permissionHash = atr.recipientPermissionHash(permission);
