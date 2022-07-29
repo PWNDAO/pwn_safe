@@ -345,7 +345,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 * @param atrTokenId ATR token id representing underyling asset in question
 	 */
 	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
-		_atr.recoverInvalidTokenizedBalance(address(this), atrTokenId);
+		_atr.recoverInvalidTokenizedBalance(atrTokenId);
 	}
 
 

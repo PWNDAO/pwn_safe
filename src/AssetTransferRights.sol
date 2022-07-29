@@ -436,10 +436,11 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 * and then transfers it away through some non-standard way, leaving wallet in state, where every call of `execution` function
 	 * will fail on `Insufficient tokenized balance` error.
 	 *
-	 * @param owner PWN Wallet address with invalid tokenized balance
 	 * @param atrTokenId ATR token id representing underyling asset in question
 	 */
-	function recoverInvalidTokenizedBalance(address owner, uint256 atrTokenId) external {
+	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
+		address owner = msg.sender;
+
 		// Check that asset is in callers wallet
 		require(_ownedAssetATRIds[owner].contains(atrTokenId), "Asset is not in callers wallet");
 

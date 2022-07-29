@@ -1605,7 +1605,8 @@ contract AssetTransferRights_RecoverInvalidTokenizedBalance_Test is AssetTransfe
 
 	function test_shouldFail_whenWalletIsNotATRTokenOwner() external {
 		vm.expectRevert("Asset is not in callers wallet");
-		atr.recoverInvalidTokenizedBalance(address(wallet), 12);
+		vm.prank(address(wallet));
+		atr.recoverInvalidTokenizedBalance(12);
 	}
 
 	function test_shouldFail_whenTokenizedBalanceIsNotSmallerThenActualBalance() external {
@@ -1617,7 +1618,8 @@ contract AssetTransferRights_RecoverInvalidTokenizedBalance_Test is AssetTransfe
 		);
 
 		vm.expectRevert("Tokenized balance is not invalid");
-		atr.recoverInvalidTokenizedBalance(address(wallet), atrId);
+		vm.prank(address(wallet));
+		atr.recoverInvalidTokenizedBalance(atrId);
 	}
 
 	function test_shouldDecreaseTokenizedBalance() external {
@@ -1639,7 +1641,8 @@ contract AssetTransferRights_RecoverInvalidTokenizedBalance_Test is AssetTransfe
 			abi.encode(uint256(200e18))
 		);
 
-		atr.recoverInvalidTokenizedBalance(address(wallet), atrId);
+		vm.prank(address(wallet));
+		atr.recoverInvalidTokenizedBalance(atrId);
 
 		bytes32 tokenizedBalance = vm.load(
 			address(atr),
@@ -1662,7 +1665,8 @@ contract AssetTransferRights_RecoverInvalidTokenizedBalance_Test is AssetTransfe
 			abi.encode(alice)
 		);
 
-		atr.recoverInvalidTokenizedBalance(address(wallet), atrId);
+		vm.prank(address(wallet));
+		atr.recoverInvalidTokenizedBalance(atrId);
 
 		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(wallet)));
 		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(wallet));
