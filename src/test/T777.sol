@@ -16,7 +16,7 @@ contract T777 is ERC165, ERC777 {
 	}
 
 
-	function foo() external {
+	function foo() payable external {
 
 	}
 

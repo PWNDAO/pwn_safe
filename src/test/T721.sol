@@ -8,7 +8,7 @@ contract T721 is ERC721("ERC721", "ERC721") {
 
 	bool private _supportingERC165 = true;
 
-	function foo() external {
+	function foo() payable external {
 
 	}
 

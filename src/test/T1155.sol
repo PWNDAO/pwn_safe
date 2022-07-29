@@ -8,7 +8,7 @@ contract T1155 is ERC1155("uri://") {
 
 	bool private _supportingERC165 = true;
 
-	function foo() external {
+	function foo() payable external {
 
 	}
 
