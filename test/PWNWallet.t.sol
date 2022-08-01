@@ -19,6 +19,9 @@ import "MultiToken/MultiToken.sol";
 
 abstract contract PWNWalletTest is Test {
 
+	bytes32 constant REENTRANCY_STATUS_SLOT = bytes32(uint256(1)); // _status flag position
+	bytes32 constant OPERATORS_SLOT = bytes32(uint256(3)); // _operators mapping position
+
 	PWNWallet wallet;
 	PWNWallet walletOther;
 	T20 t20;
@@ -64,7 +67,7 @@ abstract contract PWNWalletTest is Test {
 		return keccak256(
 			abi.encode(
 				collection, // Collection address as a mapping key
-				uint256(2) // _operators mapping position
+				OPERATORS_SLOT
 			)
 		);
 	}
@@ -139,6 +142,20 @@ contract PWNWallet_Execute_Test is PWNWalletTest {
 		wallet.execute(
 			address(t721),
 			abi.encodeWithSelector(t721.transferFrom.selector, alice, bob, 42)
+		);
+	}
+
+	function test_shouldFail_whenReentaringExecution() external {
+		vm.store(
+			address(wallet),
+			REENTRANCY_STATUS_SLOT,
+			bytes32(uint256(2)) // _ENTERED value
+		);
+
+		vm.expectRevert("ReentrancyGuard: reentrant call");
+		wallet.execute(
+			address(t721),
+			abi.encodeWithSelector(t721.foo.selector)
 		);
 	}
 
@@ -1247,6 +1264,17 @@ contract PWNWallet_RecoverInvalidTokenizedBalance_Test is PWNWalletTest {
 		superSetUp();
 	}
 
+
+	function test_shouldFail_whenReentaringExecution() external {
+		vm.store(
+			address(wallet),
+			REENTRANCY_STATUS_SLOT,
+			bytes32(uint256(2)) // _ENTERED value
+		);
+
+		vm.expectRevert("ReentrancyGuard: reentrant call");
+		wallet.recoverInvalidTokenizedBalance(42);
+	}
 
 	function test_shouldCallRecoverInvalidTokenizedBalanceOnATRContract() external {
 		vm.mockCall(
