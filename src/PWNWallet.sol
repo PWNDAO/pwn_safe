@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
@@ -20,7 +21,7 @@ import "./IPWNWallet.sol";
  * @notice Contract wallet that enforces rules of tokenized asset transfer rights
  * @notice If wallet owner tokenizes transfer rights of its asset, wallet will not enable the owner to trasnfer the asset without the ATR token
  */
-contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, Initializable {
+contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, Initializable, ReentrancyGuard {
 	using EnumerableSet for EnumerableSet.AddressSet;
 	using MultiToken for MultiToken.Asset;
 
@@ -69,7 +70,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor() Ownable() {
+	constructor() Ownable() ReentrancyGuard() {
 
 	}
 
@@ -103,7 +104,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 * @param data Raw transaction calldata to be called on a `target`
 	 * @return Any response from a call as bytes
 	 */
-	function execute(address target, bytes calldata data) external payable onlyOwner returns (bytes memory) {
+	function execute(address target, bytes calldata data) external payable nonReentrant onlyOwner returns (bytes memory) {
 		// Get function selector from calldata
 		bytes4 funcSelector;
 		assembly {
@@ -344,7 +345,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 *
 	 * @param atrTokenId ATR token id representing underyling asset in question
 	 */
-	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
+	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external nonReentrant {
 		_atr.recoverInvalidTokenizedBalance(atrTokenId);
 	}
 
