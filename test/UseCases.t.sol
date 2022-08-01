@@ -8,6 +8,7 @@ import "../src/AssetTransferRights.sol";
 import "../src/test/T20.sol";
 import "../src/test/T721.sol";
 import "../src/test/T1155.sol";
+import "../src/test/HackerWallet.sol";
 import "MultiToken/MultiToken.sol";
 
 
@@ -376,6 +377,37 @@ contract UseCases_ERC721_Test is Test {
 			address(t721),
 			abi.encodeWithSelector(t721.setApprovalForAll.selector, alice, true)
 		);
+	}
+
+	/**
+	 * 1: init hacker wallet
+	 * 2: mint asset id 42
+	 * 3: mint ATR token id 1
+	 * 4: transfer ATR token to alice address
+	 * 5: transfer ownership of wallet to hacker wallet
+	 * 6: fail to execute reentrancy hack
+	 */
+	function test_UC_ERC721_3() external {
+		// 1:
+		HackerWallet hackerWallet = new HackerWallet();
+
+		// 2:
+		t721.mint(address(wallet), 42);
+
+		// 3:
+		uint256 atrId = wallet.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+		);
+
+		// 4:
+		wallet.transferAtrTokenFrom(address(wallet), alice, atrId);
+
+		// 5:
+		wallet.transferOwnership(address(hackerWallet));
+
+		// 6:
+		vm.expectRevert("ReentrancyGuard: reentrant call");
+		hackerWallet.executeHack(address(atr), address(wallet), atrId, address(t721), 42);
 	}
 
 }
