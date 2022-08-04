@@ -515,6 +515,10 @@ contract AssetTransferRights is Ownable, ERC721 {
 		return _ownedAssetATRIds[owner].values();
 	}
 
+	function isHoldingAnyTokenizedAssets(address owner) external view returns (bool) {
+		return _ownedAssetATRIds[owner].values().length > 0;
+	}
+
 	/**
 	 * @param owner PWN Wallet address in question
 	 * @param assetAddress Address of asset contract
