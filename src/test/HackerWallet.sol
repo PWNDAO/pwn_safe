@@ -37,10 +37,10 @@ contract HackerWallet is Ownable, IERC1271, IERC721Receiver, IERC1155Receiver {
 	}
 
 	function onERC721Received(
-        address operator,
-        address from,
+        address /*operator*/,
+        address /*from*/,
         uint256 _tokenId,
-        bytes calldata data
+        bytes calldata /*data*/
     ) external returns (bytes4) {
 		if (tokenId == _tokenId) {
 			PWNWallet(wallet).recoverInvalidTokenizedBalance(atrId);
