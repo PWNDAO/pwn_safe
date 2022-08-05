@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.15;
 
+import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
@@ -17,6 +18,7 @@ import "MultiToken/MultiToken.sol";
 import "./IAssetTransferRightsGuard.sol";
 import "./WhitelistManager.sol";
 import "./TokenizedAssetManager.sol";
+import "./AssetTransferRightsGuardManager.sol";
 
 
 /**
@@ -27,7 +29,7 @@ import "./TokenizedAssetManager.sol";
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
  * ATR token can be used in lending protocols instead of an underlying asset
  */
-contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager  {
+contract AssetTransferRights is Ownable, WhitelistManager, TokenizedAssetManager, AssetTransferRightsGuardManager, ERC721  {
 	using MultiToken for MultiToken.Asset;
 
 
@@ -54,9 +56,6 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 	 */
 	uint256 public lastTokenId;
 
-	/// TODO: Doc
-	IAssetTransferRightsGuard public atrGuard;
-
 
 	/*----------------------------------------------------------*|
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
@@ -69,15 +68,23 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 	|*  # MODIFIERS                                             *|
 	|*----------------------------------------------------------*/
 
-	// No modifiers defined
+	modifier onlyGuardManer override {
+		_checkOwner();
+		_;
+	}
+
+	modifier onlyWhitelistManager override {
+		_checkOwner();
+		_;
+	}
 
 
 	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor() WhitelistManager() ERC721("Asset Transfer Rights", "ATR") {
-
+	constructor() Ownable() ERC721("Asset Transfer Rights", "ATR") {
+		useWhitelist = true;
 	}
 
 
@@ -271,15 +278,6 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
-
-	/*----------------------------------------------------------*|
-	|*  # SETTERS                                               *|
-	|*----------------------------------------------------------*/
-
-	/// TODO: Doc
-	function setAssetTransferRightsGuard(address _atrGuard) external onlyOwner {
-		atrGuard = IAssetTransferRightsGuard(_atrGuard);
-	}
 
 	/*----------------------------------------------------------*|
 	|*  # PRIVATE                                               *|
