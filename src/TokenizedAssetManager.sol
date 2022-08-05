@@ -39,7 +39,7 @@ contract TokenizedAssetManager {
 	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
 	 * (owner => asset address => asset id => balance of tokenized assets currently in owners wallet)
 	 */
-	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal _ownedFromCollection;
+	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal _tokenizedBalance;
 
 
 	/*----------------------------------------------------------*|
@@ -65,7 +65,7 @@ contract TokenizedAssetManager {
 		uint256[] memory atrs = _ownedAssetATRIds[owner].values();
 		for (uint256 i; i < atrs.length; ++i) {
 			MultiToken.Asset memory asset = _assets[atrs[i]];
-			(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
+			(, uint256 tokenizedBalance) = _tokenizedBalance[owner][asset.assetAddress].tryGet(asset.id);
 			if (asset.balanceOf(owner) < tokenizedBalance)
 				return false;
 		}
@@ -94,7 +94,7 @@ contract TokenizedAssetManager {
 
 		// Check if state is really invalid
 		MultiToken.Asset memory asset = _assets[atrTokenId];
-		(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
+		(, uint256 tokenizedBalance) = _tokenizedBalance[owner][asset.assetAddress].tryGet(asset.id);
 		require(asset.balanceOf(owner) < tokenizedBalance, "Tokenized balance is not invalid");
 
 		// Decrease tokenized balance
@@ -136,8 +136,8 @@ contract TokenizedAssetManager {
 	 *
 	 * @return Number of tokenized assets owned by `owner` from asset contract
 	 */
-	function ownedFromCollection(address owner, address assetAddress) external view returns (uint256) {
-		return _ownedFromCollection[owner][assetAddress].length();
+	function tokenizedBalanceOf(address owner, address assetAddress) external view returns (uint256) {
+		return _tokenizedBalance[owner][assetAddress].length();
 	}
 
 
@@ -158,7 +158,7 @@ contract TokenizedAssetManager {
 		MultiToken.Asset memory asset // Needs to be asset stored under given atrTokenId
 	) internal {
 		_ownedAssetATRIds[owner].add(atrTokenId);
-		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
+		EnumerableMap.UintToUintMap storage map = _tokenizedBalance[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 		map.set(asset.id, tokenizedBalance + asset.amount);
 	}
@@ -178,7 +178,7 @@ contract TokenizedAssetManager {
 		if (_ownedAssetATRIds[owner].remove(atrTokenId) == false)
 			return false;
 
-		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
+		EnumerableMap.UintToUintMap storage map = _tokenizedBalance[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 
 		if (tokenizedBalance == asset.amount) {
@@ -196,7 +196,7 @@ contract TokenizedAssetManager {
 		MultiToken.Asset memory asset
 	) internal view returns (bool) {
 		uint256 balance = asset.balanceOf(owner);
-		(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
+		(, uint256 tokenizedBalance) = _tokenizedBalance[owner][asset.assetAddress].tryGet(asset.id);
 		return (balance - tokenizedBalance) >= asset.amount;
 	}
 
