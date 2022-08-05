@@ -5,8 +5,6 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
-import "openzeppelin-contracts/contracts/utils/structs/EnumerableMap.sol";
-import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
@@ -32,8 +30,6 @@ import "./TokenizedAssetManager.sol";
  * ATR token can be used in lending protocols instead of an underlying asset
  */
 contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager  {
-	using EnumerableSet for EnumerableSet.UintSet;
-	using EnumerableMap for EnumerableMap.UintToUintMap;
 	using MultiToken for MultiToken.Asset;
 
 
