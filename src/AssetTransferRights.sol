@@ -20,6 +20,7 @@ import "MultiToken/MultiToken.sol";
 
 import "./IAssetTransferRightsGuard.sol";
 import "./WhitelistManager.sol";
+import "./TokenizedAssetManager.sol";
 
 
 /**
@@ -30,7 +31,7 @@ import "./WhitelistManager.sol";
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
  * ATR token can be used in lending protocols instead of an underlying asset
  */
-contract AssetTransferRights is WhitelistManager, ERC721  {
+contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager  {
 	using EnumerableSet for EnumerableSet.UintSet;
 	using EnumerableMap for EnumerableMap.UintToUintMap;
 	using MultiToken for MultiToken.Asset;
@@ -81,30 +82,6 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 	 * If lastTokenId == 0, there is no ATR token minted yet
 	 */
 	uint256 public lastTokenId;
-
-	/**
-	 * @notice Mapping of ATR token id to underlying asset
-	 *
-	 * @dev (ATR token id => Asset)
-	 */
-	mapping (uint256 => MultiToken.Asset) internal _assets;
-
-	/**
-	 * @notice Mapping of address to set of ATR ids, that belongs to assets in the addresses pwn wallet
-	 *
-	 * @dev The ATR token itself doesn't have to be in the wallet
-	 * Used in PWNWallet to enumerate over all tokenized assets after execution of arbitrary calldata
-	 * (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
-	 */
-	mapping (address => EnumerableSet.UintSet) internal _ownedAssetATRIds;
-
-	/**
-	 * @notice Balance of tokenized assets from asset contract in a wallet
-	 *
-	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
-	 * (owner => asset address => asset id => balance of tokenized assets currently in owners wallet)
-	 */
-	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal _ownedFromCollection;
 
 	/**
 	 * Mapping of revoked recipient permissions by recipient permission struct typed hash
@@ -208,19 +185,16 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 		}
 
 		// Check if asset can be tokenized
-		uint256 balance = asset.balanceOf(msg.sender);
-		(, uint256 tokenizedBalance) = _ownedFromCollection[msg.sender][asset.assetAddress].tryGet(asset.id);
-		require(balance - tokenizedBalance >= asset.amount, "Insufficient balance to tokenize");
+		require(_canBeTokenized(msg.sender, asset), "Insufficient balance to tokenize");
 
 		// Set ATR token id
 		uint256 atrTokenId = ++lastTokenId;
 
 		// Store asset data
-		_assets[atrTokenId] = asset;
+		_storeTokenizedAsset(atrTokenId, asset);
 
-		// Update internal state
-		_ownedAssetATRIds[msg.sender].add(atrTokenId);
-		_increaseTokenizedBalance(msg.sender, asset);
+		// Update tokenized balance
+		_increaseTokenizedBalance(atrTokenId, msg.sender, asset);
 
 		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
@@ -256,7 +230,7 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) public {
 		// Load asset
-		MultiToken.Asset memory asset = getAsset(atrTokenId);
+		MultiToken.Asset memory asset = _assets[atrTokenId];
 
 		// Check that token is indeed tokenized
 		require(asset.assetAddress != address(0), "Asset transfer rights are not tokenized");
@@ -268,12 +242,11 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 		// Without this condition ATR contract would not know from which address to remove the ATR token
 		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
 
-		// Clear asset data
-		_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
+		// Update tokenized balance
+		require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a wallet");
 
-		// Update internal state
-		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in a wallet");
-		_decreaseTokenizedBalance(msg.sender, asset);
+		// Clear asset data
+		_clearTokenizedAsset(atrTokenId);
 
 		// Burn ATR token
 		_burn(atrTokenId);
@@ -401,65 +374,6 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 
 
 	/*----------------------------------------------------------*|
-	|*  # CHECK TOKENIZED BALANCE                               *|
-	|*----------------------------------------------------------*/
-
-	/**
-	 * @dev Checks that address has sufficient balance of tokenized assets.
-	 * Fails if tokenized balance is insufficient.
-	 *
-	 * @param owner Address to check its tokenized balance
-	 */
-	function checkTokenizedBalance(address owner) external view {
-		uint256[] memory atrs = ownedAssetATRIds(owner);
-		for (uint256 i; i < atrs.length; ++i) {
-			MultiToken.Asset memory asset = getAsset(atrs[i]);
-
-			(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
-			require(asset.balanceOf(owner) >= tokenizedBalance, "Insufficient tokenized balance");
-		}
-	}
-
-
-	/*----------------------------------------------------------*|
-	|*  # Confict resolution                                    *|
-	|*----------------------------------------------------------*/
-
-	/**
-	 * @notice Recover PWN Wallets invalid tokenized balance
-	 *
-	 * @dev Invalid tokenized balance could happen only when an asset with tokenized transfer rights leaves the wallet non-standard way.
-	 * This function is meant to recover PWN Wallets affected by Stalking attack.
-	 * Stalking attack is type of attack where attacker transfer malicious tokenized asset to victims wallet
-	 * and then transfers it away through some non-standard way, leaving wallet in state, where every call of `execution` function
-	 * will fail on `Insufficient tokenized balance` error.
-	 *
-	 * @param atrTokenId ATR token id representing underyling asset in question
-	 */
-	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
-		address owner = msg.sender;
-
-		// Check that asset is in callers wallet
-		require(_ownedAssetATRIds[owner].contains(atrTokenId), "Asset is not in callers wallet");
-
-		// Load asset
-		MultiToken.Asset memory asset = getAsset(atrTokenId);
-
-		// Get tokenized balance
-		(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
-
-		// Check if state is really invalid
-		require(asset.balanceOf(owner) < tokenizedBalance, "Tokenized balance is not invalid");
-
-		// Decrease tokenized balance
-		_decreaseTokenizedBalance(owner, asset);
-
-		// Remove ATR token id from tokenized asset set
-		_ownedAssetATRIds[owner].remove(atrTokenId);
-	}
-
-
-	/*----------------------------------------------------------*|
 	|*  # SETTERS                                               *|
 	|*----------------------------------------------------------*/
 
@@ -472,38 +386,6 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 	/*----------------------------------------------------------*|
 	|*  # VIEW                                                  *|
 	|*----------------------------------------------------------*/
-
-	/**
-	 * @param atrTokenId ATR token id
-	 *
-	 * @return Underlying asset of an ATR token
-	 */
-	function getAsset(uint256 atrTokenId) public view returns (MultiToken.Asset memory) {
-		return _assets[atrTokenId];
-	}
-
-	/**
-	 * @param owner PWN Wallet address in question
-	 *
-	 * @return List of tokenized assets owned by `owner` represented by their ATR tokens
-	 */
-	function ownedAssetATRIds(address owner) public view returns (uint256[] memory) {
-		return _ownedAssetATRIds[owner].values();
-	}
-
-	function isHoldingAnyTokenizedAssets(address owner) external view returns (bool) {
-		return _ownedAssetATRIds[owner].values().length > 0;
-	}
-
-	/**
-	 * @param owner PWN Wallet address in question
-	 * @param assetAddress Address of asset contract
-	 *
-	 * @return Number of tokenized assets owned by `owner` from asset contract
-	 */
-	function ownedFromCollection(address owner, address assetAddress) external view returns (uint256) {
-		return _ownedFromCollection[owner][assetAddress].length();
-	}
 
 	/**
 	 * @dev Compute recipient permission struct hash according to EIP-712
@@ -537,41 +419,6 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 	/*----------------------------------------------------------*|
 	|*  # PRIVATE                                               *|
 	|*----------------------------------------------------------*/
-
-	/**
-	 * @dev Increase stored tokenized asset balances per user address
-	 *
-	 * @param owner Address owning `asset`
-	 * @param asset MultiToken Asset struct representing asset that should be added to tokenized balance
-	 */
-	function _increaseTokenizedBalance(
-		address owner,
-		MultiToken.Asset memory asset
-	) private {
-		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
-		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
-		map.set(asset.id, tokenizedBalance + asset.amount);
-	}
-
-	/**
-	 * @dev Decrease stored tokenized asset balances per user address
-	 *
-	 * @param owner Address owning `asset`
-	 * @param asset MultiToken Asset struct representing asset that should be deducted from tokenized balance
-	 */
-	function _decreaseTokenizedBalance(
-		address owner,
-		MultiToken.Asset memory asset
-	) private {
-		EnumerableMap.UintToUintMap storage map = _ownedFromCollection[owner][asset.assetAddress];
-		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
-
-		if (tokenizedBalance == asset.amount) {
-			map.remove(asset.id);
-		} else {
-			map.set(asset.id, tokenizedBalance - asset.amount);
-		}
-	}
 
 	/**
 	 * @dev Process recipient permission checks
@@ -622,7 +469,7 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 		bool burnToken
 	) private returns (MultiToken.Asset memory) {
 		// Load asset
-		MultiToken.Asset memory asset = getAsset(atrTokenId);
+		MultiToken.Asset memory asset = _assets[atrTokenId];
 
 		// Check that transferring to different address
 		require(from != to, "Attempting to transfer asset to the same address");
@@ -633,13 +480,12 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
-		// Update internal state
-		require(_ownedAssetATRIds[from].remove(atrTokenId), "Asset is not in a target wallet");
-		_decreaseTokenizedBalance(from, asset);
+		// Update tokenized balance
+		require(_decreaseTokenizedBalance(atrTokenId, from, asset), "Asset is not in a target wallet");
 
 		if (burnToken == true) {
 			// Burn the ATR token
-			_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
+			_clearTokenizedAsset(atrTokenId);
 
 			_burn(atrTokenId);
 		} else {
@@ -649,9 +495,8 @@ contract AssetTransferRights is WhitelistManager, ERC721  {
 			// Check that recipient doesn't have approvals for the token collection
 			require(atrGuard.hasOperatorFor(to, asset.assetAddress) == false, "Receiver has approvals set for an asset");
 
-			// Update internal state
-			_ownedAssetATRIds[to].add(atrTokenId);
-			_increaseTokenizedBalance(to, asset);
+			// Update tokenized balance
+			_increaseTokenizedBalance(atrTokenId, to, asset);
 		}
 
 		return asset;
