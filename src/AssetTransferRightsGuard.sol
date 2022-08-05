@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.15;
 
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/IERC1820Registry.sol";
 import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
-import "safe-contracts/common/Enum.sol";
+
 import "safe-contracts/base/GuardManager.sol";
+import "safe-contracts/common/Enum.sol";
+
 import "./AssetTransferRights.sol";
+import "./IAssetTransferRightsGuard.sol";
 
 
-contract AssetTransferRightsGuard is Guard {
+contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 	using EnumerableSet for EnumerableSet.AddressSet;
 
 	string public constant VERSION = "0.1.0";
+
+	address internal constant ERC1820_REGISTRY_ADDRESS = 0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24;
 
 	AssetTransferRights public _atr;
 
@@ -58,7 +66,7 @@ contract AssetTransferRightsGuard is Guard {
 		}
 	}
 
-	function checkAfterExecution(bytes32 txHash, bool success) external {
+	function checkAfterExecution(bytes32 /*txHash*/, bool success) view external {
 		if (success)
 			_atr.checkTokenizedBalance(msg.sender);
 	}
@@ -189,6 +197,23 @@ contract AssetTransferRightsGuard is Guard {
 
 			_handleERC20Approval(safeAddres, target, operator, amount);
 		}
+	}
+
+
+	// Operator manager
+
+	function hasOperatorFor(address safeAddres, address assetAddress) external view returns (bool) {
+		// ERC777 defines `defaultOperators`
+		address implementer = IERC1820Registry(ERC1820_REGISTRY_ADDRESS).getInterfaceImplementer(assetAddress, keccak256("ERC777Token"));
+        if (implementer == assetAddress) {
+        	address[] memory defaultOperators = IERC777(assetAddress).defaultOperators();
+
+        	for (uint256 i; i < defaultOperators.length; ++i)
+	            if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], address(this)))
+	            	return true;
+        }
+
+		return _operators[safeAddres][assetAddress].length() > 0;
 	}
 
 

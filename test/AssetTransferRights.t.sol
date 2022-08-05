@@ -44,7 +44,7 @@ abstract contract AssetTransferRightsTest is Test {
 
 	function superSetUp() internal {
 		atr = new AssetTransferRights();
-		factory = PWNWalletFactory(atr.walletFactory());
+		factory = new PWNWalletFactory(address(atr));
 		wallet = PWNWallet(factory.newWallet());
 
 		atr.setUseWhitelist(false);

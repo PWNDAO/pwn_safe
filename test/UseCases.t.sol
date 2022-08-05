@@ -28,8 +28,9 @@ contract UseCases_ERC20_Test is Test {
 	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	function setUp() external {
-		wallet = PWNWallet(atr.walletFactory().newWallet());
-		walletOther = PWNWallet(atr.walletFactory().newWallet());
+		PWNWalletFactory factory = new PWNWalletFactory(address(atr));
+		wallet = PWNWallet(factory.newWallet());
+		walletOther = PWNWallet(factory.newWallet());
 
 		t20 = new T20();
 		atr.setIsWhitelisted(address(t20), true);
@@ -227,7 +228,8 @@ contract UseCases_ERC721_Test is Test {
 	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	function setUp() external {
-		wallet = PWNWallet(atr.walletFactory().newWallet());
+		PWNWalletFactory factory = new PWNWalletFactory(address(atr));
+		wallet = PWNWallet(factory.newWallet());
 
 		t721 = new T721();
 		atr.setIsWhitelisted(address(t721), true);
@@ -428,7 +430,8 @@ contract UseCases_ERC1155_Test is Test {
 	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	function setUp() external {
-		wallet = PWNWallet(atr.walletFactory().newWallet());
+		PWNWalletFactory factory = new PWNWalletFactory(address(atr));
+		wallet = PWNWallet(factory.newWallet());
 
 		t1155 = new T1155();
 		atr.setIsWhitelisted(address(t1155), true);

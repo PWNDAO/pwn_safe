@@ -11,9 +11,16 @@ import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
+
+import "safe-contracts/base/ModuleManager.sol";
+import "safe-contracts/common/Enum.sol";
+import "safe-contracts/common/StorageAccessible.sol";
+import "safe-contracts/proxies/GnosisSafeProxy.sol";
+
 import "MultiToken/MultiToken.sol";
-import "./IPWNWallet.sol";
-import "./PWNWalletFactory.sol";
+
+import "./IAssetTransferRightsGuard.sol";
+
 
 /**
  * @title Asset Transfer Rights contract
@@ -44,6 +51,12 @@ contract AssetTransferRights is Ownable, ERC721 {
 	bytes32 constant internal RECIPIENT_PERMISSION_TYPEHASH = keccak256(
 		"RecipientPermission(address owner,address wallet,uint40 expiration,bytes32 nonce)"
 	);
+
+	// mainnet
+	bytes32 constant internal GNOSIS_SAFE_SINGLETON_ADDRESS = 0x000000000000000000000000d9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
+
+	uint256 constant internal GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
+	address constant internal SENTINEL_MODULES = address(0x1);
 
 	/**
 	 * @notice Struct representing recipient permission to transfer asset to its PWN Wallet
@@ -82,13 +95,6 @@ contract AssetTransferRights is Ownable, ERC721 {
 	uint256 public lastTokenId;
 
 	/**
-	 * @notice Address of pwn wallet factory
-	 *
-	 * @dev Wallet factory is used to determine valid pwn wallet addresses
-	 */
-	PWNWalletFactory public walletFactory;
-
-	/**
 	 * @notice Mapping of ATR token id to underlying asset
 	 *
 	 * @dev (ATR token id => Asset)
@@ -117,6 +123,8 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 */
 	mapping (bytes32 => bool) public revokedPermissions;
 
+	IAssetTransferRightsGuard public atrGuard;
+
 
 	/*----------------------------------------------------------*|
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
@@ -142,7 +150,6 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 * @dev Contract will deploy its own wallet factory to not have to define setter and access rights for the setter
 	 */
 	constructor() Ownable() ERC721("Asset Transfer Rights", "ATR") {
-		walletFactory = new PWNWalletFactory(address(this));
 		useWhitelist = true;
 	}
 
@@ -203,13 +210,13 @@ contract AssetTransferRights is Ownable, ERC721 {
 		}
 
 		// Check that msg.sender is PWNWallet
-		require(walletFactory.isValidWallet(msg.sender) == true, "Caller is not a PWN Wallet");
+		require(_isValidSafe(msg.sender) == true, "Caller is not a PWN Wallet");
 
 		// Check that given asset is valid
 		require(asset.isValid(), "MultiToken.Asset is not valid");
 
 		// Check that asset collection doesn't have approvals
-		require(IPWNWallet(msg.sender).hasApprovalsFor(asset.assetAddress) == false, "Some asset from collection has an approval");
+		require(atrGuard.hasOperatorFor(msg.sender, asset.assetAddress) == false, "Some asset from collection has an approval");
 
 		// Check that ERC721 asset don't have approval
 		if (asset.category == MultiToken.Category.ERC721) {
@@ -327,7 +334,7 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 * @param atrTokenId ATR token id which is used for the transfer
 	 * @param burnToken Flag to burn ATR token in the same transaction
 	 */
-	function transferAssetFrom(
+	function transferAssetFrom( // TODO: Rename to claimAssetFrom()
 		address from,
 		uint256 atrTokenId,
 		bool burnToken
@@ -335,8 +342,10 @@ contract AssetTransferRights is Ownable, ERC721 {
 		// Process asset transfer
 		MultiToken.Asset memory asset = _processTransferAssetFrom(from, msg.sender, atrTokenId, burnToken);
 
+		bytes memory data = asset.transferAssetCalldata(from, msg.sender);
+
 		// Transfer asset from `from` wallet
-		IPWNWallet(from).transferAsset(asset, msg.sender);
+		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
 	/**
@@ -376,8 +385,10 @@ contract AssetTransferRights is Ownable, ERC721 {
 			require(Ownable(permission.wallet).owner() == permission.owner, "Permission signer is not wallet owner");
 		}
 
+		bytes memory data = asset.transferAssetCalldata(from, permission.wallet);
+
 		// Transfer asset from `from` wallet
-		IPWNWallet(from).transferAsset(asset, permission.wallet);
+		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
 	/**
@@ -490,6 +501,11 @@ contract AssetTransferRights is Ownable, ERC721 {
 	 */
 	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyOwner {
 		isWhitelisted[assetAddress] = _isWhitelisted;
+	}
+
+	/// TODO: Doc
+	function setAssetTransferRightsGuard(address _atrGuard) external onlyOwner {
+		atrGuard = IAssetTransferRightsGuard(_atrGuard);
 	}
 
 
@@ -668,10 +684,10 @@ contract AssetTransferRights is Ownable, ERC721 {
 			_burn(atrTokenId);
 		} else {
 			// Fail if recipient is not PWNWallet
-			require(walletFactory.isValidWallet(to) == true, "Attempting to transfer asset to non PWN Wallet address");
+			require(_isValidSafe(to) == true, "Attempting to transfer asset to non PWN Wallet address");
 
 			// Check that recipient doesn't have approvals for the token collection
-			require(IPWNWallet(to).hasApprovalsFor(asset.assetAddress) == false, "Receiver has approvals set for an asset");
+			require(atrGuard.hasOperatorFor(to, asset.assetAddress) == false, "Receiver has approvals set for an asset");
 
 			// Update internal state
 			_ownedAssetATRIds[to].add(atrTokenId);
@@ -679,6 +695,37 @@ contract AssetTransferRights is Ownable, ERC721 {
 		}
 
 		return asset;
+	}
+
+	/// TODO: Doc
+	function _isValidSafe(address safe) private view returns (bool) {
+		// Check that address is GnosisSafeProxy
+		// Need to hash bytes arrays first, because solidity cannot compare byte arrays directly
+		if (keccak256(type(GnosisSafeProxy).runtimeCode) != keccak256(address(safe).code))
+			return false;
+
+		// TODO: List of supported singletons?
+		// Check that proxy has correct singleton set
+		bytes memory singletonValue = StorageAccessible(safe).getStorageAt(0, 1);
+		if (bytes32(singletonValue) != GNOSIS_SAFE_SINGLETON_ADDRESS)
+			return false;
+
+		// Check that safe has correct guard set
+		bytes memory guardValue = StorageAccessible(safe).getStorageAt(GUARD_STORAGE_SLOT, 1);
+		if (bytes32(guardValue) != bytes32(bytes20(address(atrGuard))))
+			return false;
+
+		// Check that safe has correct module set
+		if (ModuleManager(safe).isModuleEnabled(address(this)) == false)
+			return false;
+
+		// Check that safe has only one module
+		(address[] memory modules, ) = ModuleManager(safe).getModulesPaginated(SENTINEL_MODULES, 2);
+		if (modules.length > 1)
+			return false;
+
+		// All checks passed
+		return true;
 	}
 
 }

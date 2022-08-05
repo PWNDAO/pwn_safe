@@ -37,8 +37,9 @@ abstract contract GasResearchTest is Test {
 
 	function superSetUp() internal {
 		atr = new AssetTransferRights();
-		wallet = PWNWallet(atr.walletFactory().newWallet());
-		walletOther = PWNWallet(atr.walletFactory().newWallet());
+		PWNWalletFactory factory = new PWNWalletFactory(address(atr));
+		wallet = PWNWallet(factory.newWallet());
+		walletOther = PWNWallet(factory.newWallet());
 
 		t20 = new T20();
 		t721 = new T721();
