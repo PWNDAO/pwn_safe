@@ -20,7 +20,8 @@ contract Deploy is Script {
 	function run() external {
 		vm.startBroadcast();
 
-        new AssetTransferRights();
+		// TODO:
+        new AssetTransferRights(address(0x1));
 
         vm.stopBroadcast();
 	}

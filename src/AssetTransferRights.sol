@@ -10,8 +10,6 @@ import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 
 import "safe-contracts/base/ModuleManager.sol";
 import "safe-contracts/common/Enum.sol";
-import "safe-contracts/common/StorageAccessible.sol";
-import "safe-contracts/proxies/GnosisSafeProxy.sol";
 
 import "MultiToken/MultiToken.sol";
 
@@ -19,6 +17,7 @@ import "./IAssetTransferRightsGuard.sol";
 import "./WhitelistManager.sol";
 import "./TokenizedAssetManager.sol";
 import "./AssetTransferRightsGuardManager.sol";
+import "./GnosisSafeManager.sol";
 
 
 /**
@@ -29,24 +28,20 @@ import "./AssetTransferRightsGuardManager.sol";
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
  * ATR token can be used in lending protocols instead of an underlying asset
  */
-contract AssetTransferRights is Ownable, WhitelistManager, TokenizedAssetManager, AssetTransferRightsGuardManager, ERC721  {
+contract AssetTransferRights is
+	Ownable,
+	WhitelistManager,
+	TokenizedAssetManager,
+	AssetTransferRightsGuardManager,
+	GnosisSafeManager,
+	ERC721
+{
 	using MultiToken for MultiToken.Asset;
 
 
 	/*----------------------------------------------------------*|
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
 	|*----------------------------------------------------------*/
-
-	/**
-	 * EIP-1271 valid signature magic value
-	 */
-	bytes4 constant internal EIP1271_VALID_SIGNATURE = 0x1626ba7e;
-
-	// mainnet
-	bytes32 constant internal GNOSIS_SAFE_SINGLETON_ADDRESS = 0x000000000000000000000000d9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
-
-	uint256 constant internal GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
-	address constant internal SENTINEL_MODULES = address(0x1);
 
 	/**
 	 * @notice Last minted token id
@@ -83,7 +78,11 @@ contract AssetTransferRights is Ownable, WhitelistManager, TokenizedAssetManager
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor() Ownable() ERC721("Asset Transfer Rights", "ATR") {
+	constructor(address safeSingletonAddress)
+		Ownable()
+		GnosisSafeManager(safeSingletonAddress)
+		ERC721("Asset Transfer Rights", "ATR")
+	{
 		useWhitelist = true;
 	}
 
@@ -144,7 +143,7 @@ contract AssetTransferRights is Ownable, WhitelistManager, TokenizedAssetManager
 		}
 
 		// Check that msg.sender is PWNWallet
-		require(_isValidSafe(msg.sender) == true, "Caller is not a PWN Wallet");
+		require(_isSafeInCorrectState(msg.sender, address(atrGuard), address(this)) == true, "Caller is not a PWN Wallet");
 
 		// Check that given asset is valid
 		require(asset.isValid(), "MultiToken.Asset is not valid");
@@ -319,7 +318,7 @@ contract AssetTransferRights is Ownable, WhitelistManager, TokenizedAssetManager
 			_burn(atrTokenId);
 		} else {
 			// Fail if recipient is not PWNWallet
-			require(_isValidSafe(to) == true, "Attempting to transfer asset to non PWN Wallet address");
+			require(_isSafeInCorrectState(to, address(atrGuard), address(this)) == true, "Attempting to transfer asset to non PWN Wallet address");
 
 			// Check that recipient doesn't have approvals for the token collection
 			require(atrGuard.hasOperatorFor(to, asset.assetAddress) == false, "Receiver has approvals set for an asset");
@@ -329,37 +328,6 @@ contract AssetTransferRights is Ownable, WhitelistManager, TokenizedAssetManager
 		}
 
 		return asset;
-	}
-
-	/// TODO: Doc
-	function _isValidSafe(address safe) private view returns (bool) {
-		// Check that address is GnosisSafeProxy
-		// Need to hash bytes arrays first, because solidity cannot compare byte arrays directly
-		if (keccak256(type(GnosisSafeProxy).runtimeCode) != keccak256(address(safe).code))
-			return false;
-
-		// TODO: List of supported singletons?
-		// Check that proxy has correct singleton set
-		bytes memory singletonValue = StorageAccessible(safe).getStorageAt(0, 1);
-		if (bytes32(singletonValue) != GNOSIS_SAFE_SINGLETON_ADDRESS)
-			return false;
-
-		// Check that safe has correct guard set
-		bytes memory guardValue = StorageAccessible(safe).getStorageAt(GUARD_STORAGE_SLOT, 1);
-		if (bytes32(guardValue) != bytes32(bytes20(address(atrGuard))))
-			return false;
-
-		// Check that safe has correct module set
-		if (ModuleManager(safe).isModuleEnabled(address(this)) == false)
-			return false;
-
-		// Check that safe has only one module
-		(address[] memory modules, ) = ModuleManager(safe).getModulesPaginated(SENTINEL_MODULES, 2);
-		if (modules.length > 1)
-			return false;
-
-		// All checks passed
-		return true;
 	}
 
 }
