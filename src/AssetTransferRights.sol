@@ -6,8 +6,6 @@ import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
-import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
 
 import "safe-contracts/base/ModuleManager.sol";
 import "safe-contracts/common/Enum.sol";
@@ -42,34 +40,11 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 	 */
 	bytes4 constant internal EIP1271_VALID_SIGNATURE = 0x1626ba7e;
 
-	/**
-	 * EIP-712 recipient permission struct type hash
-	 */
-	bytes32 constant internal RECIPIENT_PERMISSION_TYPEHASH = keccak256(
-		"RecipientPermission(address owner,address wallet,uint40 expiration,bytes32 nonce)"
-	);
-
 	// mainnet
 	bytes32 constant internal GNOSIS_SAFE_SINGLETON_ADDRESS = 0x000000000000000000000000d9Db270c1B5E3Bd161E8c8503c55cEABeE709552;
 
 	uint256 constant internal GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
 	address constant internal SENTINEL_MODULES = address(0x1);
-
-	/**
-	 * @notice Struct representing recipient permission to transfer asset to its PWN Wallet
-	 *
-	 * @param owner Wallet owner which is also a permission signer
-	 * @param wallet Address of PWN Wallet to which is the permission granted
-	 * @param expiration Permission expiration timestamp in seconds
-	 *        0 value means permission cannot expire
-	 * @param nonce Additional nonce to distinguish between same permissions
-	 */
-	struct RecipientPermission {
-		address owner;
-		address wallet;
-		uint40 expiration;
-		bytes32 nonce;
-	}
 
 	/**
 	 * @notice Last minted token id
@@ -79,11 +54,7 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 	 */
 	uint256 public lastTokenId;
 
-	/**
-	 * Mapping of revoked recipient permissions by recipient permission struct typed hash
-	 */
-	mapping (bytes32 => bool) public revokedPermissions;
-
+	/// TODO: Doc
 	IAssetTransferRightsGuard public atrGuard;
 
 
@@ -91,7 +62,7 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
 	|*----------------------------------------------------------*/
 
-	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
+	// No event nor error defined
 
 
 	/*----------------------------------------------------------*|
@@ -300,74 +271,6 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
-	/**
-	 * @notice Transfer assets via ATR token to recipient wallet
-	 *
-	 * @dev Asset can be transferred only to wallet that granted the permission.
-	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet).
-	 * Caller has to be ATR token owner.
-	 *
-	 * Requirements:
-	 *
-	 * - caller has to be ATR token owner
-	 * - if `burnToken` is false, recipient has to be PWN Wallet, otherwise it could be any address
-	 * - if `burnToken` is false, recipient must not have any approvals for asset contract
-	 *
-	 * @param from PWN Wallet address from which to transfer asset
-	 * @param atrTokenId ATR token id which is used for the transfer
-	 * @param burnToken Flag to burn ATR token in the same transaction
-	 * @param permission `RecipientPermission` struct of permission data
-	 * @param permissionSignature Signed `RecipientPermission` struct signed by recipient
-	 */
-	function transferAssetWithPermissionFrom(
-		address from,
-		uint256 atrTokenId,
-		bool burnToken,
-		RecipientPermission calldata permission,
-		bytes calldata permissionSignature
-	) external {
-		// Process permission signature
-		_processRecipientPermission(permission, permissionSignature);
-
-		// Process asset transfer
-		MultiToken.Asset memory asset = _processTransferAssetFrom(from, permission.wallet, atrTokenId, burnToken);
-
-		if (burnToken == false) {
-			// Check that stated wallet owner is indeed wallet owner
-			require(Ownable(permission.wallet).owner() == permission.owner, "Permission signer is not wallet owner");
-		}
-
-		bytes memory data = asset.transferAssetCalldata(from, permission.wallet);
-
-		// Transfer asset from `from` wallet
-		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
-	}
-
-	/**
-	 * @notice Revoke granted recipient permission to transfer asset to its PWN Wallet
-	 *
-	 * @dev Caller has to be permission signer
-	 *
-	 * @param permissionHash EIP-712 Structured hash of `RecipientPermission` struct
-	 * @param permissionSignature Signed `permissionHash` by wallet owner
-	 */
-	function revokeRecipientPermission(
-		bytes32 permissionHash,
-		bytes calldata permissionSignature
-	) external {
-		// Check that caller is permission signer
-		require(ECDSA.recover(permissionHash, permissionSignature) == msg.sender, "Sender is not a recipient permission signer");
-
-		// Check that permission is not yet revoked
-		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
-
-		// Revoke permission
-		revokedPermissions[permissionHash] = true;
-
-		// Emit event
-		emit RecipientPermissionRevoked(permissionHash);
-	}
-
 
 	/*----------------------------------------------------------*|
 	|*  # SETTERS                                               *|
@@ -378,77 +281,9 @@ contract AssetTransferRights is WhitelistManager, ERC721, TokenizedAssetManager 
 		atrGuard = IAssetTransferRightsGuard(_atrGuard);
 	}
 
-
-	/*----------------------------------------------------------*|
-	|*  # VIEW                                                  *|
-	|*----------------------------------------------------------*/
-
-	/**
-	 * @dev Compute recipient permission struct hash according to EIP-712
-	 *
-	 * @param permission RecipientPermission struct to compute hash from
-	 *
-	 * @return EIP-712 compliant recipient permission hash
-	 */
-	function recipientPermissionHash(RecipientPermission calldata permission) public view returns (bytes32) {
-		return keccak256(abi.encodePacked(
-			"\x19\x01",
-			// Domain separator is composing to prevent replay attack in case of an Ethereum fork
-			keccak256(abi.encode(
-				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-				keccak256(bytes("ATR")), // ?
-				keccak256(bytes("0.1")),
-				block.chainid,
-				address(this)
-			)),
-			keccak256(abi.encode(
-				RECIPIENT_PERMISSION_TYPEHASH,
-				permission.owner,
-				permission.wallet,
-				permission.expiration,
-				permission.nonce
-			))
-		));
-	}
-
-
 	/*----------------------------------------------------------*|
 	|*  # PRIVATE                                               *|
 	|*----------------------------------------------------------*/
-
-	/**
-	 * @dev Process recipient permission checks
-	 * Signer has to be stated in a `RecipientPermission` struct as an owner
-	 *
-	 * @param permission Provided `RecipientPermission` struct to check
-	 * @param permissionSignature Signed `RecipientPermission` struct by wallet owner
-	 */
-	function _processRecipientPermission(
-		RecipientPermission calldata permission,
-		bytes calldata permissionSignature
-	) private {
-		// Check that permission is not expired
-		require(permission.expiration == 0 || block.timestamp < permission.expiration, "Recipient permission is expired");
-
-		// Compute EIP-712 structured data hash
-		bytes32 permissionHash = recipientPermissionHash(permission);
-
-		// Check that permission is not revoked
-		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
-
-		// Check valid signature
-		if (permission.owner.code.length > 0) {
-			require(IERC1271(permission.owner).isValidSignature(permissionHash, permissionSignature) == EIP1271_VALID_SIGNATURE, "Signature on behalf of contract is invalid");
-		} else {
-			require(ECDSA.recover(permissionHash, permissionSignature) == permission.owner, "Permission signer is not stated as wallet owner");
-		}
-
-		// Mark used permission as revoked
-		revokedPermissions[permissionHash] = true;
-
-		// Emit event
-		emit RecipientPermissionRevoked(permissionHash);
-	}
 
 	/**
 	 * @dev Process internal state of asset transfer
