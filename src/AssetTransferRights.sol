@@ -9,7 +9,6 @@ import "openzeppelin-contracts/contracts/utils/structs/EnumerableMap.sol";
 import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import "openzeppelin-contracts/contracts/access/Ownable.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
 
 import "safe-contracts/base/ModuleManager.sol";
@@ -20,6 +19,7 @@ import "safe-contracts/proxies/GnosisSafeProxy.sol";
 import "MultiToken/MultiToken.sol";
 
 import "./IAssetTransferRightsGuard.sol";
+import "./WhitelistManager.sol";
 
 
 /**
@@ -30,7 +30,7 @@ import "./IAssetTransferRightsGuard.sol";
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
  * ATR token can be used in lending protocols instead of an underlying asset
  */
-contract AssetTransferRights is Ownable, ERC721 {
+contract AssetTransferRights is WhitelistManager, ERC721  {
 	using EnumerableSet for EnumerableSet.UintSet;
 	using EnumerableMap for EnumerableMap.UintToUintMap;
 	using MultiToken for MultiToken.Asset;
@@ -73,18 +73,6 @@ contract AssetTransferRights is Ownable, ERC721 {
 		uint40 expiration;
 		bytes32 nonce;
 	}
-
-	/**
-	 * @notice Stored flag that incidates, whether ATR token minting is enabled only to whitelisted assets
-	 */
-	bool public useWhitelist;
-
-	/**
-	 * @notice Whitelist of asset addresses, which are enabled to mint their transfer rights
-	 *
-	 * @dev Used only if `useWhitelist` flag is set to true
-	 */
-	mapping (address => bool) public isWhitelisted;
 
 	/**
 	 * @notice Last minted token id
@@ -144,13 +132,8 @@ contract AssetTransferRights is Ownable, ERC721 {
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	/**
-	 * @notice Contract constructor
-	 *
-	 * @dev Contract will deploy its own wallet factory to not have to define setter and access rights for the setter
-	 */
-	constructor() Ownable() ERC721("Asset Transfer Rights", "ATR") {
-		useWhitelist = true;
+	constructor() WhitelistManager() ERC721("Asset Transfer Rights", "ATR") {
+
 	}
 
 
@@ -479,29 +462,6 @@ contract AssetTransferRights is Ownable, ERC721 {
 	/*----------------------------------------------------------*|
 	|*  # SETTERS                                               *|
 	|*----------------------------------------------------------*/
-
-	/**
-	 * @notice Set if ATR token minting is restricted by whitelist
-	 *
-	 * @dev Set `useWhitelist` stored flag
-	 *
-	 * @param _useWhitelist New `useWhitelist` flag value
-	 */
-	function setUseWhitelist(bool _useWhitelist) external onlyOwner {
-		useWhitelist = _useWhitelist;
-	}
-
-	/**
-	 * @notice Set if asset address is whitelisted
-	 *
-	 * @dev Set `isWhitelisted` mapping value
-	 *
-	 * @param assetAddress Address of whitelisted asset
-	 * @param _isWhitelisted New `isWhitelisted` mapping value
-	 */
-	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyOwner {
-		isWhitelisted[assetAddress] = _isWhitelisted;
-	}
 
 	/// TODO: Doc
 	function setAssetTransferRightsGuard(address _atrGuard) external onlyOwner {
