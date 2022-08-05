@@ -80,12 +80,12 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 
 		// GuardManager.setGuard(address)
 		if (funcSelector == 0xe19a9dd9) {
-			require(_atr.isHoldingAnyTokenizedAssets(safeAddres) == false, "Cannot change guard while having tokenized assets");
+			require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change guard while having tokenized assets");
 		}
 
 		// ModuleManager.enableModule(address)
 		else if (funcSelector == 0x610b5925) {
-			require(_atr.isHoldingAnyTokenizedAssets(safeAddres) == false, "Cannot add module while having tokenized assets");
+			require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot add module while having tokenized assets");
 		}
 
 		// ModuleManager.disableModule(address,address)
@@ -93,7 +93,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 			(, address module) = abi.decode(data[4:], (address, address));
 
 			if (module == address(_atr)) {
-				require(_atr.isHoldingAnyTokenizedAssets(safeAddres) == false, "Cannot remove module while having tokenized assets");
+				require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot remove module while having tokenized assets");
 			}
 		}
 	}
