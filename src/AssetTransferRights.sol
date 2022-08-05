@@ -31,8 +31,8 @@ import "./GnosisSafeManager.sol";
 contract AssetTransferRights is
 	Ownable,
 	WhitelistManager,
-	TokenizedAssetManager,
 	AssetTransferRightsGuardManager,
+	TokenizedAssetManager,
 	GnosisSafeManager,
 	ERC721
 {
@@ -263,7 +263,7 @@ contract AssetTransferRights is
 	 * @param atrTokenId ATR token id which is used for the transfer
 	 * @param burnToken Flag to burn ATR token in the same transaction
 	 */
-	function transferAssetFrom( // TODO: Rename to claimAssetFrom()
+	function claimAssetFrom(
 		address from,
 		uint256 atrTokenId,
 		bool burnToken
