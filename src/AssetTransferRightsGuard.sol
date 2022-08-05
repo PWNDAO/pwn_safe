@@ -219,7 +219,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 
 	// Recover
 
-	function resolveInvalidApproval(address safeAddres, address assetAddress, address operator) external {
+	function resolveInvalidAllowance(address safeAddres, address assetAddress, address operator) external {
 		uint256 allowance = IERC20(assetAddress).allowance(safeAddres, operator);
 		if (allowance == 0) {
 			_operators[safeAddres][assetAddress].remove(operator);
