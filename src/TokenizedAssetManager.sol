@@ -61,14 +61,16 @@ contract TokenizedAssetManager {
 	 *
 	 * @param owner Address to check its tokenized balance
 	 */
-	function checkTokenizedBalance(address owner) external view {
+	function hasSufficientTokenizedBalance(address owner) external view returns (bool) {
 		uint256[] memory atrs = _ownedAssetATRIds[owner].values();
 		for (uint256 i; i < atrs.length; ++i) {
 			MultiToken.Asset memory asset = _assets[atrs[i]];
-
 			(, uint256 tokenizedBalance) = _ownedFromCollection[owner][asset.assetAddress].tryGet(asset.id);
-			require(asset.balanceOf(owner) >= tokenizedBalance, "Insufficient tokenized balance");
+			if (asset.balanceOf(owner) < tokenizedBalance)
+				return false;
 		}
+
+		return true;
 	}
 
 

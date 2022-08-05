@@ -68,7 +68,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 
 	function checkAfterExecution(bytes32 /*txHash*/, bool success) view external {
 		if (success)
-			_atr.checkTokenizedBalance(msg.sender);
+			require(_atr.hasSufficientTokenizedBalance(msg.sender), "Insufficient tokenized balance");
 	}
 
 
