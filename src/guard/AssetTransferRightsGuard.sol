@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.15;
 
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/IERC1820Registry.sol";
@@ -9,35 +10,44 @@ import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "safe-contracts/base/GuardManager.sol";
 import "safe-contracts/common/Enum.sol";
 
-import "./AssetTransferRights.sol";
+import "../AssetTransferRights.sol";
 import "./IAssetTransferRightsGuard.sol";
+import "./OperatorsContext.sol";
 
 
-contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
+contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsGuard {
 	using EnumerableSet for EnumerableSet.AddressSet;
+
+
+	/*----------------------------------------------------------*|
+	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
+	|*----------------------------------------------------------*/
 
 	string public constant VERSION = "0.1.0";
 
 	address internal constant ERC1820_REGISTRY_ADDRESS = 0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24;
 
-	AssetTransferRights public _atr;
-
-	/**
-	 * @notice Set of operators per asset address per wallet
-	 * @dev Operator is any address that can transfer asset on behalf of an owner
-	 *      Could have allowance (ERC20) or could approval for all owned assets (ERC721/1155-setApprovalForAll)
-	 *      Operator is not address approved to transfer concrete ERC721 asset. This approvals are not tracked by wallet.
-	 *      safe address => collection address => set of operators
-	 */
-	mapping (address => mapping (address => EnumerableSet.AddressSet)) internal _operators;
+	AssetTransferRights internal atr;
+	OperatorsContext internal operatorsContext;
 
 
-	constructor(address atr) {
-		_atr = AssetTransferRights(atr);
+	/*----------------------------------------------------------*|
+	|*  # CONSTRUCTOR                                           *|
+	|*----------------------------------------------------------*/
+
+	constructor() {
+
+	}
+
+	function initialize(address _atr, address _operatorContext) external initializer {
+		atr = AssetTransferRights(_atr);
+		operatorsContext = OperatorsContext(_operatorContext);
 	}
 
 
-	// Guard
+	/*----------------------------------------------------------*|
+	|*  # GUARD INTERFACE                                       *|
+	|*----------------------------------------------------------*/
 
 	function checkTransaction(
 		address to,
@@ -58,63 +68,67 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 
 		// Self authorization calls
 		if (to == msg.sender) {
-			manageGuardModuleUpdates(msg.sender, data);
+			checkManagerUpdates(msg.sender, data);
 		}
 
 		// Trust ATR contract
-		if (to != address(_atr)) {
-			manageExecutionChecks(msg.sender, to, data);
+		if (to != address(atr)) {
+			checkExecutionCalls(msg.sender, to, data);
 		}
 	}
 
 	function checkAfterExecution(bytes32 /*txHash*/, bool success) view external {
 		if (success)
-			require(_atr.hasSufficientTokenizedBalance(msg.sender), "Insufficient tokenized balance");
+			require(atr.hasSufficientTokenizedBalance(msg.sender), "Insufficient tokenized balance");
 	}
 
 
-	// Guard & Module update checks
+	/*----------------------------------------------------------*|
+	|*  # MANAGER UPDATES CHECKS                                *|
+	|*----------------------------------------------------------*/
 
-	function manageGuardModuleUpdates(address safeAddres, bytes calldata data) view internal {
+	function checkManagerUpdates(address safeAddres, bytes calldata data) view internal {
 		// Get function selector from data
 		bytes4 funcSelector = bytes4(data);
 
 		// GuardManager.setGuard(address)
 		if (funcSelector == 0xe19a9dd9) {
-			require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change guard while having tokenized assets");
+			require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change guard while having tokenized assets");
 		}
 
 		// ModuleManager.enableModule(address)
 		else if (funcSelector == 0x610b5925) {
-			require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot enable module while having tokenized assets");
+			require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot enable module while having tokenized assets");
 		}
 
 		// ModuleManager.disableModule(address,address)
 		else if (funcSelector == 0xe009cfde) {
 			(, address module) = abi.decode(data[4:], (address, address));
 
-			if (module == address(_atr)) {
-				require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot disable ATR module while having tokenized assets");
+			if (module == address(atr)) {
+				require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot disable ATR module while having tokenized assets");
 			}
 		}
 
 		// FallbackManager.setFallbackHandler(address)
 		else if (funcSelector == 0xf08a0323) {
-			require(_atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change fallback handler while having tokenized assets");
+			require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change fallback handler while having tokenized assets");
 		}
 	}
 
 
-	// Execution checks
+	/*----------------------------------------------------------*|
+	|*  # EXECUTION CHECKS                                      *|
+	|*----------------------------------------------------------*/
 
-	function manageExecutionChecks(address safeAddres, address target, bytes calldata data) internal {
+	function checkExecutionCalls(address safeAddress, address target, bytes calldata data) internal {
 		// Get function selector from data
 		bytes4 funcSelector = bytes4(data);
 
 		// ERC20/ERC721 - approve
 		if (funcSelector == 0x095ea7b3) {
 			// Block any approve call if there is at least one tokenized asset from a collection
-			require(_atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -122,18 +136,18 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 			// ERC20 contract doesn't provide possibility to list all addresses that are approved to transfer asset on behalf of an owner.
 			// That's why a wallet has to track operators.
 
-			_handleERC20Approval(safeAddres, target, operator, amount);
+			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 
 		// ERC20 - increaseAllowance
 		else if (funcSelector == 0x39509351) {
 			// Block any increaseAllowance call if there is at least one tokenized asset from a collection
-			require(_atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
 			if (amount > 0) {
-				_operators[safeAddres][target].add(operator);
+				operatorsContext.add(safeAddress, target, operator);
 			}
 		}
 
@@ -144,7 +158,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
 
 				if (allowance <= amount) {
-					_operators[safeAddres][target].remove(operator);
+					operatorsContext.remove(safeAddress, target, operator);
 				}
 
 			} catch {}
@@ -153,7 +167,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 		// ERC721/ERC1155 - setApprovalForAll
 		else if (funcSelector == 0xa22cb465) {
 			// Block any setApprovalForAll call if there is at least one tokenized asset from a collection
-			require(_atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
 
@@ -161,54 +175,56 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 			// That's why a wallet has to track them.
 
 			if (approved) {
-				_operators[safeAddres][target].add(operator);
+				operatorsContext.add(safeAddress, target, operator);
 			} else {
-				_operators[safeAddres][target].remove(operator);
+				operatorsContext.remove(safeAddress, target, operator);
 			}
 		}
 
 		// ERC777 - authorizeOperator
 		else if (funcSelector == 0x959b8c3f) {
 			// Block any authorizeOperator call if there is at least one tokenized asset from a collection
-			require(_atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			address operator = abi.decode(data[4:], (address));
 
-			_operators[safeAddres][target].add(operator);
+			operatorsContext.add(safeAddress, target, operator);
 		}
 
 		// ERC777 - revokeOperator
 		else if (funcSelector == 0xfad8b32a) {
 			address operator = abi.decode(data[4:], (address));
 
-			_operators[safeAddres][target].remove(operator);
+			operatorsContext.remove(safeAddress, target, operator);
 		}
 
 		// ERC1363 - approveAndCall
 		else if (funcSelector == 0x3177029f) {
 			// Block any approveAndCall call if there is at least one tokenized asset from a collection
-			require(_atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
-			_handleERC20Approval(safeAddres, target, operator, amount);
+			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 
 		// ERC1363 - approveAndCall(bytes)
 		else if (funcSelector == 0xcae9ca51) {
 			// Block any approveAndCall call if there is at least one tokenized asset from a collection
-			require(_atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount,) = abi.decode(data[4:], (address, uint256, bytes));
 
-			_handleERC20Approval(safeAddres, target, operator, amount);
+			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 	}
 
 
-	// Operator manager
+	/*----------------------------------------------------------*|
+	|*  # OPERATOR MANAGER                                      *|
+	|*----------------------------------------------------------*/
 
-	function hasOperatorFor(address safeAddres, address assetAddress) external view returns (bool) {
+	function hasOperatorFor(address safeAddress, address assetAddress) external view returns (bool) {
 		// ERC777 defines `defaultOperators`
 		address implementer = IERC1820Registry(ERC1820_REGISTRY_ADDRESS).getInterfaceImplementer(assetAddress, keccak256("ERC777Token"));
         if (implementer == assetAddress) {
@@ -219,31 +235,23 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 	            	return true;
         }
 
-		return _operators[safeAddres][assetAddress].length() > 0;
+		return operatorsContext.hasOperatorFor(safeAddress, assetAddress);
 	}
 
 
-	// Recover
+	/*----------------------------------------------------------*|
+	|*  # PRIVATE                                               *|
+	|*----------------------------------------------------------*/
 
-	function resolveInvalidAllowance(address safeAddres, address assetAddress, address operator) external {
-		uint256 allowance = IERC20(assetAddress).allowance(safeAddres, operator);
-		if (allowance == 0) {
-			_operators[safeAddres][assetAddress].remove(operator);
-		}
-	}
-
-
-	// Helpers
-
-	function _handleERC20Approval(address safeAddres, address target, address operator, uint256 amount) private {
+	function _handleERC20Approval(address safeAddress, address target, address operator, uint256 amount) private {
 		try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
 
 			if (allowance != 0 && amount == 0) {
-				_operators[safeAddres][target].remove(operator);
+				operatorsContext.remove(safeAddress, target, operator);
 			}
 
 			else if (allowance == 0 && amount != 0) {
-				_operators[safeAddres][target].add(operator);
+				operatorsContext.add(safeAddress, target, operator);
 			}
 
 		} catch {}
