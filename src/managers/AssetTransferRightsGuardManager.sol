@@ -20,7 +20,7 @@ abstract contract AssetTransferRightsGuardManager {
 	|*----------------------------------------------------------*/
 
 	/// TODO: Doc
-	modifier onlyGuardManer() virtual;
+	modifier onlyGuardManager() virtual;
 
 
 	/*----------------------------------------------------------*|
@@ -37,7 +37,7 @@ abstract contract AssetTransferRightsGuardManager {
 	|*----------------------------------------------------------*/
 
 	/// TODO: Doc
-	function setAssetTransferRightsGuard(address _atrGuard) external onlyGuardManer {
+	function setAssetTransferRightsGuard(address _atrGuard) external onlyGuardManager {
 		atrGuard = IAssetTransferRightsGuard(_atrGuard);
 	}
 

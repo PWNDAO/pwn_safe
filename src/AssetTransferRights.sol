@@ -63,7 +63,7 @@ contract AssetTransferRights is
 	|*  # MODIFIERS                                             *|
 	|*----------------------------------------------------------*/
 
-	modifier onlyGuardManer override {
+	modifier onlyGuardManager override {
 		_checkOwner();
 		_;
 	}
