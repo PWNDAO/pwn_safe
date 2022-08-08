@@ -14,10 +14,10 @@ import "safe-contracts/common/Enum.sol";
 import "MultiToken/MultiToken.sol";
 
 import "./IAssetTransferRightsGuard.sol";
-import "./WhitelistManager.sol";
-import "./TokenizedAssetManager.sol";
-import "./AssetTransferRightsGuardManager.sol";
-import "./GnosisSafeManager.sol";
+import "./managers/WhitelistManager.sol";
+import "./managers/TokenizedAssetManager.sol";
+import "./managers/AssetTransferRightsGuardManager.sol";
+import "./managers/GnosisSafeManager.sol";
 
 
 /**
