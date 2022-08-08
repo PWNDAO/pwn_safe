@@ -21,7 +21,7 @@ contract Deploy is Script {
 		vm.startBroadcast();
 
 		// TODO:
-        new AssetTransferRights(address(0x1));
+        new AssetTransferRights(address(0x1), address(0x2));
 
         vm.stopBroadcast();
 	}

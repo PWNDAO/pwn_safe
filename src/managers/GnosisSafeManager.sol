@@ -14,18 +14,21 @@ contract GnosisSafeManager {
 	|*----------------------------------------------------------*/
 
 	uint256 constant internal GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
+	uint256 constant internal FALLBACK_HANDLER_STORAGE_SLOT = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
 	address constant internal SENTINEL_MODULES = address(0x1);
 
 	// mainnet 0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552
 	address immutable internal GNOSIS_SAFE_SINGLETON_ADDRESS;
+	address immutable internal FALLBACK_HANDLER_ADDRESS;
 
 
 	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor(address safeSingletonAddress) {
+	constructor(address safeSingletonAddress, address fallbackHandlerAddress) {
 		GNOSIS_SAFE_SINGLETON_ADDRESS = safeSingletonAddress;
+		FALLBACK_HANDLER_ADDRESS = fallbackHandlerAddress;
 	}
 
 
@@ -60,7 +63,12 @@ contract GnosisSafeManager {
 		if (modules.length > 1)
 			return false;
 
-		// All checks passed
+		// Check that safe has correct fallback handler set
+		bytes memory fallbackHandlerValue = StorageAccessible(safe).getStorageAt(FALLBACK_HANDLER_STORAGE_SLOT, 1);
+		if (bytes32(fallbackHandlerValue) != bytes32(bytes20(FALLBACK_HANDLER_ADDRESS)))
+			return false;
+
+		// All checks passes
 		return true;
 	}
 

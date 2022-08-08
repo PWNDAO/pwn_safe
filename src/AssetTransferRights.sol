@@ -78,9 +78,9 @@ contract AssetTransferRights is
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor(address safeSingletonAddress)
+	constructor(address safeSingletonAddress, address fallbackHandlerAddress)
 		Ownable()
-		GnosisSafeManager(safeSingletonAddress)
+		GnosisSafeManager(safeSingletonAddress, fallbackHandlerAddress)
 		ERC721("Asset Transfer Rights", "ATR")
 	{
 		useWhitelist = true;
