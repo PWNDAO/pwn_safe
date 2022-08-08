@@ -43,7 +43,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 		address to,
 		uint256 /*value*/,
 		bytes calldata data,
-		Enum.Operation /*operation*/,
+		Enum.Operation operation,
 		uint256 safeTxGas,
 		uint256 /*baseGas*/,
 		uint256 gasPrice,
@@ -54,6 +54,7 @@ contract AssetTransferRightsGuard is Guard, IAssetTransferRightsGuard {
 	) external {
 		require(safeTxGas == 0, "Safe tx gas has to be 0 for tx to revert in case of failure");
 		require(gasPrice == 0, "Gas price has to be 0 for tx to revert in case of failure");
+		require(operation == Enum.Operation.Call, "Only call operations are allowed");
 
 		// Self authorization calls
 		if (to == msg.sender) {
