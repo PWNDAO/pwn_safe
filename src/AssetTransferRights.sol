@@ -43,6 +43,8 @@ contract AssetTransferRights is
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
 	|*----------------------------------------------------------*/
 
+	string public constant VERSION = "0.1.0";
+
 	/**
 	 * @notice Last minted token id
 	 *

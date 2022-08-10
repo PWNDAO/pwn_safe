@@ -93,26 +93,22 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 
 		// GuardManager.setGuard(address)
 		if (funcSelector == 0xe19a9dd9) {
-			require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change guard while having tokenized assets");
+			revert("Cannot change ATR guard");
 		}
 
 		// ModuleManager.enableModule(address)
 		else if (funcSelector == 0x610b5925) {
-			require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot enable module while having tokenized assets");
+			revert("Cannot enable ATR module");
 		}
 
 		// ModuleManager.disableModule(address,address)
 		else if (funcSelector == 0xe009cfde) {
-			(, address module) = abi.decode(data[4:], (address, address));
-
-			if (module == address(atr)) {
-				require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot disable ATR module while having tokenized assets");
-			}
+			revert("Cannot disable ATR module");
 		}
 
 		// FallbackManager.setFallbackHandler(address)
 		else if (funcSelector == 0xf08a0323) {
-			require(atr.hasAnyTokenizedAssetsInSafe(safeAddres) == false, "Cannot change fallback handler while having tokenized assets");
+			revert("Cannot change fallback handler");
 		}
 	}
 
