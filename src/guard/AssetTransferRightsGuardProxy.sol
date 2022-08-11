@@ -6,4 +6,11 @@ import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeabl
 
 contract AssetTransferRightsGuardProxy is TransparentUpgradeableProxy {
 
+	constructor(
+        address logic,
+        address admin
+    ) TransparentUpgradeableProxy(logic, admin, "") {
+
+    }
+
 }
