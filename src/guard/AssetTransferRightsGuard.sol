@@ -68,7 +68,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 
 		// Self authorization calls
 		if (to == msg.sender) {
-			checkManagerUpdates(msg.sender, data);
+			checkManagerUpdates(data);
 		}
 
 		// Trust ATR contract
@@ -87,7 +87,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 	|*  # MANAGER UPDATES CHECKS                                *|
 	|*----------------------------------------------------------*/
 
-	function checkManagerUpdates(address safeAddres, bytes calldata data) view internal {
+	function checkManagerUpdates(bytes calldata data) pure internal {
 		// Get function selector from data
 		bytes4 funcSelector = bytes4(data);
 
