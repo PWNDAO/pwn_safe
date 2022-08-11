@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.9;
+pragma solidity 0.8.15;
 
-import "@pwnfinance/multitoken/contracts/MultiToken.sol";
+import "MultiToken/MultiToken.sol";
 
 /**
  * @title PWN Wallet Interface

@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.9;
+pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import "@pwnfinance/multitoken/contracts/MultiToken.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import "openzeppelin-contracts/contracts/utils/structs/EnumerableMap.sol";
+import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
+import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
+import "MultiToken/MultiToken.sol";
 import "./IPWNWallet.sol";
 import "./PWNWalletFactory.sol";
-import "./openzeppelin/ERC165Checker.sol";
-import "./openzeppelin/EnumerableMap.sol";
 
 /**
  * @title Asset Transfer Rights contract
@@ -146,8 +146,10 @@ contract AssetTransferRights is ERC721 {
 	 * - in case of ERC20 assets, asset cannot have any approval
 	 *
 	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
+	 *
+	 * @return Id of newly minted ATR token
 	 */
-	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public {
+	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public returns (uint256) {
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
@@ -158,7 +160,7 @@ contract AssetTransferRights is ERC721 {
 		if (asset.category == MultiToken.Category.ERC20) {
 
 			if (ERC165Checker.supportsERC165(asset.assetAddress)) {
-				require(ERC165Checker._supportsERC165Interface(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
+				require(ERC165Checker.supportsERC165InterfaceUnchecked(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
 
 			} else {
 
@@ -210,6 +212,8 @@ contract AssetTransferRights is ERC721 {
 
 		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
+
+		return atrTokenId;
 	}
 
 	/**
@@ -253,7 +257,7 @@ contract AssetTransferRights is ERC721 {
 		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
 
 		// Clear asset data
-		_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
+		_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
 
 		// Update internal state
 		require(_ownedAssetATRIds[msg.sender].remove(atrTokenId), "Tokenized asset is not in a wallet");
@@ -385,7 +389,7 @@ contract AssetTransferRights is ERC721 {
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @dev Checks that caller has sufficient balance of tokenized assets.
+	 * @dev Checks that address has sufficient balance of tokenized assets.
 	 * Fails if tokenized balance is insufficient.
 	 *
 	 * @param owner Address to check its tokenized balance
@@ -470,6 +474,28 @@ contract AssetTransferRights is ERC721 {
 		return _ownedFromCollection[owner][assetAddress].length();
 	}
 
+	/// TODO: Doc
+	function recipientPermissionHash(RecipientPermission calldata permission) public view returns (bytes32) {
+		return keccak256(abi.encodePacked(
+			"\x19\x01",
+			// Domain separator is composing to prevent repay attack in case of an Ethereum fork
+			keccak256(abi.encode(
+				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+				keccak256(bytes("ATR")), // ?
+				keccak256(bytes("0.1")),
+				block.chainid,
+				address(this)
+			)),
+			// Compute recipient permission struct hash according to EIP-712
+			keccak256(abi.encode(
+				RECIPIENT_PERMISSION_TYPEHASH,
+				permission.owner,
+				permission.wallet,
+				permission.nonce
+			))
+		));
+	}
+
 
 	/*----------------------------------------------------------*|
 	|*  # PRIVATE                                               *|
@@ -522,24 +548,7 @@ contract AssetTransferRights is ERC721 {
 		bytes calldata permissionSignature
 	) private {
 		// Compute EIP-712 structured data hash
-		bytes32 permissionHash = keccak256(abi.encodePacked(
-			"\x19\x01",
-			// Domain separator is composing to prevent repay attack in case of an Ethereum fork
-			keccak256(abi.encode(
-				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-				keccak256(bytes("ATR")), // ?
-				keccak256(bytes("0.1")),
-				block.chainid,
-				address(this)
-			)),
-			// Compute recipient permission struct hash according to EIP-712
-			keccak256(abi.encode(
-				RECIPIENT_PERMISSION_TYPEHASH,
-				permission.owner,
-				permission.wallet,
-				permission.nonce
-			))
-		));
+		bytes32 permissionHash = recipientPermissionHash(permission);
 
 		// Check valid signature
 		if (permission.owner.code.length > 0) {
@@ -553,6 +562,9 @@ contract AssetTransferRights is ERC721 {
 
 		// Mark used permission as revoked
 		revokedPermissions[permissionHash] = true;
+
+		// Emit event
+		emit RecipientPermissionRevoked(permissionHash);
 	}
 
 	/**
@@ -587,7 +599,7 @@ contract AssetTransferRights is ERC721 {
 
 		if (burnToken == true) {
 			// Burn the ATR token
-			_assets[atrTokenId] = MultiToken.Asset(address(0), MultiToken.Category.ERC20, 0, 0);
+			_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
 
 			_burn(atrTokenId);
 		} else {

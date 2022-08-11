@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.9;
+pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
-import "@pwnfinance/multitoken/contracts/MultiToken.sol";
+import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
+import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/IERC1820Registry.sol";
+import "MultiToken/MultiToken.sol";
 import "./AssetTransferRights.sol";
 import "./IPWNWallet.sol";
 
@@ -38,7 +38,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 
 	/**
 	 * @notice Set of operators per asset address
-	 * @dev Operator is any address that can trasnfer asset on behalf of an owner
+	 * @dev Operator is any address that can transfer asset on behalf of an owner
 	 * @dev Could have allowance (ERC20) or could approval for all owned assets (ERC721/1155-setApprovalForAll)
 	 * @dev Operator is not address approved to transfer concrete ERC721 asset. This approvals are not tracked by wallet.
 	 */
@@ -104,7 +104,7 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 * @return Any response from a call as bytes
 	 */
 	function execute(address target, bytes calldata data) external payable onlyOwner returns (bytes memory) {
-		// Gen function selector from calldata
+		// Get function selector from calldata
 		bytes4 funcSelector;
 		assembly {
 			funcSelector := calldataload(data.offset)
@@ -234,8 +234,8 @@ contract PWNWallet is Ownable, IPWNWallet, IERC721Receiver, IERC1155Receiver, In
 	 *
 	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
 	 */
-	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external onlyOwner {
-		_atr.mintAssetTransferRightsToken(asset);
+	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) external onlyOwner returns (uint256) {
+		return _atr.mintAssetTransferRightsToken(asset);
 	}
 
 	/**

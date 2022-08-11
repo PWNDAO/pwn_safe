@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
-import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
+import "openzeppelin-contracts/contracts/token/ERC777/ERC777.sol";
+import "openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 
 
 contract T777 is ERC165, ERC777 {

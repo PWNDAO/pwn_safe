@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.9;
+pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import "openzeppelin-contracts/contracts/proxy/Clones.sol";
 import "./PWNWallet.sol";
 
 /**
@@ -73,14 +73,18 @@ contract PWNWalletFactory {
 	 *
 	 * @dev Deploy minimal proxy contract and point it to wallets master implementation.
 	 * Emits {NewWallet} event.
+	 *
+	 * @return Newly deployed wallet address
 	 */
-	function newWallet() external {
+	function newWallet() external returns (address) {
 		address walletAddress = _masterImplementation.clone();
 		isValidWallet[walletAddress] = true;
 
 		PWNWallet(walletAddress).initialize(msg.sender, _atr);
 
 		emit NewWallet(walletAddress, msg.sender);
+
+		return walletAddress;
 	}
 
 }
