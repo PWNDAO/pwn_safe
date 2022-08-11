@@ -93,10 +93,10 @@ contract PWNSafeFactory {
 		bytes memory singletonValue = StorageAccessible(address(this)).getStorageAt(0, 1);
 		require(bytes32(singletonValue) == bytes32(bytes20(gnosisSafeSingleton)), "Proxy with unsupported singleton");
 
-		storeGuardAndModule();
+		_storeGuardAndModule();
 	}
 
-	function storeGuardAndModule() private {
+	function _storeGuardAndModule() private {
 		// GnosisSafeStorage.sol defines modules mapping at the second position (-> index 1)
 		bytes32 atrModuleSlot = keccak256(abi.encode(atrModule, uint256(1)));
 		address atrModuleAddress = atrModule;

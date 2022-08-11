@@ -22,7 +22,7 @@ contract TokenizedAssetManager {
 	 *
 	 * @dev (ATR token id => Asset)
 	 */
-	mapping (uint256 => MultiToken.Asset) internal _assets;
+	mapping (uint256 => MultiToken.Asset) internal assets;
 
 	/**
 	 * @notice Mapping of address to set of ATR ids, that belongs to assets in the safe
@@ -31,7 +31,7 @@ contract TokenizedAssetManager {
 	 * Used in PWNWallet to enumerate over all tokenized assets after execution of arbitrary calldata
 	 * (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
 	 */
-	mapping (address => EnumerableSet.UintSet) internal _tokenizedAssetsInSafe;
+	mapping (address => EnumerableSet.UintSet) internal tokenizedAssetsInSafe;
 
 	/**
 	 * @notice Balance of tokenized assets from asset contract in a wallet
@@ -39,7 +39,7 @@ contract TokenizedAssetManager {
 	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
 	 * (owner => asset address => asset id => balance of tokenized assets currently in owners wallet)
 	 */
-	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal _tokenizedBalance;
+	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal tokenizedBalances;
 
 
 	/*----------------------------------------------------------*|
@@ -62,10 +62,10 @@ contract TokenizedAssetManager {
 	 * @param owner Address to check its tokenized balance
 	 */
 	function hasSufficientTokenizedBalance(address owner) external view returns (bool) {
-		uint256[] memory atrs = _tokenizedAssetsInSafe[owner].values();
+		uint256[] memory atrs = tokenizedAssetsInSafe[owner].values();
 		for (uint256 i; i < atrs.length; ++i) {
-			MultiToken.Asset memory asset = _assets[atrs[i]];
-			(, uint256 tokenizedBalance) = _tokenizedBalance[owner][asset.assetAddress].tryGet(asset.id);
+			MultiToken.Asset memory asset = assets[atrs[i]];
+			(, uint256 tokenizedBalance) = tokenizedBalances[owner][asset.assetAddress].tryGet(asset.id);
 			if (asset.balanceOf(owner) < tokenizedBalance)
 				return false;
 		}
@@ -93,8 +93,8 @@ contract TokenizedAssetManager {
 		address owner = msg.sender;
 
 		// Check if state is really invalid
-		MultiToken.Asset memory asset = _assets[atrTokenId];
-		(, uint256 tokenizedBalance) = _tokenizedBalance[owner][asset.assetAddress].tryGet(asset.id);
+		MultiToken.Asset memory asset = assets[atrTokenId];
+		(, uint256 tokenizedBalance) = tokenizedBalances[owner][asset.assetAddress].tryGet(asset.id);
 		require(asset.balanceOf(owner) < tokenizedBalance, "Tokenized balance is not invalid");
 
 		// Decrease tokenized balance
@@ -113,7 +113,7 @@ contract TokenizedAssetManager {
 	 * @return Underlying asset of an ATR token
 	 */
 	function getAsset(uint256 atrTokenId) external view returns (MultiToken.Asset memory) {
-		return _assets[atrTokenId];
+		return assets[atrTokenId];
 	}
 
 	/**
@@ -121,13 +121,13 @@ contract TokenizedAssetManager {
 	 *
 	 * @return List of tokenized assets owned by `owner` represented by their ATR tokens
 	 */
-	function tokenizedAssetsInSafe(address owner) external view returns (uint256[] memory) {
-		return _tokenizedAssetsInSafe[owner].values();
+	function tokenizedAssetsInSafeOf(address owner) external view returns (uint256[] memory) {
+		return tokenizedAssetsInSafe[owner].values();
 	}
 
 	// TODO: Doc
 	function hasAnyTokenizedAssetsInSafe(address owner) external view returns (bool) {
-		return _tokenizedAssetsInSafe[owner].values().length > 0;
+		return tokenizedAssetsInSafe[owner].values().length > 0;
 	}
 
 	/**
@@ -137,7 +137,7 @@ contract TokenizedAssetManager {
 	 * @return Number of tokenized assets owned by `owner` from asset contract
 	 */
 	function tokenizedBalanceOf(address owner, address assetAddress) external view returns (uint256) {
-		return _tokenizedBalance[owner][assetAddress].length();
+		return tokenizedBalances[owner][assetAddress].length();
 	}
 
 
@@ -157,8 +157,8 @@ contract TokenizedAssetManager {
 		address owner,
 		MultiToken.Asset memory asset // Needs to be asset stored under given atrTokenId
 	) internal {
-		_tokenizedAssetsInSafe[owner].add(atrTokenId);
-		EnumerableMap.UintToUintMap storage map = _tokenizedBalance[owner][asset.assetAddress];
+		tokenizedAssetsInSafe[owner].add(atrTokenId);
+		EnumerableMap.UintToUintMap storage map = tokenizedBalances[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 		map.set(asset.id, tokenizedBalance + asset.amount);
 	}
@@ -175,10 +175,10 @@ contract TokenizedAssetManager {
 		address owner,
 		MultiToken.Asset memory asset // Needs to be asset stored under given atrTokenId
 	) internal returns (bool) {
-		if (_tokenizedAssetsInSafe[owner].remove(atrTokenId) == false)
+		if (tokenizedAssetsInSafe[owner].remove(atrTokenId) == false)
 			return false;
 
-		EnumerableMap.UintToUintMap storage map = _tokenizedBalance[owner][asset.assetAddress];
+		EnumerableMap.UintToUintMap storage map = tokenizedBalances[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 
 		if (tokenizedBalance == asset.amount) {
@@ -196,7 +196,7 @@ contract TokenizedAssetManager {
 		MultiToken.Asset memory asset
 	) internal view returns (bool) {
 		uint256 balance = asset.balanceOf(owner);
-		(, uint256 tokenizedBalance) = _tokenizedBalance[owner][asset.assetAddress].tryGet(asset.id);
+		(, uint256 tokenizedBalance) = tokenizedBalances[owner][asset.assetAddress].tryGet(asset.id);
 		return (balance - tokenizedBalance) >= asset.amount;
 	}
 
@@ -205,12 +205,12 @@ contract TokenizedAssetManager {
 		uint256 atrTokenId,
 		MultiToken.Asset memory asset
 	) internal {
-		_assets[atrTokenId] = asset;
+		assets[atrTokenId] = asset;
 	}
 
 	/// TODO: Doc
 	function _clearTokenizedAsset(uint256 atrTokenId) internal {
-		_assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
+		assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
 	}
 
 }

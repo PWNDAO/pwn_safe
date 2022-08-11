@@ -12,7 +12,7 @@ abstract contract AssetTransferRightsGuardManager {
 	|*----------------------------------------------------------*/
 
 	/// TODO: Doc
-	IAssetTransferRightsGuard public atrGuard;
+	IAssetTransferRightsGuard internal atrGuard;
 
 
 	/*----------------------------------------------------------*|

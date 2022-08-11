@@ -68,12 +68,12 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 
 		// Self authorization calls
 		if (to == msg.sender) {
-			checkManagerUpdates(data);
+			_checkManagerUpdates(data);
 		}
 
 		// Trust ATR contract
 		if (to != address(atr)) {
-			checkExecutionCalls(msg.sender, to, data);
+			_checkExecutionCalls(msg.sender, to, data);
 		}
 	}
 
@@ -84,10 +84,10 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 
 
 	/*----------------------------------------------------------*|
-	|*  # MANAGER UPDATES CHECKS                                *|
+	|*  # EXECUTION CHECKS                                      *|
 	|*----------------------------------------------------------*/
 
-	function checkManagerUpdates(bytes calldata data) pure internal {
+	function _checkManagerUpdates(bytes calldata data) pure private {
 		// Get function selector from data
 		bytes4 funcSelector = bytes4(data);
 
@@ -112,12 +112,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		}
 	}
 
-
-	/*----------------------------------------------------------*|
-	|*  # EXECUTION CHECKS                                      *|
-	|*----------------------------------------------------------*/
-
-	function checkExecutionCalls(address safeAddress, address target, bytes calldata data) internal {
+	function _checkExecutionCalls(address safeAddress, address target, bytes calldata data) private {
 		// Get function selector from data
 		bytes4 funcSelector = bytes4(data);
 
@@ -215,6 +210,19 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		}
 	}
 
+	function _handleERC20Approval(address safeAddress, address target, address operator, uint256 amount) private {
+		try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
+
+			if (allowance != 0 && amount == 0) {
+				operatorsContext.remove(safeAddress, target, operator);
+			}
+
+			else if (allowance == 0 && amount != 0) {
+				operatorsContext.add(safeAddress, target, operator);
+			}
+
+		} catch {}
+	}
 
 	/*----------------------------------------------------------*|
 	|*  # OPERATOR MANAGER                                      *|
@@ -232,25 +240,6 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
         }
 
 		return operatorsContext.hasOperatorFor(safeAddress, assetAddress);
-	}
-
-
-	/*----------------------------------------------------------*|
-	|*  # PRIVATE                                               *|
-	|*----------------------------------------------------------*/
-
-	function _handleERC20Approval(address safeAddress, address target, address operator, uint256 amount) private {
-		try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
-
-			if (allowance != 0 && amount == 0) {
-				operatorsContext.remove(safeAddress, target, operator);
-			}
-
-			else if (allowance == 0 && amount != 0) {
-				operatorsContext.add(safeAddress, target, operator);
-			}
-
-		} catch {}
 	}
 
 }

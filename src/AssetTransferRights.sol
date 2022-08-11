@@ -206,7 +206,7 @@ contract AssetTransferRights is
 	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) public {
 		// Load asset
-		MultiToken.Asset memory asset = _assets[atrTokenId];
+		MultiToken.Asset memory asset = assets[atrTokenId];
 
 		// Check that token is indeed tokenized
 		require(asset.assetAddress != address(0), "Asset transfer rights are not tokenized");
@@ -280,11 +280,6 @@ contract AssetTransferRights is
 		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
-
-	/*----------------------------------------------------------*|
-	|*  # PRIVATE                                               *|
-	|*----------------------------------------------------------*/
-
 	/**
 	 * @dev Process internal state of asset transfer
 	 *
@@ -300,7 +295,7 @@ contract AssetTransferRights is
 		bool burnToken
 	) private returns (MultiToken.Asset memory) {
 		// Load asset
-		MultiToken.Asset memory asset = _assets[atrTokenId];
+		MultiToken.Asset memory asset = assets[atrTokenId];
 
 		// Check that transferring to different address
 		require(from != to, "Attempting to transfer asset to the same address");
