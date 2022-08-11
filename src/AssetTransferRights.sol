@@ -17,7 +17,7 @@ import "./guard/IAssetTransferRightsGuard.sol";
 import "./managers/WhitelistManager.sol";
 import "./managers/TokenizedAssetManager.sol";
 import "./managers/AssetTransferRightsGuardManager.sol";
-import "./managers/GnosisSafeManager.sol";
+import "./PWNSafeFactory.sol";
 
 
 /**
@@ -33,7 +33,6 @@ contract AssetTransferRights is
 	WhitelistManager,
 	AssetTransferRightsGuardManager,
 	TokenizedAssetManager,
-	GnosisSafeManager,
 	ERC721
 {
 	using MultiToken for MultiToken.Asset;
@@ -53,6 +52,8 @@ contract AssetTransferRights is
 	 */
 	uint256 public lastTokenId;
 
+	/// TODO: Doc
+	PWNSafeFactory internal pwnSafeFactory;
 
 	/*----------------------------------------------------------*|
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
@@ -80,12 +81,12 @@ contract AssetTransferRights is
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor(address safeSingletonAddress, address fallbackHandlerAddress)
+	constructor(address _pwnSafeFactory)
 		Ownable()
-		GnosisSafeManager(safeSingletonAddress, fallbackHandlerAddress)
 		ERC721("Asset Transfer Rights", "ATR")
 	{
 		useWhitelist = true;
+		pwnSafeFactory = PWNSafeFactory(_pwnSafeFactory);
 	}
 
 
@@ -145,7 +146,7 @@ contract AssetTransferRights is
 		}
 
 		// Check that msg.sender is PWNWallet
-		require(_isSafeInCorrectState(msg.sender, address(atrGuard), address(this)) == true, "Caller is not a PWN Wallet");
+		require(pwnSafeFactory.isValidProxy(msg.sender) == true, "Caller is not a PWN Wallet");
 
 		// Check that given asset is valid
 		require(asset.isValid(), "MultiToken.Asset is not valid");
@@ -320,7 +321,7 @@ contract AssetTransferRights is
 			_burn(atrTokenId);
 		} else {
 			// Fail if recipient is not PWNWallet
-			require(_isSafeInCorrectState(to, address(atrGuard), address(this)) == true, "Attempting to transfer asset to non PWN Wallet address");
+			require(pwnSafeFactory.isValidProxy(to) == true, "Attempting to transfer asset to non PWN Wallet address");
 
 			// Check that recipient doesn't have approvals for the token collection
 			require(atrGuard.hasOperatorFor(to, asset.assetAddress) == false, "Receiver has approvals set for an asset");
