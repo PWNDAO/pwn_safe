@@ -5,8 +5,10 @@ import "safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 import "safe-contracts/proxies/GnosisSafeProxy.sol";
 import "safe-contracts/GnosisSafe.sol";
 
+import "./IPWNSafeValidator.sol";
 
-contract PWNSafeFactory {
+
+contract PWNSafeFactory is IPWNSafeValidator {
 
 	/*----------------------------------------------------------*|
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
@@ -21,10 +23,10 @@ contract PWNSafeFactory {
 	address internal immutable gnosisSafeSingleton;
 	GnosisSafeProxyFactory internal immutable gnosisSafeProxyFactory;
 	address internal immutable fallbackHandler;
-	address internal immutable atrModule;
 	address internal immutable atrGuard;
+	address internal immutable atrModule;
 
-	mapping (address => bool) public isValidProxy;
+	mapping (address => bool) public isValidSafe;
 
 
 	/*----------------------------------------------------------*|
@@ -72,7 +74,7 @@ contract PWNSafeFactory {
 		);
 
 		// Store as valid address
-		isValidProxy[address(safe)] = true;
+		isValidSafe[address(safe)] = true;
 	}
 
 
