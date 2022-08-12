@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "MultiToken/MultiToken.sol";
 
 
-contract TokenizedAssetManager {
+abstract contract TokenizedAssetManager {
 	using EnumerableSet for EnumerableSet.UintSet;
 	using EnumerableMap for EnumerableMap.UintToUintMap;
 	using MultiToken for MultiToken.Asset;
