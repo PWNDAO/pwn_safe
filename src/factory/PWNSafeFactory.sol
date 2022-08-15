@@ -23,8 +23,8 @@ contract PWNSafeFactory is IPWNSafeValidator {
 	address internal immutable gnosisSafeSingleton;
 	GnosisSafeProxyFactory internal immutable gnosisSafeProxyFactory;
 	address internal immutable fallbackHandler;
-	address internal immutable atrGuard;
 	address internal immutable atrModule;
+	address internal immutable atrGuard;
 
 	mapping (address => bool) public isValidSafe;
 
