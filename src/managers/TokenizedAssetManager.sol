@@ -126,7 +126,7 @@ abstract contract TokenizedAssetManager {
 	}
 
 	// TODO: Doc
-	function hasAnyTokenizedAssetsInSafe(address owner) external view returns (bool) {
+	function hasAnyTokenizedAssetInSafe(address owner) external view returns (bool) {
 		return tokenizedAssetsInSafe[owner].values().length > 0;
 	}
 
@@ -136,7 +136,7 @@ abstract contract TokenizedAssetManager {
 	 *
 	 * @return Number of tokenized assets owned by `owner` from asset contract
 	 */
-	function tokenizedBalanceOf(address owner, address assetAddress) external view returns (uint256) {
+	function numberOfTokenizedAssetsFromCollection(address owner, address assetAddress) external view returns (uint256) {
 		return tokenizedBalances[owner][assetAddress].length();
 	}
 

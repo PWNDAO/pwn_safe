@@ -119,7 +119,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC20/ERC721 - approve
 		if (funcSelector == 0x095ea7b3) {
 			// Block any approve call if there is at least one tokenized asset from a collection
-			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -133,7 +133,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC20 - increaseAllowance
 		else if (funcSelector == 0x39509351) {
 			// Block any increaseAllowance call if there is at least one tokenized asset from a collection
-			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -158,7 +158,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC721/ERC1155 - setApprovalForAll
 		else if (funcSelector == 0xa22cb465) {
 			// Block any setApprovalForAll call if there is at least one tokenized asset from a collection
-			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
 
@@ -175,7 +175,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC777 - authorizeOperator
 		else if (funcSelector == 0x959b8c3f) {
 			// Block any authorizeOperator call if there is at least one tokenized asset from a collection
-			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			address operator = abi.decode(data[4:], (address));
 
@@ -192,7 +192,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC1363 - approveAndCall
 		else if (funcSelector == 0x3177029f) {
 			// Block any approveAndCall call if there is at least one tokenized asset from a collection
-			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -202,7 +202,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC1363 - approveAndCall(bytes)
 		else if (funcSelector == 0xcae9ca51) {
 			// Block any approveAndCall call if there is at least one tokenized asset from a collection
-			require(atr.tokenizedBalanceOf(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount,) = abi.decode(data[4:], (address, uint256, bytes));
 
