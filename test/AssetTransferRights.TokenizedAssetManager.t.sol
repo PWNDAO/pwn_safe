@@ -1,0 +1,334 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.15;
+
+import "forge-std/Test.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC721.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC1155.sol";
+import "../src/AssetTransferRights.sol";
+
+
+abstract contract TokenizedAssetManagerStorageHelper {
+
+	bytes32 internal constant ASSETS_SLOT = bytes32(uint256(4)); // `assets` mapping position
+	bytes32 internal constant ASSETS_IN_SAFE_SLOT = bytes32(uint256(5)); // `tokenizedAssetsInSafe` mapping position
+	bytes32 internal constant TOKENIZED_BALANCES_SLOT = bytes32(uint256(6)); // `tokenizedBalances` mapping position
+
+	function _assetStructSlotFor(uint256 atrId) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				atrId, // ATR token id as a mapping key
+				ASSETS_SLOT
+			)
+		);
+	}
+
+	function _assetsInSafeSetSlotFor(address owner) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				owner, // Owner address as a mapping key
+				ASSETS_IN_SAFE_SLOT
+			)
+		);
+	}
+
+	function _assetsInSafeFirstValueSlotFor(address owner) internal pure returns (bytes32) {
+		// Hash array position to get position of a first item in the array
+		return keccak256(
+			abi.encode(
+				_assetsInSafeSetSlotFor(owner) // `_values` array position
+			)
+		);
+	}
+
+	function _assetsInSafeIndexesSlotFor(address owner, uint256 atrId) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				atrId, // Atr id as a mapping key
+				uint256(_assetsInSafeSetSlotFor(owner)) + 1 // `_indexes` mapping position
+			)
+		);
+	}
+
+	function _tokenizedBalanceMapSlotFor(address owner, address assetAddress) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				assetAddress, // Asset address as a mapping key
+				keccak256(
+					abi.encode(
+						owner, // Owner address as a mapping key
+						TOKENIZED_BALANCES_SLOT
+					)
+				)
+			)
+		);
+	}
+
+	function _tokenizedBalanceFirstKeyValueSlotFor(address owner, address assetAddress) internal pure returns (bytes32) {
+		// Hash array position to get position of a first item in the array
+		return keccak256(
+			abi.encode(
+				_tokenizedBalanceMapSlotFor(owner, assetAddress) // `_keys._values` array position
+			)
+		);
+	}
+
+	function _tokenizedBalanceKeyIndexesSlotFor(address owner, address assetAddress, uint256 assetId) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				assetId, // Asest id as a mapping key
+				uint256(_tokenizedBalanceMapSlotFor(owner, assetAddress)) + 1 // `_keys._indexes` mapping position
+			)
+		);
+	}
+
+	function _tokenizedBalanceValuesSlotFor(address owner, address assetAddress, uint256 assetId) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				assetId, // Asest id as a mapping key
+				uint256(_tokenizedBalanceMapSlotFor(owner, assetAddress)) + 2 // `_values` mapping position
+			)
+		);
+	}
+
+}
+
+abstract contract TokenizedAssetManagerTest is Test, TokenizedAssetManagerStorageHelper {
+
+	AssetTransferRights atr;
+	address wallet = address(0xff);
+	address token = address(0x070ce2);
+
+	constructor() {
+		vm.etch(token, bytes("data"));
+	}
+
+	function setUp() external {
+		atr = new AssetTransferRights();
+	}
+
+
+	function _tokenizeAssetUnderId(address owner, uint256 atrId, MultiToken.Asset memory asset) internal {
+		uint256[] memory atrIds = new uint256[](1);
+		atrIds[0] = atrId;
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](1);
+		assets[0] = asset;
+
+		_tokenizeAssetsUnderIds(owner, atrIds, assets);
+	}
+
+	function _tokenizeAssetsUnderIds(address owner, uint256[] memory atrIds, MultiToken.Asset[] memory assets) internal {
+		assert(atrIds.length == assets.length);
+
+		for (uint256 i; i < atrIds.length; ++i) {
+			uint256 atrId = atrIds[i];
+			MultiToken.Asset memory asset = assets[i];
+
+			// Store asset under atr id
+			uint256 assetSlot = uint256(_assetStructSlotFor(atrId));
+			uint256 addrAndCategory = (uint256(uint160(asset.assetAddress)) << 8) | uint256(asset.category);
+			vm.store(address(atr), bytes32(assetSlot + 0), bytes32(addrAndCategory));
+			vm.store(address(atr), bytes32(assetSlot + 1), bytes32(asset.id));
+			vm.store(address(atr), bytes32(assetSlot + 2), bytes32(asset.amount));
+
+			// Store atr id to owner address
+			// -> Set `_values` array length
+			//   Unnecessary to have in loop, but it's more readable here
+			vm.store(address(atr), _assetsInSafeSetSlotFor(owner), bytes32(atrIds.length));
+			// -> Set atr id to `_values` array
+			vm.store(address(atr), bytes32(uint256(_assetsInSafeFirstValueSlotFor(owner)) + i), bytes32(atrId));
+			// -> Set atr id index in `_values` into `_indexes` mapping (value in mapping is index + 1)
+			vm.store(address(atr), _assetsInSafeIndexesSlotFor(owner, atrId), bytes32(i + 1));
+
+			// Store assets balance as tokenized
+			// -> Set `_keys._values` array length
+			//    Unnecessary to have in loop, but it's more readable here
+			vm.store(address(atr), _tokenizedBalanceMapSlotFor(owner, asset.assetAddress), bytes32(assets.length));
+			// -> Set asset id to `_keys._values` array
+			vm.store(address(atr), bytes32(uint256(_tokenizedBalanceFirstKeyValueSlotFor(owner, asset.assetAddress)) + i), bytes32(asset.id));
+			// -> Set asset id index in `_keys._values` into `_keys._indexes` mapping (value in mapping is index + 1)
+			vm.store(address(atr), _tokenizedBalanceKeyIndexesSlotFor(owner, asset.assetAddress, asset.id), bytes32(uint256(1)));
+			// -> Set asset balance to `_values` mapping under asset id
+			vm.store(address(atr), _tokenizedBalanceValuesSlotFor(owner, asset.assetAddress, asset.id), bytes32(asset.amount));
+		}
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # HAS SUFFICIENT TOKENIZED BALANCE                      *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAssetManagerTest {
+
+	function test_shouldReturnFalse_whenInsufficientBalanceOfFungibleAsset() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18);
+		_tokenizeAssetUnderId(wallet, 42, asset);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSelector(IERC20.balanceOf.selector),
+			abi.encode(uint256(100e18))
+		);
+
+		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+
+		assertEq(sufficient, false);
+	}
+
+	function test_shouldReturnFalse_whenMissingTokenizedNonFungibleAsset() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
+		_tokenizeAssetUnderId(wallet, 42, asset);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSelector(IERC721.ownerOf.selector),
+			abi.encode(address(0xa11ce))
+		);
+
+		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+
+		assertEq(sufficient, false);
+	}
+
+	function test_shouldReturnFalse_whenInsufficientBalanceOfSemifungibleAsset() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 142, 300);
+		_tokenizeAssetUnderId(wallet, 42, asset);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSelector(IERC1155.balanceOf.selector),
+			abi.encode(uint256(100))
+		);
+
+		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+
+		assertEq(sufficient, false);
+	}
+
+	function test_shouldReturnFalse_whenOneOfTokenizedBalancesIsInsufficient() external {
+		uint256[] memory atrIds = new uint256[](4);
+		atrIds[0] = 42;
+		atrIds[1] = 44;
+		atrIds[2] = 102;
+		atrIds[3] = 82;
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
+		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
+		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+
+		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+
+		vm.mockCall(
+			address(0x1001),
+			abi.encodeWithSelector(IERC20.balanceOf.selector),
+			abi.encode(uint256(99e18)) // Insufficient balance
+		);
+
+		vm.mockCall(
+			address(0x1002),
+			abi.encodeWithSelector(IERC721.ownerOf.selector),
+			abi.encode(wallet)
+		);
+
+		vm.mockCall(
+			address(0x1003),
+			abi.encodeWithSelector(IERC1155.balanceOf.selector),
+			abi.encode(uint256(100))
+		);
+
+		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+
+		assertEq(sufficient, false);
+	}
+
+	function test_shouldReturnTrue_whenAllTokenizedBalancesAreSufficient() external {
+		uint256[] memory atrIds = new uint256[](4);
+		atrIds[0] = 42;
+		atrIds[1] = 44;
+		atrIds[2] = 102;
+		atrIds[3] = 82;
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
+		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
+		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+
+		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+
+		vm.mockCall(
+			address(0x1001),
+			abi.encodeWithSelector(IERC20.balanceOf.selector),
+			abi.encode(uint256(100e18))
+		);
+
+		vm.mockCall(
+			address(0x1002),
+			abi.encodeWithSelector(IERC721.ownerOf.selector),
+			abi.encode(wallet)
+		);
+
+		vm.mockCall(
+			address(0x1003),
+			abi.encodeWithSelector(IERC1155.balanceOf.selector),
+			abi.encode(uint256(100))
+		);
+
+		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+
+		assertEq(sufficient, true);
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # RECOVER INVALID TOKENIZED BALANCE                     *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedAssetManagerTest {
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # GET ASSET                                             *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_GetAsset_Test is TokenizedAssetManagerTest {
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # TOKENIZED ASSETS IN SAFE OF                           *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_TokenizedAssetsInSafeOf_Test is TokenizedAssetManagerTest {
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # HAS ANY TOKENIZED ASSET IN SAFE                       *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_HasAnyTokenizedAssetInSafe_Test is TokenizedAssetManagerTest {
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # NUMBER OF TOKENIZED ASSETS FROM COLLECTION            *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_NumberOfTokenizedAssetsFromCollection_Test is TokenizedAssetManagerTest {
+
+}
+
+// TODO: Test internal functions by exposing them in test contract
