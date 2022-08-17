@@ -7,7 +7,7 @@ import "../src/AssetTransferRights.sol";
 
 abstract contract AssetTransferRightsGuardManagerTest is Test {
 
-	bytes32 constant GUARD_SLOT = bytes32(uint256(2)); // atrGuard property position
+	bytes32 constant GUARD_SLOT = bytes32(uint256(2)); // `atrGuard` property position
 
 	AssetTransferRights atr;
 	address notOwner = address(0xff);

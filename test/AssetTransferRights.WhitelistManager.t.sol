@@ -7,8 +7,8 @@ import "../src/AssetTransferRights.sol";
 
 abstract contract WhitelistManagerTest is Test {
 
-	bytes32 constant USE_WHITELIST_SLOT = bytes32(uint256(0)); // useWhitelist flag position (combined with `owner`)
-	bytes32 constant IS_WHITELISTED_SLOT = bytes32(uint256(1)); // isWhitelisted mapping position
+	bytes32 constant USE_WHITELIST_SLOT = bytes32(uint256(0)); // `useWhitelist` flag position (combined with `owner`)
+	bytes32 constant IS_WHITELISTED_SLOT = bytes32(uint256(1)); // `isWhitelisted` mapping position
 
 	AssetTransferRights atr;
 	address notOwner = address(0xff);
