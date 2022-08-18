@@ -143,8 +143,8 @@ abstract contract TokenizedAssetManagerTest is Test, TokenizedAssetManagerStorag
 
 			// Store assets balance as tokenized
 			// -> Set `_keys._values` array length
-			//    Unnecessary to have in loop, but it's more readable here
-			vm.store(address(atr), _tokenizedBalanceMapSlotFor(owner, asset.assetAddress), bytes32(assets.length));
+			uint256 tokenizedAssetsFromCollection = uint256(vm.load(address(atr), _tokenizedBalanceMapSlotFor(owner, asset.assetAddress)));
+			vm.store(address(atr), _tokenizedBalanceMapSlotFor(owner, asset.assetAddress), bytes32(tokenizedAssetsFromCollection + 1));
 			// -> Set asset id to `_keys._values` array
 			vm.store(address(atr), bytes32(uint256(_tokenizedBalanceFirstKeyValueSlotFor(owner, asset.assetAddress)) + i), bytes32(asset.id));
 			// -> Set asset id index in `_keys._values` into `_keys._indexes` mapping (value in mapping is index + 1)
@@ -293,6 +293,8 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 
 contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedAssetManagerTest {
 
+	// TODO: TEST AFTER IMPLEMENTATION REDESIGN
+
 }
 
 
@@ -301,6 +303,18 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 |*----------------------------------------------------------*/
 
 contract TokenizedAssetManager_GetAsset_Test is TokenizedAssetManagerTest {
+
+	function test_shouldReturnStoredAsset() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
+		_tokenizeAssetUnderId(wallet, 42, asset);
+
+		MultiToken.Asset memory returnedAsset = atr.getAsset(42);
+
+		assertEq(uint8(returnedAsset.category), uint8(asset.category));
+		assertEq(returnedAsset.assetAddress, asset.assetAddress);
+		assertEq(returnedAsset.id, asset.id);
+		assertEq(returnedAsset.amount, asset.amount);
+	}
 
 }
 
@@ -311,6 +325,29 @@ contract TokenizedAssetManager_GetAsset_Test is TokenizedAssetManagerTest {
 
 contract TokenizedAssetManager_TokenizedAssetsInSafeOf_Test is TokenizedAssetManagerTest {
 
+	function test_shouldReturnListOfTokenizedAssetsInSafeRepresentedByATRTokenIds() external {
+		uint256[] memory atrIds = new uint256[](4);
+		atrIds[0] = 42;
+		atrIds[1] = 44;
+		atrIds[2] = 102;
+		atrIds[3] = 82;
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
+		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
+		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+
+		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+
+		uint256[] memory tokenizedAssets = atr.tokenizedAssetsInSafeOf(wallet);
+
+		assertEq(atrIds[0], tokenizedAssets[0]);
+		assertEq(atrIds[1], tokenizedAssets[1]);
+		assertEq(atrIds[2], tokenizedAssets[2]);
+		assertEq(atrIds[3], tokenizedAssets[3]);
+	}
+
 }
 
 
@@ -320,6 +357,17 @@ contract TokenizedAssetManager_TokenizedAssetsInSafeOf_Test is TokenizedAssetMan
 
 contract TokenizedAssetManager_HasAnyTokenizedAssetInSafe_Test is TokenizedAssetManagerTest {
 
+	function test_shouldReturnTrue_whenHasAnyTokenizedAssetInSafe() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
+		_tokenizeAssetUnderId(wallet, 42, asset);
+
+		assertEq(atr.hasAnyTokenizedAssetInSafe(wallet), true);
+	}
+
+	function test_shouldReturnFalse_whenHasNotAnyTokenizedAssetInSafe() external {
+		assertEq(atr.hasAnyTokenizedAssetInSafe(wallet), false);
+	}
+
 }
 
 
@@ -328,6 +376,35 @@ contract TokenizedAssetManager_HasAnyTokenizedAssetInSafe_Test is TokenizedAsset
 |*----------------------------------------------------------*/
 
 contract TokenizedAssetManager_NumberOfTokenizedAssetsFromCollection_Test is TokenizedAssetManagerTest {
+
+	function test_shouldReturnNumberOfTokenizedAssetsFromCollection() external {
+		uint256[] memory atrIds = new uint256[](4);
+		atrIds[0] = 42;
+		atrIds[1] = 44;
+		atrIds[2] = 102;
+		atrIds[3] = 82;
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
+		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
+		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+
+		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+
+		assertEq(
+			atr.numberOfTokenizedAssetsFromCollection(wallet, address(0x1001)),
+			1
+		);
+		assertEq(
+			atr.numberOfTokenizedAssetsFromCollection(wallet, address(0x1002)),
+			2
+		);
+		assertEq(
+			atr.numberOfTokenizedAssetsFromCollection(wallet, address(0x1003)),
+			1
+		);
+	}
 
 }
 

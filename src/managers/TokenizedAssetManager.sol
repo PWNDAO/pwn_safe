@@ -90,6 +90,9 @@ abstract contract TokenizedAssetManager {
 	 * @param atrTokenId ATR token id representing underyling asset in question
 	 */
 	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
+
+		// TODO: IS PRONE TO REENTRANCY ATTACKS -> NEED TO REDESIGN HOW TO RECOVER INVALID TOKENIZED BALANCE
+
 		address owner = msg.sender;
 
 		// Check if state is really invalid
