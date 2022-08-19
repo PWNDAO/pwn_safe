@@ -52,7 +52,7 @@ contract AssetTransferRightsExposed is AssetTransferRights {
 abstract contract TokenizedAssetManagerTest is TokenizedAssetManagerStorageHelper {
 
 	AssetTransferRightsExposed atr;
-	address wallet = address(0xff);
+	address safe = address(0xff);
 	address token = address(0x070ce2);
 
 	constructor() {
@@ -75,7 +75,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 
 	function test_shouldReturnFalse_whenInsufficientBalanceOfFungibleAsset() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
 			token,
@@ -83,14 +83,14 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 			abi.encode(uint256(100e18))
 		);
 
-		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+		bool sufficient = atr.hasSufficientTokenizedBalance(safe);
 
 		assertEq(sufficient, false);
 	}
 
 	function test_shouldReturnFalse_whenMissingTokenizedNonFungibleAsset() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
 			token,
@@ -98,14 +98,14 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 			abi.encode(address(0xa11ce))
 		);
 
-		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+		bool sufficient = atr.hasSufficientTokenizedBalance(safe);
 
 		assertEq(sufficient, false);
 	}
 
 	function test_shouldReturnFalse_whenInsufficientBalanceOfSemifungibleAsset() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 142, 300);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
 			token,
@@ -113,7 +113,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 			abi.encode(uint256(100))
 		);
 
-		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+		bool sufficient = atr.hasSufficientTokenizedBalance(safe);
 
 		assertEq(sufficient, false);
 	}
@@ -131,7 +131,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
 		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
 
-		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
 		vm.mockCall(
 			address(0x1001),
@@ -142,7 +142,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 		vm.mockCall(
 			address(0x1002),
 			abi.encodeWithSelector(IERC721.ownerOf.selector),
-			abi.encode(wallet)
+			abi.encode(safe)
 		);
 
 		vm.mockCall(
@@ -151,7 +151,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 			abi.encode(uint256(100))
 		);
 
-		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+		bool sufficient = atr.hasSufficientTokenizedBalance(safe);
 
 		assertEq(sufficient, false);
 	}
@@ -169,7 +169,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
 		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
 
-		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
 		vm.mockCall(
 			address(0x1001),
@@ -180,7 +180,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 		vm.mockCall(
 			address(0x1002),
 			abi.encodeWithSelector(IERC721.ownerOf.selector),
-			abi.encode(wallet)
+			abi.encode(safe)
 		);
 
 		vm.mockCall(
@@ -189,7 +189,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 			abi.encode(uint256(100))
 		);
 
-		bool sufficient = atr.hasSufficientTokenizedBalance(wallet);
+		bool sufficient = atr.hasSufficientTokenizedBalance(safe);
 
 		assertEq(sufficient, true);
 	}
@@ -216,7 +216,7 @@ contract TokenizedAssetManager_GetAsset_Test is TokenizedAssetManagerTest {
 
 	function test_shouldReturnStoredAsset() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
 		MultiToken.Asset memory returnedAsset = atr.getAsset(42);
 
@@ -248,9 +248,9 @@ contract TokenizedAssetManager_TokenizedAssetsInSafeOf_Test is TokenizedAssetMan
 		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
 		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
 
-		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
-		uint256[] memory tokenizedAssets = atr.tokenizedAssetsInSafeOf(wallet);
+		uint256[] memory tokenizedAssets = atr.tokenizedAssetsInSafeOf(safe);
 
 		assertEq(atrIds[0], tokenizedAssets[0]);
 		assertEq(atrIds[1], tokenizedAssets[1]);
@@ -269,13 +269,13 @@ contract TokenizedAssetManager_HasAnyTokenizedAssetInSafe_Test is TokenizedAsset
 
 	function test_shouldReturnTrue_whenHasAnyTokenizedAssetInSafe() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
-		assertEq(atr.hasAnyTokenizedAssetInSafe(wallet), true);
+		assertEq(atr.hasAnyTokenizedAssetInSafe(safe), true);
 	}
 
 	function test_shouldReturnFalse_whenHasNotAnyTokenizedAssetInSafe() external {
-		assertEq(atr.hasAnyTokenizedAssetInSafe(wallet), false);
+		assertEq(atr.hasAnyTokenizedAssetInSafe(safe), false);
 	}
 
 }
@@ -300,18 +300,18 @@ contract TokenizedAssetManager_NumberOfTokenizedAssetsFromCollection_Test is Tok
 		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
 		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
 
-		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
 		assertEq(
-			atr.numberOfTokenizedAssetsFromCollection(wallet, address(0x1001)),
+			atr.numberOfTokenizedAssetsFromCollection(safe, address(0x1001)),
 			1
 		);
 		assertEq(
-			atr.numberOfTokenizedAssetsFromCollection(wallet, address(0x1002)),
+			atr.numberOfTokenizedAssetsFromCollection(safe, address(0x1002)),
 			2
 		);
 		assertEq(
-			atr.numberOfTokenizedAssetsFromCollection(wallet, address(0x1003)),
+			atr.numberOfTokenizedAssetsFromCollection(safe, address(0x1003)),
 			1
 		);
 	}
@@ -330,42 +330,42 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 	function test_shouldStoreAssetIsInSafe() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
 
-		atr.increaseTokenizedBalance(atrId, wallet, asset);
+		atr.increaseTokenizedBalance(atrId, safe, asset);
 
-		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(wallet));
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), atrId);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(wallet, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 1);
 	}
 
 	function test_shouldNotFail_whenAssetIsAlreadyInSafe() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, atrId, asset);
+		_tokenizeAssetUnderId(safe, atrId, asset);
 
-		atr.increaseTokenizedBalance(atrId, wallet, asset);
+		atr.increaseTokenizedBalance(atrId, safe, asset);
 
-		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(wallet));
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), atrId);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(wallet, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 1);
 	}
 
 	function test_shouldSetAssetsTokenizedBalance_whenBalanceIsZero() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
 
-		atr.increaseTokenizedBalance(atrId, wallet, asset);
+		atr.increaseTokenizedBalance(atrId, safe, asset);
 
-		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(wallet, token, 321));
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, 321));
 		assertEq(uint256(tokenizedBalanceValue), 123);
 	}
 
 	function test_shouldIncreaseAssetsTokenizedBalance_whenBalanceIsNonZero() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, atrId, asset);
+		_tokenizeAssetUnderId(safe, atrId, asset);
 
-		atr.increaseTokenizedBalance(atrId + 1, wallet, asset);
+		atr.increaseTokenizedBalance(atrId + 1, safe, asset);
 
-		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(wallet, token, 321));
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, 321));
 		assertEq(uint256(tokenizedBalanceValue), 246);
 	}
 
@@ -383,29 +383,29 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 	function test_shouldReturnFalse_whenAssetIsNotInSafe() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
 
-		bool success = atr.decreaseTokenizedBalance(atrId, wallet, asset);
+		bool success = atr.decreaseTokenizedBalance(atrId, safe, asset);
 
 		assertEq(success, false);
 	}
 
 	function test_shouldReturnTrue_whenAssetIsInSafe() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, atrId, asset);
+		_tokenizeAssetUnderId(safe, atrId, asset);
 
-		bool success = atr.decreaseTokenizedBalance(atrId, wallet, asset);
+		bool success = atr.decreaseTokenizedBalance(atrId, safe, asset);
 
 		assertEq(success, true);
 	}
 
 	function test_shouldStoreAssetIsNotInSafe() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, atrId, asset);
+		_tokenizeAssetUnderId(safe, atrId, asset);
 
-		atr.decreaseTokenizedBalance(atrId, wallet, asset);
+		atr.decreaseTokenizedBalance(atrId, safe, asset);
 
-		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(wallet));
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), 0);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(wallet, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 0);
 	}
 
@@ -419,25 +419,25 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 		assets[0] = asset;
 		assets[1] = asset;
 
-		_tokenizeAssetsUnderIds(wallet, atrIds, assets);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
-		atr.decreaseTokenizedBalance(atrId + 1, wallet, asset);
+		atr.decreaseTokenizedBalance(atrId + 1, safe, asset);
 
-		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(wallet, token, 321));
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, 321));
 		assertEq(uint256(tokenizedBalanceValue), 123);
-		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(wallet, token, asset.id));
+		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, asset.id));
 		assertGt(uint256(indexValue), 0);
 	}
 
 	function test_shouldRemoveAssetIdFromSet_whenTokenizedBalanceIsEqualAmount() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, atrId, asset);
+		_tokenizeAssetUnderId(safe, atrId, asset);
 
-		atr.decreaseTokenizedBalance(atrId, wallet, asset);
+		atr.decreaseTokenizedBalance(atrId, safe, asset);
 
-		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(wallet, token, 321));
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, 321));
 		assertEq(uint256(tokenizedBalanceValue), 0);
-		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(wallet, token, asset.id));
+		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, asset.id));
 		assertEq(uint256(indexValue), 0);
 	}
 
@@ -452,7 +452,7 @@ contract TokenizedAssetManager_CanBeTokenized_Test is TokenizedAssetManagerTest 
 
 	function test_shouldReturnFalse_whenInsufficientBalance() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
 			token,
@@ -460,14 +460,14 @@ contract TokenizedAssetManager_CanBeTokenized_Test is TokenizedAssetManagerTest 
 			abi.encode(uint256(123))
 		);
 
-		bool canBe = atr.canBeTokenized(wallet, asset);
+		bool canBe = atr.canBeTokenized(safe, asset);
 
 		assertEq(canBe, false);
 	}
 
 	function test_shouldReturnTrue_whenSufficientBalance() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, 42, asset);
+		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
 			token,
@@ -475,7 +475,7 @@ contract TokenizedAssetManager_CanBeTokenized_Test is TokenizedAssetManagerTest 
 			abi.encode(uint256(246))
 		);
 
-		bool canBe = atr.canBeTokenized(wallet, asset);
+		bool canBe = atr.canBeTokenized(safe, asset);
 
 		assertEq(canBe, true);
 	}
@@ -521,7 +521,7 @@ contract TokenizedAssetManager_ClearTokenizedAsset_Test is TokenizedAssetManager
 
 	function test_shouldClearAsset() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
-		_tokenizeAssetUnderId(wallet, atrId, asset);
+		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		atr.clearTokenizedAsset(atrId);
 
