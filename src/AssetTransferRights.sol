@@ -37,6 +37,7 @@ contract AssetTransferRights is
 	ERC721
 {
 	using MultiToken for MultiToken.Asset;
+	using ERC165Checker for address;
 
 
 	/*----------------------------------------------------------*|
@@ -102,7 +103,7 @@ contract AssetTransferRights is
 	 *
 	 * @dev Requirements:
 	 *
-	 * - caller has to be PWNWallet
+	 * - caller has to be PWNSafe
 	 * - cannot tokenize transfer rights of ATR token
 	 * - in case whitelist is used, asset has to be whitelisted
 	 * - cannot tokenize invalid asset. See {MultiToken-isValid}
@@ -115,6 +116,9 @@ contract AssetTransferRights is
 	 * @return Id of newly minted ATR token
 	 */
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public returns (uint256) {
+		// Check that msg.sender is PWNSafe
+		require(safeValidator.isValidSafe(msg.sender) == true, "Caller is not a PWNSafe");
+
 		// Check that asset address is not zero address
 		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
 
@@ -127,8 +131,8 @@ contract AssetTransferRights is
 		// Check that provided asset category is correct
 		if (asset.category == MultiToken.Category.ERC20) {
 
-			if (ERC165Checker.supportsERC165(asset.assetAddress)) {
-				require(ERC165Checker.supportsERC165InterfaceUnchecked(asset.assetAddress, type(IERC20).interfaceId), "Invalid provided category");
+			if (asset.assetAddress.supportsERC165()) {
+				require(asset.assetAddress.supportsERC165InterfaceUnchecked(type(IERC20).interfaceId), "Invalid provided category");
 
 			} else {
 
@@ -139,20 +143,17 @@ contract AssetTransferRights is
 			}
 
 		} else if (asset.category == MultiToken.Category.ERC721) {
-			require(ERC165Checker.supportsInterface(asset.assetAddress, type(IERC721).interfaceId), "Invalid provided category");
+			require(asset.assetAddress.supportsInterface(type(IERC721).interfaceId), "Invalid provided category");
 
 		} else if (asset.category == MultiToken.Category.ERC1155) {
-			require(ERC165Checker.supportsInterface(asset.assetAddress, type(IERC1155).interfaceId), "Invalid provided category");
+			require(asset.assetAddress.supportsInterface(type(IERC1155).interfaceId), "Invalid provided category");
 
 		} else {
 			revert("Invalid provided category");
 		}
 
-		// Check that msg.sender is PWNWallet
-		require(safeValidator.isValidSafe(msg.sender) == true, "Caller is not a PWN Wallet");
-
 		// Check that given asset is valid
-		require(asset.isValid(), "MultiToken.Asset is not valid");
+		require(asset.isValid(), "Asset is not valid");
 
 		// Check that asset collection doesn't have approvals
 		require(atrGuard.hasOperatorFor(msg.sender, asset.assetAddress) == false, "Some asset from collection has an approval");
@@ -160,7 +161,7 @@ contract AssetTransferRights is
 		// Check that ERC721 asset don't have approval
 		if (asset.category == MultiToken.Category.ERC721) {
 			address approved = IERC721(asset.assetAddress).getApproved(asset.id);
-			require(approved == address(0), "Tokenized asset has an approved address");
+			require(approved == address(0), "Asset has an approved address");
 		}
 
 		// Check if asset can be tokenized
