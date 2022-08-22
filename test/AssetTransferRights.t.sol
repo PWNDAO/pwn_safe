@@ -517,6 +517,25 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 contract AssetTransferRights_MintAssetTransferRightsTokenBatch_Test is AssetTransferRightsTest {
 
+	function test_shouldAcceptEmptyList() external {
+		MultiToken.Asset[] memory assets;
+		atr.mintAssetTransferRightsTokenBatch(assets);
+	}
+
+	function test_shouldTokenizeAllItemsInList() external {
+		_mockToken(MultiToken.Category.ERC1155);
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount / 2);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount / 2);
+
+		vm.prank(safe);
+		atr.mintAssetTransferRightsTokenBatch(assets);
+
+		assertEq(atr.ownerOf(1), safe);
+		assertEq(atr.ownerOf(2), safe);
+	}
+
 }
 
 
