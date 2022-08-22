@@ -281,6 +281,7 @@ contract AssetTransferRights is
 		bytes memory data = asset.transferAssetCalldata(from, msg.sender);
 
 		// Transfer asset from `from` wallet
+		// TODO: Need to check valid pwn safe?
 		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 

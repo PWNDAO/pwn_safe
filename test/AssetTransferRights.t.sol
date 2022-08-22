@@ -647,6 +647,44 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 
 contract AssetTransferRights_BurnAssetTransferRightsTokenBatch_Test is AssetTransferRightsTest {
 
+	function test_shouldAcceptEmptyList() external {
+		uint256[] memory atrIds;
+
+		vm.prank(safe);
+		atr.burnAssetTransferRightsTokenBatch(atrIds);
+	}
+
+	function test_shouldBurnAllItemsInList() external {
+		uint256[] memory atrIds = new uint256[](2);
+		atrIds[0] = 42;
+		atrIds[1] = 192;
+
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 31, erc1155Amount);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 1, erc1155Amount);
+
+		_mockToken(MultiToken.Category.ERC1155);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
+
+		// Store ATR token 42 owner
+		vm.store(address(atr), keccak256(abi.encode(atrIds[0], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(safe))));
+		// Store ATR token 192 owner
+		vm.store(address(atr), keccak256(abi.encode(atrIds[1], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(safe))));
+		// Store safes ATR token balance
+		vm.store(address(atr), keccak256(abi.encode(safe, ATR_TOKEN_BALANCES_SLOT)), bytes32(uint256(2)));
+
+		vm.prank(safe);
+		atr.burnAssetTransferRightsTokenBatch(atrIds);
+
+		// Check ATR 42 owner
+		bytes32 owner42 = vm.load(address(atr), keccak256(abi.encode(atrIds[0], ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner42, 0);
+
+		// Check ATR 192 owner
+		bytes32 owner192 = vm.load(address(atr), keccak256(abi.encode(atrIds[1], ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner192, 0);
+	}
+
 }
 
 
