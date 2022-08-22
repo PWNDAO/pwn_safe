@@ -12,6 +12,8 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
 
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(9)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(10)); // `_balances` ERC721 mapping position
 	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(13)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
@@ -32,7 +34,7 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 		vm.etch(token, bytes("data"));
 	}
 
-	function setUp() external {
+	function setUp() virtual public {
 		atr = new AssetTransferRights();
 		setAtr(address(atr));
 
@@ -544,6 +546,97 @@ contract AssetTransferRights_MintAssetTransferRightsTokenBatch_Test is AssetTran
 |*----------------------------------------------------------*/
 
 contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferRightsTest {
+
+	uint256 tokenId = 42;
+	uint256 atrId = 5;
+
+	function setUp() override public {
+		super.setUp();
+
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1);
+		_tokenizeAssetUnderId(safe, atrId, asset);
+		_mockToken(MultiToken.Category.ERC721);
+
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(safe))));
+
+		bytes32 atrTokenBalancesSlot = keccak256(abi.encode(safe, ATR_TOKEN_BALANCES_SLOT));
+		vm.store(address(atr), atrTokenBalancesSlot, bytes32(uint256(1)));
+	}
+
+
+	function test_shouldFail_whenATRTokenDoesNotExist() external {
+		vm.expectRevert("Asset transfer rights are not tokenized");
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId + 1);
+	}
+
+	function test_shouldFail_whenCallerNotATRTokenOwner() external {
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(alice))));
+
+		vm.expectRevert("Caller is not ATR token owner");
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+	}
+
+	function test_shouldFail_whenSenderNotTokenizedAssetOwner() external {
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("ownerOf(uint256)", tokenId),
+			abi.encode(alice)
+		);
+
+		vm.expectRevert("Insufficient balance of a tokenize asset");
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+	}
+
+	function test_shouldRemoveStoredTokenizedAssetFromSafe() external {
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
+		assertEq(uint256(atrIdValue), 0);
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		assertEq(uint256(atrIdIndexValue), 0);
+	}
+
+	function test_shouldDecreaseTokenizedBalance() external {
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), 0);
+		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, tokenId));
+		assertEq(uint256(indexValue), 0);
+	}
+
+	function test_shouldClearStoredTokenizedAssetData() external {
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+
+		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
+
+		// Category + address
+		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
+		assertEq(uint256(addrAndCategory), 0);
+		// Id
+		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
+		assertEq(uint256(assetId), 0);
+		// Amount
+		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
+		assertEq(uint256(assetAmount), 0);
+	}
+
+	function test_shouldBurnATRToken() external {
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
+		bytes32 owner = vm.load(address(atr), atrTokenOwnerSlot);
+		assertEq(owner, 0);
+	}
 
 }
 

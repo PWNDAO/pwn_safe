@@ -423,7 +423,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 
 		atr.decreaseTokenizedBalance(atrId + 1, safe, asset);
 
-		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, 321));
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, asset.id));
 		assertEq(uint256(tokenizedBalanceValue), 123);
 		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, asset.id));
 		assertGt(uint256(indexValue), 0);
@@ -435,7 +435,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 
 		atr.decreaseTokenizedBalance(atrId, safe, asset);
 
-		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, 321));
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, asset.id));
 		assertEq(uint256(tokenizedBalanceValue), 0);
 		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, asset.id));
 		assertEq(uint256(indexValue), 0);
@@ -504,8 +504,8 @@ contract TokenizedAssetManager_StoreTokenizedAsset_Test is TokenizedAssetManager
         bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetSlot) + 2));
         assertEq(uint256(assetCategory), uint256(MultiToken.Category.ERC1155));
         assertEq(uint256(assetAddress), uint256(uint160(token)));
-        assertEq(uint256(assetId), 321);
-        assertEq(uint256(assetAmount), 123);
+        assertEq(uint256(assetId), asset.id);
+        assertEq(uint256(assetAmount), asset.amount);
 	}
 
 }
