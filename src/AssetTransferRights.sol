@@ -8,8 +8,8 @@ import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 
-import "safe-contracts/base/ModuleManager.sol";
 import "safe-contracts/common/Enum.sol";
+import "safe-contracts/GnosisSafe.sol";
 
 import "MultiToken/MultiToken.sol";
 
@@ -271,7 +271,7 @@ contract AssetTransferRights is
 	 * @param burnToken Flag to burn ATR token in the same transaction
 	 */
 	function claimAssetFrom(
-		address from,
+		address payable from,
 		uint256 atrTokenId,
 		bool burnToken
 	) external {
@@ -282,7 +282,7 @@ contract AssetTransferRights is
 
 		// Transfer asset from `from` wallet
 		// TODO: Need to check valid pwn safe?
-		ModuleManager(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
+		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
 	/**

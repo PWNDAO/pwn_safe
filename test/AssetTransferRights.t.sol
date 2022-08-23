@@ -17,7 +17,7 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(13)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
-	address safe = address(0xff);
+	address payable safe = payable(address(0xff));
 	address token = address(0x070ce2);
 	address alice = address(0xa11ce);
 	address bob = address(0xb0b);
@@ -558,7 +558,7 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC721);
 
 		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
-		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(safe))));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(address(safe)))));
 
 		bytes32 atrTokenBalancesSlot = keccak256(abi.encode(safe, ATR_TOKEN_BALANCES_SLOT));
 		vm.store(address(atr), atrTokenBalancesSlot, bytes32(uint256(1)));
@@ -667,9 +667,9 @@ contract AssetTransferRights_BurnAssetTransferRightsTokenBatch_Test is AssetTran
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
 		// Store ATR token 42 owner
-		vm.store(address(atr), keccak256(abi.encode(atrIds[0], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(safe))));
+		vm.store(address(atr), keccak256(abi.encode(atrIds[0], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(address(safe)))));
 		// Store ATR token 192 owner
-		vm.store(address(atr), keccak256(abi.encode(atrIds[1], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(safe))));
+		vm.store(address(atr), keccak256(abi.encode(atrIds[1], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(address(safe)))));
 		// Store safes ATR token balance
 		vm.store(address(atr), keccak256(abi.encode(safe, ATR_TOKEN_BALANCES_SLOT)), bytes32(uint256(2)));
 
@@ -749,7 +749,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 	}
 
 	function test_shouldFail_whenAssetIsNotInSafe() external {
-		address otherSafe = address(0xfe);
+		address payable otherSafe = payable(address(0xfe));
 		vm.mockCall(
 			safeValidator,
 			abi.encodeWithSignature("isValidSafe(address)", otherSafe),
