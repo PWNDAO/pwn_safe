@@ -128,7 +128,7 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferRightsTest {
 
 	// ---> Basic checks
-	function test_shouldFail_whenCallerNotPWNSafe() external {
+	function test_shouldFail_whenCallerIsNotPWNSafe() external {
 		_mockToken(MultiToken.Category.ERC721);
 
 		vm.expectRevert("Caller is not a PWNSafe");
@@ -158,7 +158,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		);
 	}
 
-	function test_shouldFail_whenUsingWhitelist_whenAssetNotWhitelisted() external {
+	function test_shouldFail_whenUsingWhitelist_whenAssetIsNotWhitelisted() external {
 		_mockToken(MultiToken.Category.ERC721);
 		atr.setUseWhitelist(true);
 
@@ -207,7 +207,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 	// <--- Basic checks
 
 	// ---> Insufficient balance
-	function test_shouldFail_whenERC20NotEnoughtBalance() external {
+	function test_shouldFail_whenERC20HasNotEnoughtBalance() external {
 		_mockToken(MultiToken.Category.ERC20);
 
 		vm.expectRevert("Insufficient balance to tokenize");
@@ -217,7 +217,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		);
 	}
 
-	function test_shouldFail_whenERC20NotEnoughtUntokenizedBalance() external {
+	function test_shouldFail_whenERC20HasNotEnoughtUntokenizedBalance() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount - 20e18);
 		_tokenizeAssetUnderId(safe, 1, asset);
 		_mockToken(MultiToken.Category.ERC20);
@@ -229,7 +229,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		);
 	}
 
-	function test_shouldFail_whenERC721AlreadyTokenized() external {
+	function test_shouldFail_whenERC721IsAlreadyTokenized() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1);
 		_tokenizeAssetUnderId(safe, 1, asset);
 		_mockToken(MultiToken.Category.ERC721);
@@ -241,7 +241,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		);
 	}
 
-	function test_shouldFail_whenERC1155NotEnoughtBalance() external {
+	function test_shouldFail_whenERC1155HasNotEnoughtBalance() external {
 		_mockToken(MultiToken.Category.ERC1155);
 
 		vm.expectRevert("Insufficient balance to tokenize");
@@ -251,7 +251,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		);
 	}
 
-	function test_shouldFail_whenERC1155NotEnoughtUntokenizedBalance() external {
+	function test_shouldFail_whenERC1155HasNotEnoughtUntokenizedBalance() external {
 		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount - 10);
 		_tokenizeAssetUnderId(safe, 1, asset);
 		_mockToken(MultiToken.Category.ERC1155);
@@ -633,8 +633,8 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 		vm.prank(safe);
 		atr.burnAssetTransferRightsToken(atrId);
 
-		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
-		bytes32 owner = vm.load(address(atr), atrTokenOwnerSlot);
+		// Load atr token owner
+		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
 		assertEq(owner, 0);
 	}
 
@@ -693,5 +693,186 @@ contract AssetTransferRights_BurnAssetTransferRightsTokenBatch_Test is AssetTran
 |*----------------------------------------------------------*/
 
 contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
+
+	uint256 atrId = 5;
+	uint256 atrId2 = 102;
+	uint256 tokenId = 42;
+
+	function setUp() override public {
+		super.setUp();
+
+		// Mock state where safe has 2 tokenized assets and alice holds both ATR tokens
+
+		uint256[] memory atrIds = new uint256[](2);
+		atrIds[0] = atrId;
+		atrIds[1] = atrId2;
+
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
+		assets[0] = asset;
+		assets[1] = asset;
+
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
+		_mockToken(MultiToken.Category.ERC1155);
+
+		// ATR 5 & 102 token owner
+		vm.store(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(alice))));
+		vm.store(address(atr), keccak256(abi.encode(atrId2, ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(alice))));
+		// alice atr balance
+		vm.store(address(atr), keccak256(abi.encode(alice, ATR_TOKEN_BALANCES_SLOT)), bytes32(uint256(2)));
+
+		vm.mockCall(
+			safe,
+			abi.encodeWithSignature("execTransactionFromModule(address,uint256,bytes,uint8)"),
+			abi.encode(true)
+		);
+	}
+
+
+	// ---> Basic checks
+	function test_shouldFail_whenTransferringToSameAddress() external {
+		vm.expectRevert("Attempting to transfer asset to the same address");
+		vm.prank(safe);
+		atr.claimAssetFrom(safe, atrId, true);
+	}
+
+	function test_shouldFail_whenTokenRightsAreNotTokenized() external {
+		vm.expectRevert("Transfer rights are not tokenized");
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, 4, true);
+	}
+
+	function test_shouldFail_whenCallerIsNotATRTokenOwner() external {
+		vm.expectRevert("Caller is not ATR token owner");
+		vm.prank(bob);
+		atr.claimAssetFrom(safe, atrId, true);
+	}
+
+	function test_shouldFail_whenAssetIsNotInSafe() external {
+		address otherSafe = address(0xfe);
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", otherSafe),
+			abi.encode(true)
+		);
+
+		vm.expectRevert("Asset is not in a target wallet");
+		vm.prank(alice);
+		atr.claimAssetFrom(otherSafe, atrId, true);
+	}
+	// <--- Basic checks
+
+	// ---> Process
+	function test_shouldStoreAssetIsNotInSafe() external {
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
+
+		// Atr id is not stored in safe
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		assertEq(uint256(atrIdIndexValue), 0);
+		// Atr ids length is one
+		bytes32 atrIdsLength = vm.load(address(atr), _assetsInSafeSetSlotFor(safe));
+		assertEq(uint256(atrIdsLength), 1);
+		// Only stored atr id is the second
+		bytes32 firstStoredAtrId = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
+		assertEq(uint256(firstStoredAtrId), atrId2);
+	}
+
+	function test_shouldDecreaseAssetsTokenizedBalanceInOriginSafe() external {
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+	// <--- Process
+
+	// ---> With `burnToken` flag
+	function test_shouldClearStoredTokenizedAssetData_whenWithBurnFlag() external {
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
+
+		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
+
+		// Category + address
+		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
+		assertEq(uint256(addrAndCategory), 0);
+		// Id
+		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
+		assertEq(uint256(assetId), 0);
+		// Amount
+		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
+		assertEq(uint256(assetAmount), 0);
+	}
+
+	function test_shouldBurnATRToken_whenWithBurnFlag() external {
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
+
+		// Load atr token owner
+		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner, 0);
+	}
+	// <--- With `burnToken` flag
+
+	// ---> Without `burnToken` flag
+	function test_shouldFail_whenRecipientIsNotPWNSafe_whenWithoutBurnFlag() external {
+		vm.expectRevert("Attempting to transfer asset to non PWN Wallet address");
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
+	}
+
+	function test_shouldFail_whenRecipientHasApprovalForAsset_whenWithoutBurnFlag() external {
+		// Alice is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
+		);
+		vm.mockCall(
+			guard,
+			abi.encodeWithSignature("hasOperatorFor(address,address)", alice),
+			abi.encode(true)
+		);
+
+		vm.expectRevert("Receiver has approvals set for an asset");
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
+	}
+
+	function test_shouldStoreAssetIsInRecipientSafe_whenWithoutBurnFlag() external {
+		// Alice is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
+		);
+
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
+
+		// Value is under first index
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(alice, atrId));
+		assertEq(uint256(atrIdIndexValue), 1);
+		// Value is stored under the first index
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(alice)); // 1 - 1
+		assertEq(uint256(atrIdValue), atrId);
+	}
+
+	function test_shouldIncreaseAssetsTokenizedBalanceInRecipientSafe_whenWithoutBurnFlag() external {
+		// Alice is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
+		);
+
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(alice, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+	// <--- Without `burnToken` flag
 
 }

@@ -421,10 +421,12 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
-		atr.decreaseTokenizedBalance(atrId + 1, safe, asset);
+		atr.decreaseTokenizedBalance(atrIds[1], safe, asset);
 
+		// Tokenized balance is not zero
 		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, asset.id));
 		assertEq(uint256(tokenizedBalanceValue), 123);
+		// Index is not 0
 		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, asset.id));
 		assertGt(uint256(indexValue), 0);
 	}

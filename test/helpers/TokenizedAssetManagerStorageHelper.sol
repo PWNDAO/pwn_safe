@@ -76,6 +76,8 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 	}
 
 
+	// assets mapping
+
 	function _assetStructSlotFor(uint256 atrId) internal pure returns (bytes32) {
 		return keccak256(
 			abi.encode(
@@ -85,7 +87,7 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 		);
 	}
 
-	// assets mapping
+	// tokenizedAssetsInSafe mapping
 
 	function _assetsInSafeSetSlotFor(address owner) internal pure returns (bytes32) {
 		return keccak256(
@@ -95,8 +97,6 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 			)
 		);
 	}
-
-	// tokenizedAssetsInSafe mapping
 
 	function _assetsInSafeFirstValueSlotFor(address owner) internal pure returns (bytes32) {
 		// Hash array position to get position of a first item in the array
@@ -144,7 +144,7 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 	function _tokenizedBalanceKeyIndexesSlotFor(address owner, address assetAddress, uint256 assetId) internal pure returns (bytes32) {
 		return keccak256(
 			abi.encode(
-				assetId, // Asest id as a mapping key
+				assetId, // Asset id as a mapping key
 				uint256(_tokenizedBalanceMapSlotFor(owner, assetAddress)) + 1 // `_keys._indexes` mapping position
 			)
 		);
@@ -153,7 +153,7 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 	function _tokenizedBalanceValuesSlotFor(address owner, address assetAddress, uint256 assetId) internal pure returns (bytes32) {
 		return keccak256(
 			abi.encode(
-				assetId, // Asest id as a mapping key
+				assetId, // Asset id as a mapping key
 				uint256(_tokenizedBalanceMapSlotFor(owner, assetAddress)) + 2 // `_values` mapping position
 			)
 		);
