@@ -18,7 +18,7 @@ abstract contract OperatorsContextTest is Test {
 	address token = address(0x070ce2);
 
 
-	function setUp() virtual public {
+	function setUp() external {
 		context = new OperatorsContext(guard);
 	}
 
