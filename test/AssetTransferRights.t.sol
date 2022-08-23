@@ -598,7 +598,7 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 
 		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), 0);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 0);
 	}
 
@@ -768,7 +768,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		atr.claimAssetFrom(safe, atrId, true);
 
 		// Atr id is not stored in safe
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 0);
 		// Atr ids length is one
 		bytes32 atrIdsLength = vm.load(address(atr), _assetsInSafeSetSlotFor(safe));
@@ -852,7 +852,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		atr.claimAssetFrom(safe, atrId, false);
 
 		// Value is under first index
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(alice, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(alice, atrId));
 		assertEq(uint256(atrIdIndexValue), 1);
 		// Value is stored under the first index
 		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(alice)); // 1 - 1

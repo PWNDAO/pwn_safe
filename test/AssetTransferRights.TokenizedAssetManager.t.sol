@@ -334,7 +334,7 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 
 		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), atrId);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 1);
 	}
 
@@ -346,7 +346,7 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 
 		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), atrId);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 1);
 	}
 
@@ -405,7 +405,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 
 		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
 		assertEq(uint256(atrIdValue), 0);
-		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexesSlotFor(safe, atrId));
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
 		assertEq(uint256(atrIdIndexValue), 0);
 	}
 

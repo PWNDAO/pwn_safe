@@ -49,7 +49,7 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 			// -> Set atr id to `_values` array
 			vm.store(atr, bytes32(uint256(_assetsInSafeFirstValueSlotFor(owner)) + i), bytes32(atrId));
 			// -> Set atr id index in `_values` into `_indexes` mapping (value in mapping is index + 1)
-			vm.store(atr, _assetsInSafeIndexesSlotFor(owner, atrId), bytes32(i + 1));
+			vm.store(atr, _assetsInSafeIndexeSlotFor(owner, atrId), bytes32(i + 1));
 
 			// Store assets balance as tokenized
 			bytes32 index = vm.load(atr, _tokenizedBalanceKeyIndexesSlotFor(owner, asset.assetAddress, asset.id));
@@ -107,7 +107,7 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 		);
 	}
 
-	function _assetsInSafeIndexesSlotFor(address owner, uint256 atrId) internal pure returns (bytes32) {
+	function _assetsInSafeIndexeSlotFor(address owner, uint256 atrId) internal pure returns (bytes32) {
 		return keccak256(
 			abi.encode(
 				atrId, // Atr id as a mapping key
