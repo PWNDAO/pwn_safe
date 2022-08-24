@@ -93,7 +93,7 @@ contract PWNSafeFactory is IPWNSafeValidator {
 		// Check that proxy has correct singleton set
 		// GnosisSafeStorage.sol defines singleton address at the first position (-> index 0)
 		bytes memory singletonValue = StorageAccessible(address(this)).getStorageAt(0, 1);
-		require(bytes32(singletonValue) == bytes32(bytes20(gnosisSafeSingleton)), "Proxy with unsupported singleton");
+		require(bytes32(singletonValue) == bytes32(uint256(uint160(gnosisSafeSingleton))), "Proxy has unsupported singleton");
 
 		_storeGuardAndModule();
 	}
