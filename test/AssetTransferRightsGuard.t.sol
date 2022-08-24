@@ -82,6 +82,40 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 
 contract AssetTransferRightsGuard_CheckAfterExecution_Test is AssetTransferRightsGuardTest {
 
+	function test_shouldFail_whenExecutionSucceeded_whenInsufficinetTokenizedBalance() external {
+		vm.mockCall(
+			module,
+			abi.encodeWithSignature("hasSufficientTokenizedBalance(address)", safe),
+			abi.encode(false)
+		);
+
+		vm.expectRevert("Insufficient tokenized balance");
+		vm.prank(safe);
+		guard.checkAfterExecution(keccak256("how you doin?"), true);
+	}
+
+	function test_shouldPass_whenExecutionSucceeded_whenSufficinetTokenizedBalance() external {
+		vm.mockCall(
+			module,
+			abi.encodeWithSignature("hasSufficientTokenizedBalance(address)", safe),
+			abi.encode(true)
+		);
+
+		vm.prank(safe);
+		guard.checkAfterExecution(keccak256("we were on a break!"), true);
+	}
+
+	function test_shouldNotCallATR_whenExecutionNotSucceeded() external {
+		vm.mockCall(
+			module,
+			abi.encodeWithSignature("hasSufficientTokenizedBalance(address)", safe),
+			abi.encode(false) // would fail if called
+		);
+
+		vm.prank(safe);
+		guard.checkAfterExecution(keccak256("happy end"), false);
+	}
+
 }
 
 
