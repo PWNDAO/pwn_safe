@@ -7,6 +7,8 @@ import "../src/guard/AssetTransferRightsGuard.sol";
 
 abstract contract AssetTransferRightsGuardTest is Test {
 
+	bytes32 internal constant ATR_SLOT = bytes32(uint256(0));
+	bytes32 internal constant OPERATORS_CONTEXT_SLOT = bytes32(uint256(1));
 	address internal constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	AssetTransferRightsGuard guard;
@@ -41,6 +43,26 @@ abstract contract AssetTransferRightsGuardTest is Test {
 |*----------------------------------------------------------*/
 
 contract AssetTransferRightsGuard_Initialize_Test is AssetTransferRightsGuardTest {
+
+	function test_shouldSetParams() external {
+		guard = new AssetTransferRightsGuard();
+		guard.initialize(module, operators);
+
+		// Check atr module value (need to shift by 2 bytes to clear Initializable properties)
+		bytes32 atrValue = vm.load(address(guard), ATR_SLOT) >> 16;
+		assertEq(atrValue, bytes32(uint256(uint160(module))));
+		// Check operators context value
+		bytes32 operatorsValue = vm.load(address(guard), OPERATORS_CONTEXT_SLOT);
+		assertEq(operatorsValue, bytes32(uint256(uint160(operators))));
+	}
+
+	function test_shouldFail_whenCalledSecondTime() external {
+		guard = new AssetTransferRightsGuard();
+		guard.initialize(module, operators);
+
+		vm.expectRevert("Initializable: contract is already initialized");
+		guard.initialize(module, operators);
+	}
 
 }
 
