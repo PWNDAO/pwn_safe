@@ -21,7 +21,6 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 	address token = address(0x070ce2);
 	address alice = address(0xa11ce);
 	address bob = address(0xb0b);
-	address erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 	address guard = address(0x1111);
 	address safeValidator = address(0x2222);
 

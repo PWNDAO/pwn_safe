@@ -235,7 +235,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
         	address[] memory defaultOperators = IERC777(assetAddress).defaultOperators();
 
         	for (uint256 i; i < defaultOperators.length; ++i)
-	            if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], address(this)))
+	            if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], safeAddress))
 	            	return true;
         }
 
