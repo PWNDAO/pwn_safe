@@ -116,24 +116,24 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// Get function selector from data
 		bytes4 funcSelector = bytes4(data);
 
-		// ERC20/ERC721 - approve
+		// ERC20/ERC721 - approve(address,uint256)
 		if (funcSelector == 0x095ea7b3) {
 			// Block any approve call if there is at least one tokenized asset from a collection
-			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
-			// Wallet don't need to track approved ERC721 asset ids, because it's possible to get this information from ERC721 contract directly.
+			// Safe don't need to track approved ERC721 asset ids, because it's possible to get this information from ERC721 contract directly.
 			// ERC20 contract doesn't provide possibility to list all addresses that are approved to transfer asset on behalf of an owner.
-			// That's why a wallet has to track operators.
+			// That's why a safe has to track operators.
 
 			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 
-		// ERC20 - increaseAllowance
+		// ERC20 - increaseAllowance(address,uint256)
 		else if (funcSelector == 0x39509351) {
 			// Block any increaseAllowance call if there is at least one tokenized asset from a collection
-			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
@@ -142,11 +142,11 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			}
 		}
 
-		// ERC20 - decreaseAllowance
+		// ERC20 - decreaseAllowance(address,uint256)
 		else if (funcSelector == 0xa457c2d7) {
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
-			try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
+			try IERC20(target).allowance(safeAddress, operator) returns (uint256 allowance) {
 
 				if (allowance <= amount) {
 					operatorsContext.remove(safeAddress, target, operator);
@@ -155,10 +155,10 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			} catch {}
 		}
 
-		// ERC721/ERC1155 - setApprovalForAll
+		// ERC721/ERC1155 - setApprovalForAll(address,bool)
 		else if (funcSelector == 0xa22cb465) {
 			// Block any setApprovalForAll call if there is at least one tokenized asset from a collection
-			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, bool approved) = abi.decode(data[4:], (address, bool));
 
@@ -172,37 +172,37 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			}
 		}
 
-		// ERC777 - authorizeOperator
+		// ERC777 - authorizeOperator(address)
 		else if (funcSelector == 0x959b8c3f) {
 			// Block any authorizeOperator call if there is at least one tokenized asset from a collection
-			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			address operator = abi.decode(data[4:], (address));
 
 			operatorsContext.add(safeAddress, target, operator);
 		}
 
-		// ERC777 - revokeOperator
+		// ERC777 - revokeOperator(address)
 		else if (funcSelector == 0xfad8b32a) {
 			address operator = abi.decode(data[4:], (address));
 
 			operatorsContext.remove(safeAddress, target, operator);
 		}
 
-		// ERC1363 - approveAndCall
+		// ERC1363 - approveAndCall(address,uint256)
 		else if (funcSelector == 0x3177029f) {
 			// Block any approveAndCall call if there is at least one tokenized asset from a collection
-			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 
 			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 
-		// ERC1363 - approveAndCall(bytes)
+		// ERC1363 - approveAndCall(address,uint256,bytes)
 		else if (funcSelector == 0xcae9ca51) {
 			// Block any approveAndCall call if there is at least one tokenized asset from a collection
-			require(atr.numberOfTokenizedAssetsFromCollection(address(this), target) == 0, "Some asset from collection has transfer right token minted");
+			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount,) = abi.decode(data[4:], (address, uint256, bytes));
 
@@ -211,7 +211,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 	}
 
 	function _handleERC20Approval(address safeAddress, address target, address operator, uint256 amount) private {
-		try IERC20(target).allowance(address(this), operator) returns (uint256 allowance) {
+		try IERC20(target).allowance(safeAddress, operator) returns (uint256 allowance) {
 
 			if (allowance != 0 && amount == 0) {
 				operatorsContext.remove(safeAddress, target, operator);

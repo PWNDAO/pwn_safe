@@ -73,6 +73,292 @@ contract AssetTransferRightsGuard_Initialize_Test is AssetTransferRightsGuardTes
 
 contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGuardTest {
 
+	function _checkTransaction(
+		address to,
+		bytes memory data
+	) private {
+		_checkTransaction(to, data, Enum.Operation.Call, 0, 0);
+	}
+
+	function _checkTransaction(
+		address to,
+		bytes memory data,
+		Enum.Operation operation,
+		uint256 safeTxGas,
+		uint256 gasPrice
+	) private {
+		guard.checkTransaction(
+			to, 0, data, operation, safeTxGas, 100, gasPrice, address(0), payable(0), "", address(0)
+		);
+	}
+
+	function _mockNumberOfTokenizedAssets(uint256 number) private {
+		vm.mockCall(
+			module,
+			abi.encodeWithSignature("numberOfTokenizedAssetsFromCollection(address,address)", safe, token),
+			abi.encode(number)
+		);
+	}
+
+	function _mockAllowance(uint256 allowance) private {
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("allowance(address,address)", safe, alice),
+			abi.encode(allowance)
+		);
+	}
+
+	function _expectAdd() private {
+		vm.expectCall(
+			operators,
+			abi.encodeWithSignature("add(address,address,address)", safe, token, alice)
+		);
+	}
+
+	function _expectRemove() private {
+		vm.expectCall(
+			operators,
+			abi.encodeWithSignature("remove(address,address,address)", safe, token, alice)
+		);
+	}
+
+
+	// ---> Basic checks
+	function test_shouldFail_whenSafeTxGasNotZero() external {
+		vm.expectRevert("Safe tx gas has to be 0 for tx to revert in case of failure");
+		vm.prank(safe);
+		_checkTransaction(
+			address(0xde57),
+			abi.encode("bert, bert, bert"),
+			Enum.Operation.Call,
+			100,
+			0
+		);
+	}
+
+	function test_shouldFail_whenGasPriceNotZero() external {
+		vm.expectRevert("Gas price has to be 0 for tx to revert in case of failure");
+		vm.prank(safe);
+		_checkTransaction(
+			address(0xde57),
+			abi.encode("bert, bert, bert"),
+			Enum.Operation.Call,
+			0,
+			100
+		);
+	}
+
+	function test_shouldFail_whenOperationIsDelegatecall() external {
+		vm.expectRevert("Only call operations are allowed");
+		vm.prank(safe);
+		_checkTransaction(
+			address(0xde57),
+			abi.encode("bert, bert, bert"),
+			Enum.Operation.DelegateCall,
+			0,
+			0
+		);
+	}
+	// <--- Basic checks
+
+	// ---> Self authorization calls
+	function test_shouldFail_whenChangingGuard() external {
+		vm.expectRevert("Cannot change ATR guard");
+		vm.prank(safe);
+		_checkTransaction(safe, abi.encodeWithSignature("setGuard(address)"));
+	}
+
+	function test_shouldFail_whenEnablingModule() external {
+		vm.expectRevert("Cannot enable ATR module");
+		vm.prank(safe);
+		_checkTransaction(safe, abi.encodeWithSignature("enableModule(address)"));
+	}
+
+	function test_shouldFail_whenDisablingModule() external {
+		vm.expectRevert("Cannot disable ATR module");
+		vm.prank(safe);
+		_checkTransaction(safe, abi.encodeWithSignature("disableModule(address,address)"));
+	}
+
+	function test_shouldFail_whenChangingFallbackHandler() external {
+		vm.expectRevert("Cannot change fallback handler");
+		vm.prank(safe);
+		_checkTransaction(safe, abi.encodeWithSignature("setFallbackHandler(address)"));
+	}
+	// <--- Self authorization calls
+
+	// ---> ERC20 approvals
+	function test_shouldFail_onApprove_whenERC20Tokenized() external {
+		_mockNumberOfTokenizedAssets(1);
+
+		vm.expectRevert("Some asset from collection has transfer right token minted");
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approve(address,uint256)", alice, 100e18));
+	}
+
+	function test_shouldAddOperator_onApprove_whenAllowanceZero_whenAmountNonZero_whenERC20NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(0);
+
+		_expectAdd();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approve(address,uint256)", alice, 100e18));
+	}
+
+	function test_shouldRemoveOperator_onApprove_whenAllowanceNonZero_whenAmountZero_whenERC20NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(100);
+
+		_expectRemove();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approve(address,uint256)", alice, 0));
+	}
+
+	// TODO: Test when foundry implements `expectNoCall`
+	// function test_shouldNotAddOperator_onApprove_whenAllowanceZero_whenAmountZero_whenERC20NotTokenized() external
+	// function test_shouldNotRemoveOperator_onApprove_whenAllowanceNonZero_whenAmountNonZero_whenERC20NotTokenized() external
+
+	function test_shouldFail_onIncreaseAllowance_whenERC20Tokenized() external {
+		_mockNumberOfTokenizedAssets(1);
+
+		vm.expectRevert("Some asset from collection has transfer right token minted");
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("increaseAllowance(address,uint256)", alice, 100e18));
+	}
+
+	function test_shouldAddOperator_onIncreaseAllowance_whenERC20NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(0);
+
+		_expectAdd();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("increaseAllowance(address,uint256)", alice, 100e18));
+	}
+
+	function test_shouldRemoveOperator_onDecreaseAllowance_whenERC20AllowanceLessOrEqThanAmount() external {
+		_mockAllowance(90e18);
+
+		_expectRemove();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("decreaseAllowance(address,uint256)", alice, 100e18));
+	}
+
+	// TODO: Test when foundry implements `expectNoCall`
+	// function test_shouldNotRemoveOperator_onDecreaseAllowance_whenERC20AllowanceMoreThanAmount() external
+	// <--- ERC20 approvals
+
+	// ---> ERC721/ERC1155 approvals
+	function test_shouldFail_onSetApprovalForAll_whenERC721Tokenized() external {
+		_mockNumberOfTokenizedAssets(1);
+
+		vm.expectRevert("Some asset from collection has transfer right token minted");
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("setApprovalForAll(address,bool)", alice, true));
+	}
+
+	function test_shouldAddOperator_onSetApprovalForAll_whenApproval_whenERC721NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+
+		_expectAdd();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("setApprovalForAll(address,bool)", alice, true));
+	}
+
+	function test_shouldRemoveOperator_onSetApprovalForAll_whenNotApproval_whenERC721NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+
+		_expectRemove();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("setApprovalForAll(address,bool)", alice, false));
+	}
+	// <--- ERC721/ERC1155 approvals
+
+	// ---> ERC777 approvals
+	function test_shouldFail_onAuthorizeOperator_whenERC777Tokenized() external {
+		_mockNumberOfTokenizedAssets(1);
+
+		vm.expectRevert("Some asset from collection has transfer right token minted");
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("authorizeOperator(address)", alice));
+	}
+
+	function test_shouldAddOperator_onAuthorizeOperator_whenERC777NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+
+		_expectAdd();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("authorizeOperator(address)", alice));
+	}
+
+	function test_shouldRemoveOperator_onRevokeOperator() external {
+		_expectRemove();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("revokeOperator(address)", alice));
+	}
+	// <--- ERC777 approvals
+
+	// ---> ERC1363 approvals
+	function test_shouldFail_onApproveAndCall_whenERC1363Tokenized() external {
+		_mockNumberOfTokenizedAssets(1);
+
+		vm.expectRevert("Some asset from collection has transfer right token minted");
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 100e18));
+	}
+
+	function test_shouldAddOperator_onApproveAndCall_whenAllowanceZero_whenAmountNonZero_whenERC1363NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(0);
+
+		_expectAdd();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 100e18));
+	}
+
+	function test_shouldRemoveOperator_onApproveAndCall_whenAllowanceNonZero_whenAmountZero_whenERC1363NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(100);
+
+		_expectRemove();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 0));
+	}
+
+	// TODO: Test when foundry implements `expectNoCall`
+	// function test_shouldNotAddOperator_onApproveAndCall_whenAllowanceZero_whenAmountZero_whenERC1363NotTokenized() external
+	// function test_shouldNotRemoveOperator_onApproveAndCall_whenAllowanceNonZero_whenAmountNonZero_whenERC1363NotTokenized() external
+
+	function test_shouldFail_onApproveAndCallWithBytes_whenERC1363Tokenized() external {
+		_mockNumberOfTokenizedAssets(1);
+
+		vm.expectRevert("Some asset from collection has transfer right token minted");
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 100e18, "I went to library to pee"));
+	}
+
+	function test_shouldAddOperator_onApproveAndCallWithBytes_whenAllowanceZero_whenAmountNonZero_whenERC1363NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(0);
+
+		_expectAdd();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 100e18, "11 towel categories"));
+	}
+
+	function test_shouldRemoveOperator_onApproveAndCallWithBytes_whenAllowanceNonZero_whenAmountZero_whenERC1363NotTokenized() external {
+		_mockNumberOfTokenizedAssets(0);
+		_mockAllowance(100);
+
+		_expectRemove();
+		vm.prank(safe);
+		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 0, "it was always purple?"));
+	}
+
+	// TODO: Test when foundry implements `expectNoCall`
+	// function test_shouldNotAddOperator_onApproveAndCallWithBytes_whenAllowanceZero_whenAmountZero_whenERC1363NotTokenized() external
+	// function test_shouldNotRemoveOperator_onApproveAndCallWithBytes_whenAllowanceNonZero_whenAmountNonZero_whenERC1363NotTokenized() external
+	// <--- ERC1363 approvals
+
 }
 
 
@@ -113,7 +399,7 @@ contract AssetTransferRightsGuard_CheckAfterExecution_Test is AssetTransferRight
 		);
 
 		vm.prank(safe);
-		guard.checkAfterExecution(keccak256("happy end"), false);
+		guard.checkAfterExecution(keccak256("smelly cat, smelly cat"), false);
 	}
 
 }
