@@ -91,6 +91,12 @@ contract PWNSafeFactory_DeployProxy_Test is PWNSafeFactoryTest {
 		assertEq(uint256(isValid), 1);
 	}
 
+	function test_shouldReturnNewGnosisSafeProxy() external {
+		GnosisSafe newSafe = factory.deployProxy(_owners(), threshold);
+
+		assertEq(address(newSafe), safe);
+	}
+
 }
 
 

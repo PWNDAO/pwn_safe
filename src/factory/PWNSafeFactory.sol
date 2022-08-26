@@ -56,7 +56,7 @@ contract PWNSafeFactory is IPWNSafeValidator {
 	function deployProxy(
 		address[] calldata owners,
 		uint256 threshold
-	) external {
+	) external returns (GnosisSafe) {
 		// Deploy new gnosis safe proxy
 		GnosisSafeProxy proxy = gnosisSafeProxyFactory.createProxy(gnosisSafeSingleton, "");
 		GnosisSafe safe = GnosisSafe(payable(address(proxy)));
@@ -75,6 +75,8 @@ contract PWNSafeFactory is IPWNSafeValidator {
 
 		// Store as valid address
 		isValidSafe[address(safe)] = true;
+
+		return safe;
 	}
 
 
