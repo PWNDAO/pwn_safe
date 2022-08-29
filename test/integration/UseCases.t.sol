@@ -569,6 +569,90 @@ contract UseCases_ERC721_Test is UseCasesTest {
 		);
 	}
 
+	/**
+	 * 1:  deploy multisig safe
+	 * 2:  mint asset id 1
+	 * 3:  fail to mint ATR token with one owner
+	 * 4:  sign tx by second owner
+	 * 5:  mint ATR token with both owners signatures
+	 */
+	function test_UC_ERC721_3() external {
+		uint256 owner1PK = 7;
+		uint256 owner2PK = 8;
+		address owner1 = vm.addr(owner1PK);
+		address owner2 = vm.addr(owner2PK);
+
+		address[] memory owners = new address[](2);
+		owners[0] = owner1;
+		owners[1] = owner2;
+
+		// 1:
+		safe = factory.deployProxy(owners, 2);
+
+		// 2:
+		t721.mint(address(safe), 1);
+
+		// 3:
+		vm.expectRevert("GS020");
+		vm.prank(owner1);
+		safe.execTransaction(
+			address(atr),
+			0,
+			abi.encodeWithSelector(
+				AssetTransferRights.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+			),
+			Enum.Operation.Call,
+			0,
+			10,
+			0,
+			address(0),
+			payable(0),
+			abi.encodePacked(uint256(uint160(owner1)), bytes32(0), uint8(1))
+		);
+
+		// 4:
+		bytes memory owner2Signature;
+		{
+			bytes32 txHash = safe.getTransactionHash(
+				address(atr),
+				0,
+				abi.encodeWithSelector(
+					AssetTransferRights.mintAssetTransferRightsToken.selector,
+					MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+				),
+				Enum.Operation.Call,
+				0,
+				10,
+				0,
+				address(0),
+				payable(0),
+				safe.nonce()
+			);
+
+			(uint8 v, bytes32 r, bytes32 s) = vm.sign(owner2PK, txHash);
+			owner2Signature = abi.encodePacked(r, s, v);
+		}
+
+		// 5:
+		vm.prank(owner1);
+		safe.execTransaction(
+			address(atr),
+			0,
+			abi.encodeWithSelector(
+				AssetTransferRights.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+			),
+			Enum.Operation.Call,
+			0,
+			10,
+			0,
+			address(0),
+			payable(0),
+			abi.encodePacked(uint256(uint160(owner1)), bytes32(0), uint8(1), owner2Signature)
+		);
+	}
+
 }
 
 
