@@ -12,14 +12,14 @@ abstract contract WhitelistManager {
 	/**
 	 * @notice Stored flag that incidates, whether ATR token minting is enabled only to whitelisted assets
 	 */
-	bool internal useWhitelist;
+	bool public useWhitelist;
 
 	/**
 	 * @notice Whitelist of asset addresses, which are enabled to mint their transfer rights
 	 *
 	 * @dev Used only if `useWhitelist` flag is set to true
 	 */
-	mapping (address => bool) internal isWhitelisted;
+	mapping (address => bool) public isWhitelisted;
 
 
 	/*----------------------------------------------------------*|
