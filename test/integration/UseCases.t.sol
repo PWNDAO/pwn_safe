@@ -14,9 +14,10 @@ import "../../src/guard/OperatorsContext.sol";
 import "../../src/handler/DefaultCallbackHandler.sol";
 import "../../src/AssetTransferRights.sol";
 
-import "../helpers/T20.sol";
-import "../helpers/T721.sol";
-import "../helpers/T1155.sol";
+import "../helpers/malicious/DelegatecallContract.sol";
+import "../helpers/token/T20.sol";
+import "../helpers/token/T721.sol";
+import "../helpers/token/T1155.sol";
 
 
 abstract contract UseCasesTest is Test {
@@ -661,5 +662,40 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		);
 	}
 
-}
 
+	/**
+	 * 1:  mint asset id 1 amount 600
+	 * 2:  mint ATR token 1 for asset id 1 amount 600
+	 * 3:  call malicious contract
+	 * 4:  fail to transfer assets
+	 */
+	function test_UC_ERC1155_2() external {
+		// 1:
+		t1155.mint(address(safe), 1, 600);
+
+		// 2:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				AssetTransferRights.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 600)
+			)
+		);
+
+		// 3:
+		DelegatecallContract delegatecallContract = new DelegatecallContract();
+		_executeTx(
+			safe, address(delegatecallContract),
+			abi.encodeWithSignature(
+				"perform(address,bytes)",
+				address(t1155), abi.encodeWithSignature("setApprovalForAll(address,bool)", alice, true)
+			)
+		);
+
+		// 4:
+		vm.expectRevert("ERC1155: caller is not token owner nor approved");
+		vm.prank(alice);
+		t1155.safeTransferFrom(address(safe), alice, 1, 600, "");
+	}
+
+}
