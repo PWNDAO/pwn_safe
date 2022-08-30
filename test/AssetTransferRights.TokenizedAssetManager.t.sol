@@ -262,26 +262,6 @@ contract TokenizedAssetManager_TokenizedAssetsInSafeOf_Test is TokenizedAssetMan
 
 
 /*----------------------------------------------------------*|
-|*  # HAS ANY TOKENIZED ASSET IN SAFE                       *|
-|*----------------------------------------------------------*/
-
-contract TokenizedAssetManager_HasAnyTokenizedAssetInSafe_Test is TokenizedAssetManagerTest {
-
-	function test_shouldReturnTrue_whenHasAnyTokenizedAssetInSafe() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
-		_tokenizeAssetUnderId(safe, 42, asset);
-
-		assertEq(atr.hasAnyTokenizedAssetInSafe(safe), true);
-	}
-
-	function test_shouldReturnFalse_whenHasNotAnyTokenizedAssetInSafe() external {
-		assertEq(atr.hasAnyTokenizedAssetInSafe(safe), false);
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
 |*  # NUMBER OF TOKENIZED ASSETS FROM COLLECTION            *|
 |*----------------------------------------------------------*/
 

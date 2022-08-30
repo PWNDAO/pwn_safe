@@ -124,14 +124,6 @@ abstract contract TokenizedAssetManager {
 
 	/**
 	 * @param owner PWNSafe address in question.
-	 * @return True if safe has any tokenized assets.
-	 */
-	function hasAnyTokenizedAssetInSafe(address owner) external view returns (bool) {
-		return tokenizedAssetsInSafe[owner].values().length > 0;
-	}
-
-	/**
-	 * @param owner PWNSafe address in question.
 	 * @param assetAddress Address of asset collection.
 	 * @return Number of tokenized assets owned by `owner` from asset collection.
 	 */
