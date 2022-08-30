@@ -755,7 +755,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 			abi.encode(true)
 		);
 
-		vm.expectRevert("Asset is not in a target wallet");
+		vm.expectRevert("Asset is not in a target safe");
 		vm.prank(alice);
 		atr.claimAssetFrom(otherSafe, atrId, true);
 	}
@@ -816,7 +816,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 
 	// ---> Without `burnToken` flag
 	function test_shouldFail_whenRecipientIsNotPWNSafe_whenWithoutBurnFlag() external {
-		vm.expectRevert("Attempting to transfer asset to non PWN Wallet address");
+		vm.expectRevert("Attempting to transfer asset to non PWNSafe address");
 		vm.prank(alice);
 		atr.claimAssetFrom(safe, atrId, false);
 	}

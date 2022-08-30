@@ -4,7 +4,10 @@ pragma solidity 0.8.15;
 import "../factory/IPWNSafeValidator.sol";
 
 
-/// TODO: Doc
+/**
+ * @title PWNSafe Validator Manager
+ * @notice Contract responsible for managing PWNSafe validator.
+ */
 abstract contract PWNSafeValidatorManager {
 
 	/*----------------------------------------------------------*|
@@ -18,7 +21,9 @@ abstract contract PWNSafeValidatorManager {
 	|*  # MODIFIERS                                             *|
 	|*----------------------------------------------------------*/
 
-	/// TODO: Doc
+	/**
+	 * @dev Restrict access only to validator manager.
+	 */
 	modifier onlyValidatorManager() virtual;
 
 
@@ -35,7 +40,10 @@ abstract contract PWNSafeValidatorManager {
 	|*  # SETTERS                                               *|
 	|*----------------------------------------------------------*/
 
-	/// TODO: Doc
+	/**
+	 * @dev Set new PWNSafe validator.
+	 * @param _safeValidator Address of new PWNSafe validator.
+	 */
 	function setPWNSafeValidator(address _safeValidator) external onlyValidatorManager {
 		safeValidator = IPWNSafeValidator(_safeValidator);
 	}

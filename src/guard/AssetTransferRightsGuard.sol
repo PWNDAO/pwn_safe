@@ -15,6 +15,11 @@ import "./IAssetTransferRightsGuard.sol";
 import "./OperatorsContext.sol";
 
 
+/**
+ * @title Asset Transfer Rights Guard
+ * @notice Contract responsible for enforcing asset transfer right rules.
+ * @dev Should be used as a Gnosis Safe guard.
+ */
 contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsGuard {
 	using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -39,6 +44,11 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 
 	}
 
+	/**
+	 * @dev Initialize AssetTransferRightsGuard.
+	 * @param _atr Address of AssetTransferRights contract, used to check tokenized balances.
+	 * @param _operatorContext Address of OperatorsContext, used to manage approved operators per asset collection.
+	 */
 	function initialize(address _atr, address _operatorContext) external initializer {
 		atr = AssetTransferRights(_atr);
 		operatorsContext = OperatorsContext(_operatorContext);
@@ -49,6 +59,15 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 	|*  # GUARD INTERFACE                                       *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev Hook that is called before transaction execution.
+	 *      This hook is enforcing asset transfer right rules.
+	 * @param to Destination address of Safe transaction.
+     * @param data Data payload of Safe transaction.
+     * @param operation Operation type of Safe transaction.
+     * @param safeTxGas Gas that should be used for the Safe transaction.
+     * @param gasPrice Gas price that should be used for the payment calculation.
+	 */
 	function checkTransaction(
 		address to,
 		uint256 /*value*/,
@@ -77,6 +96,11 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		}
 	}
 
+	/**
+	 * @dev Hook that is called after transaction execution.
+	 *      This hook is checking that tokenized balance is sufficient after transaction execution.
+	 * @param success Value if transaction was successful.
+	 */
 	function checkAfterExecution(bytes32 /*txHash*/, bool success) view external {
 		if (success)
 			require(atr.hasSufficientTokenizedBalance(msg.sender), "Insufficient tokenized balance");
@@ -136,7 +160,6 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
-
 			if (amount > 0) {
 				operatorsContext.add(safeAddress, target, operator);
 			}
@@ -145,7 +168,6 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		// ERC20 - decreaseAllowance(address,uint256)
 		else if (funcSelector == 0xa457c2d7) {
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
-
 			try IERC20(target).allowance(safeAddress, operator) returns (uint256 allowance) {
 
 				if (allowance <= amount) {
@@ -178,14 +200,12 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			address operator = abi.decode(data[4:], (address));
-
 			operatorsContext.add(safeAddress, target, operator);
 		}
 
 		// ERC777 - revokeOperator(address)
 		else if (funcSelector == 0xfad8b32a) {
 			address operator = abi.decode(data[4:], (address));
-
 			operatorsContext.remove(safeAddress, target, operator);
 		}
 
@@ -195,7 +215,6 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
-
 			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 
@@ -205,29 +224,33 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			(address operator, uint256 amount,) = abi.decode(data[4:], (address, uint256, bytes));
-
 			_handleERC20Approval(safeAddress, target, operator, amount);
 		}
 	}
 
 	function _handleERC20Approval(address safeAddress, address target, address operator, uint256 amount) private {
+		// This function is also called for ERC721 assets (as they share approve function signature),
+		// thus allowance call can throw an error and needs to be called in try / catch block.
 		try IERC20(target).allowance(safeAddress, operator) returns (uint256 allowance) {
 
-			if (allowance != 0 && amount == 0) {
+			if (allowance != 0 && amount == 0)
 				operatorsContext.remove(safeAddress, target, operator);
-			}
 
-			else if (allowance == 0 && amount != 0) {
+			else if (allowance == 0 && amount != 0)
 				operatorsContext.add(safeAddress, target, operator);
-			}
 
-		} catch {}
+		} catch {
+			// ERC721 approvals don't have to be tracked as they can be retrieved from an asset contract directly
+		}
 	}
 
 	/*----------------------------------------------------------*|
 	|*  # OPERATOR MANAGER                                      *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev See {IAssetTransferRightsGuard-hasOperatorFor}.
+	 */
 	function hasOperatorFor(address safeAddress, address assetAddress) external view returns (bool) {
 		// ERC777 defines `defaultOperators`
 		address implementer = IERC1820Registry(ERC1820_REGISTRY_ADDRESS).getInterfaceImplementer(assetAddress, keccak256("ERC777Token"));

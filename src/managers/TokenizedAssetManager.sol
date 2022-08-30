@@ -7,6 +7,10 @@ import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "MultiToken/MultiToken.sol";
 
 
+/**
+ * @title Tokenized Asset Manager
+ * @notice Contract responsible for managing tokenized asset balances.
+ */
 abstract contract TokenizedAssetManager {
 	using EnumerableSet for EnumerableSet.UintSet;
 	using EnumerableMap for EnumerableMap.UintToUintMap;
@@ -19,25 +23,20 @@ abstract contract TokenizedAssetManager {
 
 	/**
 	 * @notice Mapping of ATR token id to underlying asset
-	 *
 	 * @dev (ATR token id => Asset)
 	 */
 	mapping (uint256 => MultiToken.Asset) internal assets;
 
 	/**
-	 * @notice Mapping of address to set of ATR ids, that belongs to assets in the safe
-	 *
-	 * @dev The ATR token itself doesn't have to be in the wallet
-	 * Used in PWNWallet to enumerate over all tokenized assets after execution of arbitrary calldata
-	 * (owner => set of ATR token ids representing tokenized assets currently in owners wallet)
+	 * @notice Mapping of safe address to set of ATR ids, that belongs to tokeniezd assets in the safe.
+	 * @dev The ATR token itself doesn't have to be in the safe.
+	 *      (safe => set of ATR token ids representing tokenized assets currently in owners safe)
 	 */
 	mapping (address => EnumerableSet.UintSet) internal tokenizedAssetsInSafe;
 
 	/**
-	 * @notice Balance of tokenized assets from asset contract in a wallet
-	 *
-	 * @dev Used in PWNWallet to check if owner can call setApprovalForAll on given asset contract
-	 * (owner => asset address => asset id => balance of tokenized assets currently in owners wallet)
+	 * @notice Balance of tokenized assets from asset collection in a safe
+	 * @dev (safe => asset address => asset id => balance of tokenized assets currently in owners safe)
 	 */
 	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal tokenizedBalances;
 
@@ -57,9 +56,8 @@ abstract contract TokenizedAssetManager {
 
 	/**
 	 * @dev Checks that address has sufficient balance of tokenized assets.
-	 * Fails if tokenized balance is insufficient.
-	 *
-	 * @param owner Address to check its tokenized balance
+	 *      Fails if tokenized balance is insufficient.
+	 * @param owner Address to check its tokenized balance.
 	 */
 	function hasSufficientTokenizedBalance(address owner) external view returns (bool) {
 		uint256[] memory atrs = tokenizedAssetsInSafe[owner].values();
@@ -79,15 +77,13 @@ abstract contract TokenizedAssetManager {
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @notice Recover PWN Wallets invalid tokenized balance
-	 *
-	 * @dev Invalid tokenized balance could happen only when an asset with tokenized transfer rights leaves the wallet non-standard way.
-	 * This function is meant to recover PWN Wallets affected by Stalking attack.
-	 * Stalking attack is type of attack where attacker transfer malicious tokenized asset to victims wallet
-	 * and then transfers it away through some non-standard way, leaving wallet in state, where every call of `execution` function
-	 * will fail on `Insufficient tokenized balance` error.
-	 *
-	 * @param atrTokenId ATR token id representing underyling asset in question
+	 * @notice Recover PWNSafes invalid tokenized balance.
+	 * @dev Invalid tokenized balance could happen only when an asset with tokenized transfer rights leaves the safe non-standard way.
+	 *      This function is meant to recover PWNSafe affected by Stalking attack.
+	 *      Stalking attack is type of attack where attacker transfer malicious tokenized asset to victims safe
+	 *      and then transfers it away through some non-standard way, leaving safe in a state, where every call of `execTransaction` function
+	 *      will fail on `Insufficient tokenized balance` error.
+	 * @param atrTokenId ATR token id representing underyling asset in question.
 	 */
 	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
 
@@ -102,7 +98,7 @@ abstract contract TokenizedAssetManager {
 
 		// Decrease tokenized balance
 		// Decrease would fail if the atr token is not associated with an owner
-		require(_decreaseTokenizedBalance(atrTokenId, owner, asset), "Asset is not in callers wallet");
+		require(_decreaseTokenizedBalance(atrTokenId, owner, asset), "Asset is not in callers safe");
 	}
 
 
@@ -111,33 +107,33 @@ abstract contract TokenizedAssetManager {
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @param atrTokenId ATR token id
-	 *
-	 * @return Underlying asset of an ATR token
+	 * @param atrTokenId ATR token id.
+	 * @return Underlying asset of an ATR token.
 	 */
 	function getAsset(uint256 atrTokenId) external view returns (MultiToken.Asset memory) {
 		return assets[atrTokenId];
 	}
 
 	/**
-	 * @param owner PWN Wallet address in question
-	 *
-	 * @return List of tokenized assets owned by `owner` represented by their ATR tokens
+	 * @param owner PWNSafe address in question.
+	 * @return List of tokenized assets owned by `owner` represented by their ATR tokens.
 	 */
 	function tokenizedAssetsInSafeOf(address owner) external view returns (uint256[] memory) {
 		return tokenizedAssetsInSafe[owner].values();
 	}
 
-	// TODO: Doc
+	/**
+	 * @param owner PWNSafe address in question.
+	 * @return True if safe has any tokenized assets.
+	 */
 	function hasAnyTokenizedAssetInSafe(address owner) external view returns (bool) {
 		return tokenizedAssetsInSafe[owner].values().length > 0;
 	}
 
 	/**
-	 * @param owner PWN Wallet address in question
-	 * @param assetAddress Address of asset contract
-	 *
-	 * @return Number of tokenized assets owned by `owner` from asset contract
+	 * @param owner PWNSafe address in question.
+	 * @param assetAddress Address of asset collection.
+	 * @return Number of tokenized assets owned by `owner` from asset collection.
 	 */
 	function numberOfTokenizedAssetsFromCollection(address owner, address assetAddress) external view returns (uint256) {
 		return tokenizedBalances[owner][assetAddress].length();
@@ -148,13 +144,6 @@ abstract contract TokenizedAssetManager {
 	|*  # INTERNAL                                              *|
 	|*----------------------------------------------------------*/
 
-	/**
-	 * @dev Increase stored tokenized asset balances per user address
-	 *
-	 * @param atrTokenId ......
-	 * @param owner Address owning `asset`
-	 * @param asset MultiToken Asset struct representing asset that should be added to tokenized balance
-	 */
 	function _increaseTokenizedBalance(
 		uint256 atrTokenId,
 		address owner,
@@ -166,13 +155,6 @@ abstract contract TokenizedAssetManager {
 		map.set(asset.id, tokenizedBalance + asset.amount);
 	}
 
-	/**
-	 * @dev Decrease stored tokenized asset balances per user address
-	 *
-	 * @param atrTokenId ......
-	 * @param owner Address owning `asset`
-	 * @param asset MultiToken Asset struct representing asset that should be deducted from tokenized balance
-	 */
 	function _decreaseTokenizedBalance(
 		uint256 atrTokenId,
 		address owner,
@@ -193,7 +175,6 @@ abstract contract TokenizedAssetManager {
 		return true;
 	}
 
-	/// TODO: Doc
 	function _canBeTokenized(
 		address owner,
 		MultiToken.Asset memory asset
@@ -203,7 +184,6 @@ abstract contract TokenizedAssetManager {
 		return (balance - tokenizedBalance) >= asset.amount;
 	}
 
-	/// TODO: Doc
 	function _storeTokenizedAsset(
 		uint256 atrTokenId,
 		MultiToken.Asset memory asset
@@ -211,7 +191,6 @@ abstract contract TokenizedAssetManager {
 		assets[atrTokenId] = asset;
 	}
 
-	/// TODO: Doc
 	function _clearTokenizedAsset(uint256 atrTokenId) internal {
 		assets[atrTokenId] = MultiToken.Asset(MultiToken.Category.ERC20, address(0), 0, 0);
 	}

@@ -480,7 +480,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 		atr.transferFrom(address(safe), bob, 1);
 
 		// 10:
-		vm.expectRevert("Attempting to transfer asset to non PWN Wallet address");
+		vm.expectRevert("Attempting to transfer asset to non PWNSafe address");
 		vm.prank(bob);
 		atr.claimAssetFrom(payable(address(safe)), 1, false);
 

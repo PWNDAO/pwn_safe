@@ -22,11 +22,8 @@ import "./managers/WhitelistManager.sol";
 
 /**
  * @title Asset Transfer Rights contract
- *
- * @author PWN Finance
- *
- * @notice This contract represents tokenized transfer rights of underlying asset (ATR token)
- * ATR token can be used in lending protocols instead of an underlying asset
+ * @notice This contract represents tokenized transfer rights of underlying asset (ATR token).
+ *         ATR token can be used in lending protocols instead of an underlying asset.
  */
 contract AssetTransferRights is
 	Ownable,
@@ -47,10 +44,9 @@ contract AssetTransferRights is
 	string public constant VERSION = "0.1.0";
 
 	/**
-	 * @notice Last minted token id
-	 *
-	 * @dev First used token id is 1
-	 * If lastTokenId == 0, there is no ATR token minted yet
+	 * @notice Last minted token id.
+	 * @dev First used token id is 1.
+	 *      If `lastTokenId` == 0, there is no ATR token minted yet.
 	 */
 	uint256 public lastTokenId;
 
@@ -99,20 +95,16 @@ contract AssetTransferRights is
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @notice Tokenize given assets transfer rights and mint ATR token
-	 *
+	 * @notice Tokenize given assets transfer rights and mint ATR token.
 	 * @dev Requirements:
-	 *
-	 * - caller has to be PWNSafe
-	 * - cannot tokenize transfer rights of ATR token
-	 * - in case whitelist is used, asset has to be whitelisted
-	 * - cannot tokenize invalid asset. See {MultiToken-isValid}
-	 * - cannot have operator set for that asset contract (setApprovalForAll) (ERC721 / ERC1155)
-	 * - in case of ERC721 assets, cannot tokenize approved asset, but other tokens can be approved
-	 * - in case of ERC20 assets, asset cannot have any approval
-	 *
+	 *      - caller has to be PWNSafe
+	 *      - cannot tokenize transfer rights of ATR token
+	 *      - in case whitelist is used, asset has to be whitelisted
+	 *      - cannot tokenize invalid asset. See {MultiToken-isValid}
+	 *      - cannot have operator set for that asset collection (setApprovalForAll) (ERC721 / ERC1155)
+	 *      - in case of ERC721 assets, cannot tokenize approved asset, but other tokens can be approved
+	 *      - in case of ERC20 assets, asset cannot have any approval
 	 * @param asset Asset struct defined in MultiToken library. See {MultiToken-Asset}
-	 *
 	 * @return Id of newly minted ATR token
 	 */
 	function mintAssetTransferRightsToken(MultiToken.Asset memory asset) public returns (uint256) {
@@ -183,12 +175,10 @@ contract AssetTransferRights is
 	}
 
 	/**
-	 * @notice Tokenize given asset batch transfer rights and mint ATR tokens
-	 *
-	 * @dev Function will iterate over given list and all `mintAssetTransferRightsToken` on each of them.
-	 * Requirements: See {AssetTransferRights-mintAssetTransferRightsToken}.
-	 *
-	 * @param assets List of assets to tokenize theirs transfer rights
+	 * @notice Tokenize given asset batch transfer rights and mint ATR tokens.
+	 * @dev Function will iterate over given list and call `mintAssetTransferRightsToken` on each of them.
+	 *      Requirements: See {AssetTransferRights-mintAssetTransferRightsToken}.
+	 * @param assets List of assets to tokenize theirs transfer rights.
 	 */
 	function mintAssetTransferRightsTokenBatch(MultiToken.Asset[] calldata assets) external {
 		for (uint256 i; i < assets.length; ++i) {
@@ -197,16 +187,12 @@ contract AssetTransferRights is
 	}
 
 	/**
-	 * @notice Burn ATR token and "untokenize" that assets transfer rights
-	 *
-	 * @dev Token owner can burn the token if it's in the same wallet as tokenized asset or via flag in `transferAssetFrom` function.
-	 *
-	 * Requirements:
-	 *
-	 * - caller has to be ATR token owner
-	 * - ATR token has to be in the same wallet as tokenized asset
-	 *
-	 * @param atrTokenId ATR token id which should be burned
+	 * @notice Burn ATR token and "untokenize" that assets transfer rights.
+	 * @dev Token owner can burn the token if it's in the same safe as tokenized asset or via flag in `claimAssetFrom` function.
+	 *      Requirements:
+	 *      - caller has to be ATR token owner
+	 *      - ATR token has to be in the same safe as tokenized asset
+	 * @param atrTokenId ATR token id which should be burned.
 	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) public {
 		// Load asset
@@ -218,12 +204,12 @@ contract AssetTransferRights is
 		// Check that caller is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
-		// Check that ATR token is in the same wallet as tokenized asset
+		// Check that ATR token is in the same safe as tokenized asset
 		// Without this condition ATR contract would not know from which address to remove the ATR token
 		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
 
 		// Update tokenized balance
-		require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a wallet");
+		require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a safe");
 
 		// Clear asset data
 		_clearTokenizedAsset(atrTokenId);
@@ -233,14 +219,10 @@ contract AssetTransferRights is
 	}
 
 	/**
-	 * @notice Burn ATR token list and "untokenize" assets transfer rights
-	 *
+	 * @notice Burn ATR token list and "untokenize" assets transfer rights.
 	 * @dev Function will iterate over given list and all `burnAssetTransferRightsToken` on each of them.
-	 *
-	 * Requirements: See {AssetTransferRights-burnAssetTransferRightsToken}.
-	 *
+	 *      Requirements: See {AssetTransferRights-burnAssetTransferRightsToken}.
 	 * @param atrTokenIds ATR token id list which should be burned
-	 *
 	 */
 	function burnAssetTransferRightsTokenBatch(uint256[] calldata atrTokenIds) external {
 		for (uint256 i; i < atrTokenIds.length; ++i) {
@@ -254,21 +236,16 @@ contract AssetTransferRights is
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @notice Transfer assets via ATR token to caller
-	 *
-	 * @dev Asset can be transferred only to caller
-	 * Argument `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWN Wallet).
-	 * Caller has to be ATR token owner.
-	 *
-	 * Requirements:
-	 *
-	 * - caller has to be ATR token owner
-	 * - if `burnToken` is false, caller has to be PWN Wallet, otherwise it could be any address
-	 * - if `burnToken` is false, caller must not have any approvals for asset contract
-	 *
-	 * @param from PWN Wallet address from which to transfer asset
-	 * @param atrTokenId ATR token id which is used for the transfer
-	 * @param burnToken Flag to burn ATR token in the same transaction
+	 * @notice Transfer assets via ATR token to a caller.
+	 * @dev Asset can be transferred only to a callers address.
+	 *      Flag `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWNSafe).
+	 *      Requirements:
+	 *      - caller has to be an ATR token owner
+	 *      - if `burnToken` is false, caller has to be PWNSafe, otherwise it could be any address
+	 *      - if `burnToken` is false, caller must not have any approvals for asset collection
+	 * @param from PWNSafe address from which to transfer asset.
+	 * @param atrTokenId ATR token id which is used for the transfer.
+	 * @param burnToken Flag to burn an ATR token in the same transaction.
 	 */
 	function claimAssetFrom(
 		address payable from,
@@ -280,18 +257,16 @@ contract AssetTransferRights is
 
 		bytes memory data = asset.transferAssetCalldata(from, msg.sender);
 
-		// Transfer asset from `from` wallet
-		// TODO: Need to check valid pwn safe?
+		// Transfer asset from `from` safe
 		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
 	/**
-	 * @dev Process internal state of asset transfer
-	 *
-	 * @param from Address from which an asset will be transferred
-	 * @param to Address to which an asset will be transferred
-	 * @param atrTokenId Id of an ATR token which represents the underlying asset
-	 * @param burnToken Flag to burn ATR token in the same transaction
+	 * @dev Process internal state of an asset transfer.
+	 * @param from Address from which an asset will be transferred.
+	 * @param to Address to which an asset will be transferred.
+	 * @param atrTokenId Id of an ATR token which represents the underlying asset.
+	 * @param burnToken Flag to burn ATR token in the same transaction.
 	 */
 	function _processTransferAssetFrom(
 		address from,
@@ -312,7 +287,7 @@ contract AssetTransferRights is
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
 		// Update tokenized balance
-		require(_decreaseTokenizedBalance(atrTokenId, from, asset), "Asset is not in a target wallet");
+		require(_decreaseTokenizedBalance(atrTokenId, from, asset), "Asset is not in a target safe");
 
 		if (burnToken == true) {
 			// Burn the ATR token
@@ -320,8 +295,8 @@ contract AssetTransferRights is
 
 			_burn(atrTokenId);
 		} else {
-			// Fail if recipient is not PWNWallet
-			require(safeValidator.isValidSafe(to) == true, "Attempting to transfer asset to non PWN Wallet address");
+			// Fail if recipient is not PWNSafe
+			require(safeValidator.isValidSafe(to) == true, "Attempting to transfer asset to non PWNSafe address");
 
 			// Check that recipient doesn't have approvals for the token collection
 			require(atrGuard.hasOperatorFor(to, asset.assetAddress) == false, "Receiver has approvals set for an asset");

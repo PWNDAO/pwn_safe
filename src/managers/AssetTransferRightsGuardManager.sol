@@ -4,14 +4,16 @@ pragma solidity 0.8.15;
 import "../guard/IAssetTransferRightsGuard.sol";
 
 
-/// TODO: Doc
+/**
+ * @title Asset Transfer Rights Guard Manager
+ * @notice Contract responsible for managing stored Asset Transfer Rights Guard address
+ */
 abstract contract AssetTransferRightsGuardManager {
 
 	/*----------------------------------------------------------*|
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
 	|*----------------------------------------------------------*/
 
-	/// TODO: Doc
 	IAssetTransferRightsGuard internal atrGuard;
 
 
@@ -19,7 +21,9 @@ abstract contract AssetTransferRightsGuardManager {
 	|*  # MODIFIERS                                             *|
 	|*----------------------------------------------------------*/
 
-	/// TODO: Doc
+	/**
+	 * @dev Restrict access only to guard manager.
+	 */
 	modifier onlyGuardManager() virtual;
 
 
@@ -36,7 +40,10 @@ abstract contract AssetTransferRightsGuardManager {
 	|*  # SETTERS                                               *|
 	|*----------------------------------------------------------*/
 
-	/// TODO: Doc
+	/**
+	 * @dev Set new Asset Transfer Rights Guard.
+	 * @param _atrGuard Address of new Asset Transfer Rights Guard.
+	 */
 	function setAssetTransferRightsGuard(address _atrGuard) external onlyGuardManager {
 		atrGuard = IAssetTransferRightsGuard(_atrGuard);
 	}

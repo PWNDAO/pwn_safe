@@ -8,6 +8,10 @@ import "safe-contracts/GnosisSafe.sol";
 import "./IPWNSafeValidator.sol";
 
 
+/**
+ * @title PWNSafe Factory
+ * @notice Contract that deploys new PWNSafes and keep track of deployed addresses.
+ */
 contract PWNSafeFactory is IPWNSafeValidator {
 
 	/*----------------------------------------------------------*|
@@ -26,6 +30,10 @@ contract PWNSafeFactory is IPWNSafeValidator {
 	address internal immutable atrModule;
 	address internal immutable atrGuard;
 
+	/**
+	 * @dev Mapping of valid PWNSafe addresses. Is set on safe deployment.
+	 *      (safe address -> isValid)
+	 */
 	mapping (address => bool) public isValidSafe;
 
 
@@ -53,6 +61,15 @@ contract PWNSafeFactory is IPWNSafeValidator {
 	|*  # DEPLOY PROXY                                          *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev Deploy new PWNSafe proxy and set AssetTransferRightsGuard, AssetTransferRights module and fallback handler.
+	 *      Guard, module and fallback handler have to be set on deployment and cannot be changed afterwards,
+	 *      otherwise it would be possible for an owner to set allowance for several addresses,
+ 	 *      setup PWNSafe and then transfer them without proper transfer rights.
+ 	 * @param owners List of PWNSafe owners
+ 	 * @param threshold Number of required owner confirmations
+ 	 * @return Address of a newly deployed GnosisSafe proxy set with proper guard, module and fallback handler
+	 */
 	function deployProxy(
 		address[] calldata owners,
 		uint256 threshold
@@ -84,6 +101,11 @@ contract PWNSafeFactory is IPWNSafeValidator {
 	|*  # NEW SAFE SETUP                                        *|
 	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev Function that sets AssetTransferRightsGuard, AssetTransferRights module and fallback handler.
+	 *      Is ment to be called only by PWNSafeFactory after PWNSafe deployment.
+	 *      Attempt to setup PWNSafe via this function will fail as it would not set safes address as valid.
+	 */
 	function setupNewSafe() external {
 		// Check that is called via delegatecall
 		require(address(this) != pwnFactorySingleton, "Should only be called via delegatecall");
