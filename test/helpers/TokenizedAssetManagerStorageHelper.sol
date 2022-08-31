@@ -10,6 +10,8 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 	bytes32 internal constant ASSETS_SLOT = bytes32(uint256(4)); // `assets` mapping position
 	bytes32 internal constant ASSETS_IN_SAFE_SLOT = bytes32(uint256(5)); // `tokenizedAssetsInSafe` mapping position
 	bytes32 internal constant TOKENIZED_BALANCES_SLOT = bytes32(uint256(6)); // `tokenizedBalances` mapping position
+	bytes32 internal constant INVALID_TOKENIZED_BALANCE_REPORTS_SLOT = bytes32(uint256(7)); // `invalidTokenizedBalanceReports` mapping position
+	bytes32 internal constant IS_INVALID_SLOT = bytes32(uint256(8)); // `isInvalid` mapping position
 
 	address private atr;
 
@@ -36,11 +38,7 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 			MultiToken.Asset memory asset = assets[i];
 
 			// Store asset under atr id
-			uint256 assetSlot = uint256(_assetStructSlotFor(atrId));
-			uint256 addrAndCategory = (uint256(uint160(asset.assetAddress)) << 8) | uint256(asset.category);
-			vm.store(atr, bytes32(assetSlot + 0), bytes32(addrAndCategory));
-			vm.store(atr, bytes32(assetSlot + 1), bytes32(asset.id));
-			vm.store(atr, bytes32(assetSlot + 2), bytes32(asset.amount));
+			_storeAssetUnderAtrId(asset, atrId);
 
 			// Store atr id to owner address
 			// -> Set `_values` array length
@@ -73,6 +71,14 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 			}
 
 		}
+	}
+
+	function  _storeAssetUnderAtrId(MultiToken.Asset memory asset, uint256 atrId) internal {
+		uint256 assetSlot = uint256(_assetStructSlotFor(atrId));
+		uint256 addrAndCategory = (uint256(uint160(asset.assetAddress)) << 8) | uint256(asset.category);
+		vm.store(atr, bytes32(assetSlot + 0), bytes32(addrAndCategory));
+		vm.store(atr, bytes32(assetSlot + 1), bytes32(asset.id));
+		vm.store(atr, bytes32(assetSlot + 2), bytes32(asset.amount));
 	}
 
 

@@ -12,9 +12,9 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
 
-	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(9)); // `_owners` ERC721 mapping position
-	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(10)); // `_balances` ERC721 mapping position
-	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(13)); // `lastTokenId` property position
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(11)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(12)); // `_balances` ERC721 mapping position
+	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(15)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
 	address payable safe = payable(address(0xff));
@@ -635,6 +635,33 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 		// Load atr token owner
 		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
 		assertEq(owner, 0);
+	}
+
+	// Invalid ATR token is token without known holder of underlying asset.
+	// This can happen after recovering safe from stalking attack,
+	// where malicious asset is force-transferred from safe without proper transfer rights.
+	function test_shouldPass_whenATRTokenIsInvalid_whenCallerDoNotHaveStoredTokenizedAssetInSafe() external {
+		uint256 invalidAtrTokenId = 7;
+		// Store invalid ATR token owner
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(invalidAtrTokenId, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(address(safe)))));
+		// Store that ATR token is invalid
+		bytes32 isInvalidSlot = keccak256(abi.encode(invalidAtrTokenId, IS_INVALID_SLOT));
+		vm.store(address(atr), isInvalidSlot, bytes32(uint256(1)));
+		// Store asset under invalid ATR token
+		_storeAssetUnderAtrId(
+			MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1),
+			invalidAtrTokenId
+		);
+		// Mock other owner of the asset than safe
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("ownerOf(uint256)", tokenId),
+			abi.encode(alice)
+		);
+
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(invalidAtrTokenId);
 	}
 
 }

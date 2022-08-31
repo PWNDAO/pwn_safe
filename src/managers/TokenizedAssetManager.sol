@@ -22,6 +22,16 @@ abstract contract TokenizedAssetManager {
 	|*----------------------------------------------------------*/
 
 	/**
+	 * @notice Invalid Tokenized Balance Report struct.
+	 * @param atrTokenId Id of an ATR token, that is causing invalid tokenized balance.
+	 * @param block Block number of a transaction in which was report reported.
+	 */
+	struct InvalidTokenizedBalanceReport {
+		uint256 atrTokenId;
+		uint256 block;
+	}
+
+	/**
 	 * @notice Mapping of ATR token id to underlying asset
 	 * @dev (ATR token id => Asset)
 	 */
@@ -39,6 +49,25 @@ abstract contract TokenizedAssetManager {
 	 * @dev (safe => asset address => asset id => balance of tokenized assets currently in owners safe)
 	 */
 	mapping (address => mapping (address => EnumerableMap.UintToUintMap)) internal tokenizedBalances;
+
+	/**
+	 * @notice Reported invalid token balance reports.
+	 * @dev Every user can have one report at a time.
+	 *      Reason to divide recovery process into two transactions is to get rid of reentrancy exploits.
+	 *      One could possible transfer tokenized assets from a safe and, before tokenized balance check can happen,
+	 *      call recover function, that would recover the safe from that transitory invalid state
+	 *      and tokenized balance check would pass, effectively bypassing transfer rights rules.
+	 *      (safe => invalid tokenized balance report)
+	 */
+	mapping (address => InvalidTokenizedBalanceReport) private invalidTokenizedBalanceReports;
+
+	/**
+	 * @notice Mapping of invalid ATR tokens
+	 * @dev After recovering safe from invalid tokenized balance state, ATR token is not burned, it's rather marked as invalid.
+	 *      Main reason is to prevent other DeFi protocols from unexpected behavior in case the ATR token is used in them.
+	 *      Invalid token can be burned, but cannot be used to transfer underlying asset as the holder of the asset is lost.
+	 */
+	mapping (uint256 => bool) public isInvalid;
 
 
 	/*----------------------------------------------------------*|
@@ -77,28 +106,59 @@ abstract contract TokenizedAssetManager {
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @notice Recover PWNSafes invalid tokenized balance.
-	 * @dev Invalid tokenized balance could happen only when an asset with tokenized transfer rights leaves the safe non-standard way.
-	 *      This function is meant to recover PWNSafe affected by Stalking attack.
-	 *      Stalking attack is type of attack where attacker transfer malicious tokenized asset to victims safe
-	 *      and then transfers it away through some non-standard way, leaving safe in a state, where every call of `execTransaction` function
-	 *      will fail on `Insufficient tokenized balance` error.
-	 * @param atrTokenId ATR token id representing underyling asset in question.
+	 * @notice Frist step in recovering safe from invalid tokenized balance state.
+	 * @dev Functions checks that state is really invalid and stores report, that is used in the second function.
+	 *      Reason to divide recovery process into two transactions is to get rid of reentrancy exploits.
+	 *      One could possible transfer tokenized assets from a safe and, before tokenized balance check can happen,
+	 *      call recover function, that would recover the safe from that transitory invalid state
+	 *      and tokenized balance check would pass, effectively bypassing transfer rights rules.
+	 * @param atrTokenId Id of an ATR token that is causing the invalid tokenized balance state.
 	 */
-	function recoverInvalidTokenizedBalance(uint256 atrTokenId) external {
-
-		// TODO: IS PRONE TO REENTRANCY ATTACKS -> NEED TO REDESIGN HOW TO RECOVER INVALID TOKENIZED BALANCE
-
+	function reportInvalidTokenizedBalance(uint256 atrTokenId) external {
 		address owner = msg.sender;
+
+		// Check if atr token is in callers safe
+		// That would also check for non-existing ATR tokens
+		require(tokenizedAssetsInSafe[owner].contains(atrTokenId), "Asset is not in callers safe");
 
 		// Check if state is really invalid
 		MultiToken.Asset memory asset = assets[atrTokenId];
 		(, uint256 tokenizedBalance) = tokenizedBalances[owner][asset.assetAddress].tryGet(asset.id);
 		require(asset.balanceOf(owner) < tokenizedBalance, "Tokenized balance is not invalid");
 
-		// Decrease tokenized balance
-		// Decrease would fail if the atr token is not associated with an owner
+		// Store report
+		invalidTokenizedBalanceReports[owner] = InvalidTokenizedBalanceReport(
+			atrTokenId,
+			block.number
+		);
+	}
+
+	/**
+	 * @notice Second and final step in recovering safe from invalid tokenized balance state.
+	 * @dev Function expects that user called `reportInvalidTokenizedBalance` and that that transaction was included in some previous block.
+	 *      At the end, it will recover safe from invalid tokenized balance caused by reported ATR token and mark that token as invalid.
+	 *      Main reason for marking the token as invalid rather than burning it is to prevent other DeFi protocols
+	 *      from unexpected behavior in case the ATR token is used in them.
+	 */
+	function recoverInvalidTokenizedBalance() external {
+		address owner = msg.sender;
+		InvalidTokenizedBalanceReport memory report = invalidTokenizedBalanceReports[owner];
+		uint256 atrTokenId = report.atrTokenId;
+
+		// Check that report exist
+		require(report.block > 0, "No reported invalid tokenized balance");
+
+		// Check that report was posted in different block than recover call
+		require(report.block < block.number, "Report block number has to be smaller then current block number");
+
+		// Decrease tokenized balance (would fail for invalid ATR token)
+		MultiToken.Asset memory asset = assets[atrTokenId];
 		require(_decreaseTokenizedBalance(atrTokenId, owner, asset), "Asset is not in callers safe");
+
+		delete invalidTokenizedBalanceReports[owner];
+
+		// Mark atr token as invalid (tokens asset holder is lost)
+		isInvalid[atrTokenId] = true;
 	}
 
 

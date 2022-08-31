@@ -191,7 +191,7 @@ contract AssetTransferRights is
 	 * @dev Token owner can burn the token if it's in the same safe as tokenized asset or via flag in `claimAssetFrom` function.
 	 *      Requirements:
 	 *      - caller has to be ATR token owner
-	 *      - ATR token has to be in the same safe as tokenized asset
+	 *      - safe has to be a tokenized asset owner or ATR token has to be invalid (after recovery from e.g. stalking attack)
 	 * @param atrTokenId ATR token id which should be burned.
 	 */
 	function burnAssetTransferRightsToken(uint256 atrTokenId) public {
@@ -204,12 +204,15 @@ contract AssetTransferRights is
 		// Check that caller is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
-		// Check that ATR token is in the same safe as tokenized asset
-		// Without this condition ATR contract would not know from which address to remove the ATR token
-		require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
+		if (isInvalid[atrTokenId] == false) {
 
-		// Update tokenized balance
-		require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a safe");
+			// Is this part necessary? -----
+			require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
+			// -----------------------------
+
+			// Update tokenized balance
+			require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a safe");
+		}
 
 		// Clear asset data
 		_clearTokenizedAsset(atrTokenId);
@@ -286,7 +289,7 @@ contract AssetTransferRights is
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 
-		// Update tokenized balance
+		// Update tokenized balance (would fail for invalid ATR token)
 		require(_decreaseTokenizedBalance(atrTokenId, from, asset), "Asset is not in a target safe");
 
 		if (burnToken == true) {

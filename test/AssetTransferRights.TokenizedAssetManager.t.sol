@@ -198,12 +198,147 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 
 
 /*----------------------------------------------------------*|
+|*  # REPORT INVALID TOKENIZED BALANCE                      *|
+|*----------------------------------------------------------*/
+
+contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAssetManagerTest {
+
+	function test_shouldFail_whenATRTokenIsNotInCallersSafe() external {
+		vm.expectRevert("Asset is not in callers safe");
+		vm.prank(address(0xa11ce));
+		atr.reportInvalidTokenizedBalance(43);
+	}
+
+	function test_shouldFail_whenTokenizedBalanceIsNotInvalid() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 100e18));
+		vm.mockCall(
+			token,
+			abi.encodeWithSelector(IERC20.balanceOf.selector),
+			abi.encode(uint256(100e18))
+		);
+
+		vm.expectRevert("Tokenized balance is not invalid");
+		vm.prank(safe);
+		atr.reportInvalidTokenizedBalance(42);
+	}
+
+	function test_shouldStoreReport() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		vm.mockCall(
+			token,
+			abi.encodeWithSelector(IERC20.balanceOf.selector),
+			abi.encode(uint256(100e18))
+		);
+
+		vm.prank(safe);
+		atr.reportInvalidTokenizedBalance(42);
+
+		bytes32 reportSlot = keccak256(abi.encode(safe, INVALID_TOKENIZED_BALANCE_REPORTS_SLOT));
+		// Check stored ATR id
+		bytes32 reportAtrTokenId = vm.load(address(atr), bytes32(uint256(reportSlot) + 0));
+		assertEq(uint256(reportAtrTokenId), 42);
+		// Check stored block number
+		bytes32 reportBlockNumber = vm.load(address(atr), bytes32(uint256(reportSlot) + 1));
+		assertEq(uint256(reportBlockNumber), block.number);
+	}
+
+	function test_shouldOverrideExistingStoredReport() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+
+		bytes32 reportSlot = keccak256(abi.encode(safe, INVALID_TOKENIZED_BALANCE_REPORTS_SLOT));
+		vm.store(address(atr), bytes32(uint256(reportSlot) + 0), bytes32(uint256(40)));
+		vm.store(address(atr), bytes32(uint256(reportSlot) + 1), bytes32(uint256(100)));
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSelector(IERC20.balanceOf.selector),
+			abi.encode(uint256(100e18))
+		);
+		vm.roll(110);
+
+		vm.prank(safe);
+		atr.reportInvalidTokenizedBalance(42);
+
+		// Check stored ATR id
+		bytes32 reportAtrTokenId = vm.load(address(atr), bytes32(uint256(reportSlot) + 0));
+		assertEq(uint256(reportAtrTokenId), 42);
+		// Check stored block number
+		bytes32 reportBlockNumber = vm.load(address(atr), bytes32(uint256(reportSlot) + 1));
+		assertEq(uint256(reportBlockNumber), block.number);
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
 |*  # RECOVER INVALID TOKENIZED BALANCE                     *|
 |*----------------------------------------------------------*/
 
 contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedAssetManagerTest {
 
-	// TODO: TEST AFTER IMPLEMENTATION REDESIGN
+	function _mockReport(address owner, uint256 atrTokenId, uint256 blockNumber) private {
+		bytes32 reportSlot = keccak256(abi.encode(owner, INVALID_TOKENIZED_BALANCE_REPORTS_SLOT));
+		vm.store(address(atr), bytes32(uint256(reportSlot) + 0), bytes32(atrTokenId));
+		vm.store(address(atr), bytes32(uint256(reportSlot) + 1), bytes32(blockNumber));
+	}
+
+
+	function test_shouldFail_whenCalledWithoutReport() external {
+		vm.expectRevert("No reported invalid tokenized balance");
+		vm.prank(safe);
+		atr.recoverInvalidTokenizedBalance();
+	}
+
+	function test_shouldFail_whenCalledWithingSameBlockAsReport() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_mockReport(safe, 42, block.number);
+
+		vm.expectRevert("Report block number has to be smaller then current block number");
+		vm.prank(safe);
+		atr.recoverInvalidTokenizedBalance();
+	}
+
+	function test_shouldFail_whenCallerIsNotUnderlyingAssetHolder() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		address alice = address(0xa11ce);
+		_mockReport(alice, 42, 100);
+		vm.roll(110);
+
+		vm.expectRevert("Asset is not in callers safe");
+		vm.prank(alice);
+		atr.recoverInvalidTokenizedBalance();
+	}
+
+	function test_shouldDeleteReport() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_mockReport(safe, 42, 100);
+		vm.roll(110);
+
+		vm.prank(safe);
+		atr.recoverInvalidTokenizedBalance();
+
+		bytes32 reportSlot = keccak256(abi.encode(safe, INVALID_TOKENIZED_BALANCE_REPORTS_SLOT));
+		// Check stored ATR id
+		bytes32 reportAtrTokenId = vm.load(address(atr), bytes32(uint256(reportSlot) + 0));
+		assertEq(uint256(reportAtrTokenId), 0);
+		// Check stored block number
+		bytes32 reportBlockNumber = vm.load(address(atr), bytes32(uint256(reportSlot) + 1));
+		assertEq(uint256(reportBlockNumber), 0);
+	}
+
+	function test_shouldMarkATRTokenAsInvalid() external {
+		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_mockReport(safe, 42, 100);
+		vm.roll(110);
+
+		vm.prank(safe);
+		atr.recoverInvalidTokenizedBalance();
+
+		// Check if atr token is market as invalid
+		bytes32 isInvalidSlot = keccak256(abi.encode(uint256(42), IS_INVALID_SLOT));
+		bytes32 isInvalidValue = vm.load(address(atr), isInvalidSlot);
+		assertEq(uint256(isInvalidValue), 1);
+	}
 
 }
 
