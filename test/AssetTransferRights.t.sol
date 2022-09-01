@@ -1,561 +1,522 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../src/AssetTransferRights.sol";
-import "../src/PWNWallet.sol";
-import "../src/PWNWalletFactory.sol";
-import "../src/test/T20.sol";
-import "../src/test/T721.sol";
-import "../src/test/T1155.sol";
-import "../src/test/ContractWallet.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC721.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC1155.sol";
 import "MultiToken/MultiToken.sol";
+import "../src/AssetTransferRights.sol";
+import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 
-abstract contract AssetTransferRightsTest is Test {
+abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
+
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(11)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(12)); // `_balances` ERC721 mapping position
+	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(15)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
-	PWNWalletFactory factory;
-	PWNWallet wallet;
-	T20 t20;
-	T721 t721;
-	T1155 t1155;
-	address constant alice = address(0xa11ce);
-	address constant bob = address(0xb0b);
-	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+	address payable safe = payable(address(0xff));
+	address token = address(0x070ce2);
+	address alice = address(0xa11ce);
+	address bob = address(0xb0b);
+	address guard = address(0x1111);
+	address safeValidator = address(0x2222);
+
+	uint256 erc20Amount = 100e18;
+	uint256 erc1155Amount = 100;
 
 	constructor() {
-		// ERC1820 Registry
-		vm.etch(erc1820Registry, bytes("data"));
-		vm.mockCall(
-			erc1820Registry,
-			abi.encodeWithSignature("getInterfaceImplementer(address,bytes32)"),
-			abi.encode(address(0))
-		);
+		vm.etch(guard, bytes("data"));
+		vm.etch(safeValidator, bytes("data"));
+		vm.etch(token, bytes("data"));
 	}
 
-	function superSetUp() internal {
+	function setUp() virtual public {
 		atr = new AssetTransferRights();
-		factory = PWNWalletFactory(atr.walletFactory());
-		wallet = PWNWallet(factory.newWallet());
+		setAtr(address(atr));
 
-		t20 = new T20();
-		t721 = new T721();
-		t1155 = new T1155();
+		atr.setAssetTransferRightsGuard(guard);
+		atr.setPWNSafeValidator(safeValidator);
+		atr.setUseWhitelist(false);
+
+		_mockDependencyContracts();
 	}
 
 
-	function _assetStructSlotFor(uint256 atrId) internal pure returns (bytes32) {
-		return keccak256(
-			abi.encode(
-				atrId, // ATR token id as a mapping key
-				uint256(8) // _assets mapping position
-			)
+	function _mockToken(MultiToken.Category category) internal {
+		_mockToken(category, true);
+	}
+
+	function _mockToken(MultiToken.Category category, bool erc165) internal {
+		vm.clearMockedCalls();
+
+		_mockDependencyContracts();
+
+		if (erc165) {
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("supportsInterface(bytes4)", bytes4(0xffffffff)),
+				abi.encode(false)
+			);
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("supportsInterface(bytes4)"),
+				abi.encode(true)
+			);
+		}
+
+		if (category == MultiToken.Category.ERC20) {
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("totalSupply()"),
+				abi.encode(1)
+			);
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("balanceOf(address)"),
+				abi.encode(erc20Amount)
+			);
+		} else if (category == MultiToken.Category.ERC721) {
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("getApproved(uint256)"),
+				abi.encode(0)
+			);
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("ownerOf(uint256)"),
+				abi.encode(safe)
+			);
+		} else if (category == MultiToken.Category.ERC1155) {
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("balanceOf(address,uint256)"),
+				abi.encode(erc1155Amount)
+			);
+		}
+	}
+
+
+	function _mockDependencyContracts() private {
+		vm.mockCall(
+			guard,
+			abi.encodeWithSignature("hasOperatorFor(address,address)"),
+			abi.encode(false)
 		);
-	}
-
-	function _atrIdsSetSlotFor(address owner) internal pure returns (bytes32) {
-		return keccak256(
-			abi.encode(
-				owner, // Owner address as a mapping key
-				uint256(9) // _ownedAssetATRIds Mapping position
-			)
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", safe),
+			abi.encode(true)
 		);
-	}
-
-	function _atrIdsValuesSlotFor(address owner) internal pure returns (bytes32) {
-		// Hash array position to get position of a first item
-		return keccak256(
-			abi.encode(
-				_atrIdsSetSlotFor(owner)
-			)
-		);
-	}
-
-	function _ownedFromCollectionSlotFor(address owner, address assetAddress) internal pure returns (bytes32) {
-		return keccak256(
-			abi.encode(
-				assetAddress, // Asset address as a mapping key
-				keccak256(
-					abi.encode(
-						owner, // Owner address as a mapping key
-						uint256(10) // _ownedAssetATRIds Mapping position
-					)
-				)
-			)
-		);
-	}
-
-	function _tokenizedBalanceSlotFor(address owner, address assetAddress, uint256 assetId) internal pure returns (bytes32) {
-		return keccak256(
-			abi.encode(
-				assetId, // Asest id as a mapping key
-				uint256(_ownedFromCollectionSlotFor(owner, assetAddress)) + 2 // tokenized balance mapping position
-			)
-		);
-	}
-
-	function _revokedPermissionsSlotFor(bytes32 permissionHash) internal pure returns (bytes32) {
-		return keccak256(
-			abi.encode(
-				permissionHash, // Permission hash as a mapping key
-				uint256(11) // revokedPermissions Mapping position
-			)
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)"),
+			abi.encode(false)
 		);
 	}
 
 }
 
+
 /*----------------------------------------------------------*|
-|*  # MINT                                                  *|
+|*  # MINT ASSET TRANSFER RIGHTS TOKEN                      *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRights_Mint_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
+contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferRightsTest {
 
 	// ---> Basic checks
-	function test_shouldFail_whenNotPWNWallet() external {
-		vm.expectRevert("Caller is not a PWN Wallet");
+	function test_shouldFail_whenCallerIsNotPWNSafe() external {
+		_mockToken(MultiToken.Category.ERC721);
+
+		vm.expectRevert("Caller is not a PWNSafe");
 		vm.prank(alice);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-	}
-
-	function test_shouldFail_whenNotAssetOwner() external {
-		t721.mint(alice, 42);
-
-		vm.expectRevert("Insufficient balance to tokenize");
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 	}
 
 	function test_shouldFail_whenZeroAddressAsset() external {
+		_mockToken(MultiToken.Category.ERC721);
+
 		vm.expectRevert("Attempting to tokenize zero address asset");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
 			MultiToken.Asset(MultiToken.Category.ERC721, address(0), 42, 1)
 		);
 	}
 
 	function test_shouldFail_whenATRToken() external {
+		_mockToken(MultiToken.Category.ERC721);
+
 		vm.expectRevert("Attempting to tokenize ATR token");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
 			MultiToken.Asset(MultiToken.Category.ERC721, address(atr), 42, 1)
 		);
 	}
 
-	function test_shouldFail_whenInvalidMultiTokenAsset() external {
-		vm.expectRevert("MultiToken.Asset is not valid");
-		vm.prank(address(wallet));
+	function test_shouldFail_whenUsingWhitelist_whenAssetIsNotWhitelisted() external {
+		_mockToken(MultiToken.Category.ERC721);
+		atr.setUseWhitelist(true);
+
+		vm.expectRevert("Asset is not whitelisted");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 0)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
+		);
+	}
+
+	function test_shouldPass_whenUsingWhitelist_whenAssetWhitelisted() external {
+		_mockToken(MultiToken.Category.ERC721);
+		atr.setUseWhitelist(true);
+		atr.setIsWhitelisted(token, true);
+
+		vm.prank(safe);
+		atr.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
+		);
+	}
+
+	function test_shouldFail_whenNotAssetOwner() external {
+		_mockToken(MultiToken.Category.ERC721);
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("ownerOf(uint256)"),
+			abi.encode(alice)
+		);
+
+		vm.expectRevert("Insufficient balance to tokenize");
+		vm.prank(safe);
+		atr.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
+		);
+	}
+
+	function test_shouldFail_whenInvalidMultiTokenAsset() external {
+		_mockToken(MultiToken.Category.ERC721);
+
+		vm.expectRevert("Asset is not valid");
+		vm.prank(safe);
+		atr.mintAssetTransferRightsToken(
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 0)
 		);
 	}
 	// <--- Basic checks
 
 	// ---> Insufficient balance
-	function test_shouldFail_whenERC20NotEnoughtBalance() external {
-		t20.mint(address(wallet), 99e18);
+	function test_shouldFail_whenERC20HasNotEnoughtBalance() external {
+		_mockToken(MultiToken.Category.ERC20);
 
 		vm.expectRevert("Insufficient balance to tokenize");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 100e18)
+			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount + 1e18)
 		);
 	}
 
-	function test_shouldFail_whenERC20NotEnoughtUntokenizedBalance() external {
-		t20.mint(address(wallet), 99e18);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 90e18)
-		);
+	function test_shouldFail_whenERC20HasNotEnoughtUntokenizedBalance() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount - 20e18);
+		_tokenizeAssetUnderId(safe, 1, asset);
+		_mockToken(MultiToken.Category.ERC20);
 
 		vm.expectRevert("Insufficient balance to tokenize");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 10e18)
+			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 21e18)
 		);
 	}
 
-	function test_shouldFail_whenERC721AlreadyTokenized() external {
-		t721.mint(address(wallet), 42);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
+	function test_shouldFail_whenERC721IsAlreadyTokenized() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1);
+		_tokenizeAssetUnderId(safe, 1, asset);
+		_mockToken(MultiToken.Category.ERC721);
 
 		vm.expectRevert("Insufficient balance to tokenize");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 	}
 
-	function test_shouldFail_whenERC1155NotEnoughtBalance() external {
-		t1155.mint(address(wallet), 42, 99);
+	function test_shouldFail_whenERC1155HasNotEnoughtBalance() external {
+		_mockToken(MultiToken.Category.ERC1155);
 
 		vm.expectRevert("Insufficient balance to tokenize");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 100)
+			MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount + 10)
 		);
 	}
 
-	function test_shouldFail_whenERC1155NotEnoughtUntokenizedBalance() external {
-		t1155.mint(address(wallet), 42, 99);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 90)
-		);
+	function test_shouldFail_whenERC1155HasNotEnoughtUntokenizedBalance() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount - 10);
+		_tokenizeAssetUnderId(safe, 1, asset);
+		_mockToken(MultiToken.Category.ERC1155);
 
 		vm.expectRevert("Insufficient balance to tokenize");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 10)
+			MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, 11)
 		);
 	}
 	// <--- Insufficient balance
 
 	// ---> Approvals
-	function test_shouldFail_whenERC20AssetIsApproved() external {
-		t20.mint(address(wallet), 99e18);
+	function test_shouldFail_whenAssetHasOperator() external {
+		_mockToken(MultiToken.Category.ERC20);
 
-		wallet.execute(
-			address(t20),
-			abi.encodeWithSelector(t20.approve.selector, alice, 1e18)
+		vm.mockCall(
+			guard,
+			abi.encodeWithSignature("hasOperatorFor(address,address)", safe, token),
+			abi.encode(true)
 		);
 
 		vm.expectRevert("Some asset from collection has an approval");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 10e18)
+			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
 		);
 	}
 
 	function test_shouldFail_whenERC721AssetIsApproved() external {
-		t721.mint(address(wallet), 42);
+		_mockToken(MultiToken.Category.ERC721);
 
-		wallet.execute(
-			address(t721),
-			abi.encodeWithSelector(t721.approve.selector, alice, 42)
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("getApproved(uint256)", 42),
+			abi.encode(alice)
 		);
 
-		vm.expectRevert("Tokenized asset has an approved address");
-		vm.prank(address(wallet));
+		vm.expectRevert("Asset has an approved address");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-	}
-
-	function test_shouldFail_whenERC721OperatorIsSet() external {
-		t721.mint(address(wallet), 42);
-
-		wallet.execute(
-			address(t721),
-			abi.encodeWithSelector(t721.setApprovalForAll.selector, alice, true)
-		);
-
-		vm.expectRevert("Some asset from collection has an approval");
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-	}
-
-	function test_shouldFail_whenERC1155OperatorIsSet() external {
-		t1155.mint(address(wallet), 42, 100);
-
-		wallet.execute(
-			address(t1155),
-			abi.encodeWithSelector(t1155.setApprovalForAll.selector, alice, true)
-		);
-
-		vm.expectRevert("Some asset from collection has an approval");
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 10)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 	}
 	// <--- Approvals
 
-	// ---> Asset category check with ERC165
-	function test_shouldFail_whenERC20asERC721withERC165() external {
-		vm.expectRevert("Invalid provided category");
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t20), 132, 1)
+	// ---> Asset category check
+	function test_shouldFail_whenERC20asERC721_whenWithERC165() external {
+		_mockToken(MultiToken.Category.ERC20);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC721).interfaceId),
+			abi.encode(false)
 		);
-	}
-
-	function test_shouldFail_whenERC20asERC1155withERC165() external {
-		vm.expectRevert("Invalid provided category");
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t20), 132, 132)
-		);
-	}
-
-	function test_shouldFail_whenERC721asERC20withERC165() external {
-		vm.expectRevert("Invalid provided category");
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t721), 0, 1)
-		);
-	}
-
-	function test_shouldFail_whenERC721asERC1155withERC165() external {
-		vm.expectRevert("Invalid provided category");
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t721), 132, 1)
-		);
-	}
-
-	function test_shouldFail_whenERC1155asERC20withERC165() external {
-		vm.expectRevert("Invalid provided category");
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t1155), 0, 132)
-		);
-	}
-
-	function test_shouldFail_whenERC1155asERC721withERC165() external {
-		vm.expectRevert("Invalid provided category");
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t1155), 132, 1)
-		);
-	}
-
-	function test_shouldPass_whenERC20asERC20withERC165() external {
-		t20.mint(address(wallet), 132);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 132)
-		);
-	}
-
-	function test_shouldPass_whenERC721asERC721withERC165() external {
-		t721.mint(address(wallet), 132);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 132, 1)
-		);
-	}
-
-	function test_shouldPass_whenERC1155asERC1155withERC165() external {
-		t1155.mint(address(wallet), 132, 132);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 132, 132)
-		);
-	}
-	// <--- Asset category check with ERC165
-
-	// ---> Asset category check without ERC165
-	function test_shouldFail_whenERC20asERC721withoutERC165() external {
-		t20.supportERC165(false);
 
 		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t20), 132, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 132, 1)
 		);
 	}
 
-	function test_shouldFail_whenERC20asERC1155withoutERC165() external {
-		t20.supportERC165(false);
+	function test_shouldFail_whenERC20asERC721_whenWithoutERC165() external {
+		_mockToken(MultiToken.Category.ERC20, false);
 
 		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t20), 132, 132)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 132, 1)
 		);
 	}
 
-	function test_shouldFail_whenERC721asERC20withoutERC165() external {
-		t721.supportERC165(false);
+	function test_shouldFail_whenERC20asERC1155_whenWithERC165() external {
+		_mockToken(MultiToken.Category.ERC20);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC1155).interfaceId),
+			abi.encode(false)
+		);
 
 		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t721), 0, 1)
+			MultiToken.Asset(MultiToken.Category.ERC1155, token, 132, erc1155Amount)
 		);
 	}
 
-	function test_shouldFail_whenERC721asERC1155withoutERC165() external {
-		t721.supportERC165(false);
+	function test_shouldFail_whenERC20asERC1155_whenWithoutERC165() external {
+		_mockToken(MultiToken.Category.ERC20, false);
 
 		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t721), 132, 1)
+			MultiToken.Asset(MultiToken.Category.ERC1155, token, 132, erc1155Amount)
 		);
 	}
 
-	function test_shouldFail_whenERC1155asERC20withoutERC165() external {
-		t1155.supportERC165(false);
+	function test_shouldFail_whenERC721asERC20() external {
+		_mockToken(MultiToken.Category.ERC721);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC20).interfaceId),
+			abi.encode(false)
+		);
 
 		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t1155), 0, 132)
+			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
 		);
 	}
 
-	function test_shouldFail_whenERC1155asERC721withoutERC165() external {
-		t1155.supportERC165(false);
+	function test_shouldFail_whenERC721asERC1155() external {
+		_mockToken(MultiToken.Category.ERC721);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC1155).interfaceId),
+			abi.encode(false)
+		);
 
 		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t1155), 132, 1)
+			MultiToken.Asset(MultiToken.Category.ERC1155, token, 132, erc1155Amount)
 		);
 	}
 
-	function test_shouldPass_whenERC20asERC20withoutERC165() external {
-		t20.supportERC165(false);
-		t20.mint(address(wallet), 132);
+	function test_shouldFail_whenERC1155asERC20() external {
+		_mockToken(MultiToken.Category.ERC1155);
 
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 132)
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC20).interfaceId),
+			abi.encode(false)
 		);
-	}
-
-	function test_shouldFail_whenERC721asERC721withoutERC165() external {
-		t721.supportERC165(false);
-		t721.mint(address(wallet), 132);
 
 		vm.expectRevert("Invalid provided category");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 132, 1)
+			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
 		);
 	}
 
-	function test_shouldFail_whenERC1155asERC1155withoutERC165() external {
-		t1155.supportERC165(false);
-		t1155.mint(address(wallet), 132, 132);
+	function test_shouldFail_whenERC1155asERC721() external {
+		_mockToken(MultiToken.Category.ERC1155);
+
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC721).interfaceId),
+			abi.encode(false)
+		);
 
 		vm.expectRevert("Invalid provided category");
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 132, 132)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 132, 1)
 		);
 	}
-	// <--- Asset category check without ERC165
+	// <--- Asset category check
 
 	// ---> Process
 	function test_shouldPass_whenERC20SufficientBalance() external {
-		t20.mint(address(wallet), 99e18);
+		_mockToken(MultiToken.Category.ERC20);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 10e18)
+			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
 		);
 	}
 
 	function test_shouldPass_whenERC721SufficientBalance() external {
-		t721.mint(address(wallet), 42);
+		_mockToken(MultiToken.Category.ERC721);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 	}
 
 	function test_shouldPass_whenERC1155SufficientBalance() external {
-		t1155.mint(address(wallet), 42, 100);
+		_mockToken(MultiToken.Category.ERC1155);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 10)
+			MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount)
 		);
 	}
 
 	function test_shouldIncreaseATRTokenId() external {
+		_mockToken(MultiToken.Category.ERC721);
 		uint256 lastAtrId = 736;
-		vm.store(address(atr), bytes32(uint256(6)), bytes32(lastAtrId));
-		t721.mint(address(wallet), 42);
+		vm.store(address(atr), LAST_TOKEN_ID_SLOT, bytes32(lastAtrId));
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 
-		bytes32 atrId = vm.load(address(atr), bytes32(uint256(6)));
+		bytes32 atrId = vm.load(address(atr), LAST_TOKEN_ID_SLOT);
 		assertEq(uint256(atrId), lastAtrId + 1);
 	}
 
 	function test_shouldStoreTokenizedAssetData() external {
-		uint256 lastAtrId = 736;
-		vm.store(address(atr), bytes32(uint256(6)), bytes32(lastAtrId));
-		t721.mint(address(wallet), 42);
+		_mockToken(MultiToken.Category.ERC721);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 
-		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
+		bytes32 assetSlot = _assetStructSlotFor(atrId);
 
 		// Category + address
-		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
+		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetSlot) + 0));
 		bytes32 assetCategory = addrAndCategory & bytes32(uint256(0xff));
 		bytes32 assetAddress = addrAndCategory >> 8;
-		assertEq(assetCategory, bytes32(uint256(1)));
-		assertEq(assetAddress, bytes32(uint256(uint160(address(t721)))));
+		assertEq(uint256(assetCategory), 1);
+		assertEq(uint256(assetAddress), uint256(uint160(token)));
 		// Id
-		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
+		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetSlot) + 1));
 		assertEq(uint256(assetId), 42);
 		// Amount
-		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
+		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetSlot) + 2));
 		assertEq(uint256(assetAmount), 1);
 	}
 
 	function test_shouldStoreTokenizedAssetOwner() external {
 		uint256 lastTokenId = 736;
-		vm.store(address(atr), bytes32(uint256(6)), bytes32(lastTokenId));
-		t721.mint(address(wallet), 42);
+		vm.store(address(atr), LAST_TOKEN_ID_SLOT, bytes32(lastTokenId));
+		_mockToken(MultiToken.Category.ERC721);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(wallet));
-		bytes32 storedId = vm.load(address(atr), valuesSlot); // Expecting one item -> first item (index 0) will be our ATR token
+		bytes32 valuesSlot = _assetsInSafeFirstValueSlotFor(safe);
+		// Expecting one item -> first item (index 0) will be our ATR token
+		bytes32 storedId = vm.load(address(atr), valuesSlot);
 		assertEq(uint256(storedId), lastTokenId + 1);
 	}
 
 	function test_shouldMintATRToken() external {
-		t721.mint(address(wallet), 42);
+		_mockToken(MultiToken.Category.ERC721);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
 		);
 
-		assertEq(atr.ownerOf(atrId), address(wallet));
+		assertEq(atr.ownerOf(atrId), safe);
 	}
 	// <--- Process
+
 }
 
 
 /*----------------------------------------------------------*|
-|*  # MINT BATCH                                            *|
+|*  # MINT ASSET TRANSFER RIGHTS TOKEN BATCH                *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRights_MintBatch_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
+contract AssetTransferRights_MintAssetTransferRightsTokenBatch_Test is AssetTransferRightsTest {
 
 	function test_shouldAcceptEmptyList() external {
 		MultiToken.Asset[] memory assets;
@@ -563,1189 +524,381 @@ contract AssetTransferRights_MintBatch_Test is AssetTransferRightsTest {
 	}
 
 	function test_shouldTokenizeAllItemsInList() external {
-		t20.mint(address(wallet), 776e18);
-		t721.mint(address(wallet), 42);
+		_mockToken(MultiToken.Category.ERC1155);
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 776e18);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount / 2);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount / 2);
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.mintAssetTransferRightsTokenBatch(assets);
 
-		assertEq(atr.ownerOf(1), address(wallet));
-		assertEq(atr.ownerOf(2), address(wallet));
+		assertEq(atr.ownerOf(1), safe);
+		assertEq(atr.ownerOf(2), safe);
 	}
 
 }
 
 
 /*----------------------------------------------------------*|
-|*  # BURN                                                  *|
+|*  # BURN ASSET TRANSFER RIGHTS TOKEN                      *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRights_Burn_Test is AssetTransferRightsTest {
+contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferRightsTest {
 
 	uint256 tokenId = 42;
-	uint256 atrId;
+	uint256 atrId = 5;
 
-	function setUp() external {
-		superSetUp();
-		t721.mint(address(wallet), tokenId);
+	function setUp() override public {
+		super.setUp();
 
-		vm.prank(address(wallet));
-		atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), tokenId, 1)
-		);
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1);
+		_tokenizeAssetUnderId(safe, atrId, asset);
+		_mockToken(MultiToken.Category.ERC721);
+
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(address(safe)))));
+
+		bytes32 atrTokenBalancesSlot = keccak256(abi.encode(safe, ATR_TOKEN_BALANCES_SLOT));
+		vm.store(address(atr), atrTokenBalancesSlot, bytes32(uint256(1)));
 	}
 
 
 	function test_shouldFail_whenATRTokenDoesNotExist() external {
 		vm.expectRevert("Asset transfer rights are not tokenized");
-		vm.prank(alice);
+		vm.prank(safe);
 		atr.burnAssetTransferRightsToken(atrId + 1);
 	}
 
-	function test_shouldFail_whenSenderNotATRTokenOwner() external {
+	function test_shouldFail_whenCallerNotATRTokenOwner() external {
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(alice))));
+
 		vm.expectRevert("Caller is not ATR token owner");
-		vm.prank(alice);
+		vm.prank(safe);
 		atr.burnAssetTransferRightsToken(atrId);
 	}
 
-	function test_shouldFail_whenSenderIsNotTokenizedAssetOwner() external {
-		wallet.transferAtrTokenFrom(address(wallet), alice, atrId);
+	function test_shouldFail_whenSenderNotTokenizedAssetOwner() external {
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("ownerOf(uint256)", tokenId),
+			abi.encode(alice)
+		);
 
 		vm.expectRevert("Insufficient balance of a tokenize asset");
-		vm.prank(alice);
+		vm.prank(safe);
 		atr.burnAssetTransferRightsToken(atrId);
+	}
+
+	function test_shouldRemoveStoredTokenizedAssetFromSafe() external {
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
+		assertEq(uint256(atrIdValue), 0);
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
+		assertEq(uint256(atrIdIndexValue), 0);
+	}
+
+	function test_shouldDecreaseTokenizedBalance() external {
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), 0);
+		bytes32 indexValue = vm.load(address(atr), _tokenizedBalanceKeyIndexesSlotFor(safe, token, tokenId));
+		assertEq(uint256(indexValue), 0);
 	}
 
 	function test_shouldClearStoredTokenizedAssetData() external {
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.burnAssetTransferRightsToken(atrId);
 
 		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
 
 		// Category + address
 		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
-        assertEq(uint256(addrAndCategory), 0);
-        // Id
-        bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
-        assertEq(uint256(assetId), 0);
-        // Amount
-        bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
-        assertEq(uint256(assetAmount), 0);
-	}
-
-	function test_shouldRemoveStoredTokenizedAssetInfoFromSendersWallet() external {
-		vm.prank(address(wallet));
-		atr.burnAssetTransferRightsToken(atrId);
-
-		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(wallet)));
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(wallet));
-
-		for (uint256 i; i < uint256(setSize); ++i) {
-			bytes32 storedId = vm.load(address(atr), bytes32(uint256(valuesSlot) + i));
-			if (uint256(storedId) == atrId) {
-				revert("ATR token is stored after burn");
-			}
-		}
+		assertEq(uint256(addrAndCategory), 0);
+		// Id
+		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
+		assertEq(uint256(assetId), 0);
+		// Amount
+		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
+		assertEq(uint256(assetAmount), 0);
 	}
 
 	function test_shouldBurnATRToken() external {
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.burnAssetTransferRightsToken(atrId);
 
-		vm.expectRevert("ERC721: invalid token ID");
-		atr.ownerOf(atrId);
+		// Load atr token owner
+		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner, 0);
+	}
+
+	// Invalid ATR token is token without known holder of underlying asset.
+	// This can happen after recovering safe from stalking attack,
+	// where malicious asset is force-transferred from safe without proper transfer rights.
+	function test_shouldPass_whenATRTokenIsInvalid_whenCallerDoNotHaveStoredTokenizedAssetInSafe() external {
+		uint256 invalidAtrTokenId = 7;
+		// Store invalid ATR token owner
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(invalidAtrTokenId, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(address(safe)))));
+		// Store that ATR token is invalid
+		bytes32 isInvalidSlot = keccak256(abi.encode(invalidAtrTokenId, IS_INVALID_SLOT));
+		vm.store(address(atr), isInvalidSlot, bytes32(uint256(1)));
+		// Store asset under invalid ATR token
+		_storeAssetUnderAtrId(
+			MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1),
+			invalidAtrTokenId
+		);
+		// Mock other owner of the asset than safe
+		vm.mockCall(
+			token,
+			abi.encodeWithSignature("ownerOf(uint256)", tokenId),
+			abi.encode(alice)
+		);
+
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(invalidAtrTokenId);
 	}
 
 }
 
 
 /*----------------------------------------------------------*|
-|*  # BURN BATCH                                            *|
+|*  # MINT ASSET TRANSFER RIGHTS TOKEN BATCH                *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRights_BurnBatch_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
+contract AssetTransferRights_BurnAssetTransferRightsTokenBatch_Test is AssetTransferRightsTest {
 
 	function test_shouldAcceptEmptyList() external {
 		uint256[] memory atrIds;
 
-		vm.prank(address(wallet));
+		vm.prank(safe);
 		atr.burnAssetTransferRightsTokenBatch(atrIds);
 	}
 
 	function test_shouldBurnAllItemsInList() external {
-		t721.mint(address(wallet), 42);
-		t1155.mint(address(wallet), 132, 600);
-
 		uint256[] memory atrIds = new uint256[](2);
+		atrIds[0] = 42;
+		atrIds[1] = 192;
 
-		vm.prank(address(wallet));
-		atrIds[0] = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
+		assets[0] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 31, erc1155Amount);
+		assets[1] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 1, erc1155Amount);
 
-		vm.prank(address(wallet));
-		atrIds[1] = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 132, 600)
-		);
+		_mockToken(MultiToken.Category.ERC1155);
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
-		vm.prank(address(wallet));
+		// Store ATR token 42 owner
+		vm.store(address(atr), keccak256(abi.encode(atrIds[0], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(address(safe)))));
+		// Store ATR token 192 owner
+		vm.store(address(atr), keccak256(abi.encode(atrIds[1], ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(address(safe)))));
+		// Store safes ATR token balance
+		vm.store(address(atr), keccak256(abi.encode(safe, ATR_TOKEN_BALANCES_SLOT)), bytes32(uint256(2)));
+
+		vm.prank(safe);
 		atr.burnAssetTransferRightsTokenBatch(atrIds);
 
-		vm.expectRevert("ERC721: invalid token ID");
-		atr.ownerOf(atrIds[0]);
+		// Check ATR 42 owner
+		bytes32 owner42 = vm.load(address(atr), keccak256(abi.encode(atrIds[0], ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner42, 0);
 
-		vm.expectRevert("ERC721: invalid token ID");
-		atr.ownerOf(atrIds[1]);
+		// Check ATR 192 owner
+		bytes32 owner192 = vm.load(address(atr), keccak256(abi.encode(atrIds[1], ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner192, 0);
 	}
 
 }
 
 
 /*----------------------------------------------------------*|
-|*  # TRANSFER ASSET FROM                                   *|
+|*  # CLAIM ASSET FROM                                      *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
+contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 
-	PWNWallet walletOther;
-	uint256 atrId;
+	uint256 atrId = 5;
+	uint256 atrId2 = 102;
+	uint256 tokenId = 42;
 
-	function setUp() external {
-		superSetUp();
+	function setUp() override public {
+		super.setUp();
 
-		walletOther = PWNWallet(factory.newWallet());
+		// Mock state where safe has 2 tokenized assets and alice holds both ATR tokens
 
-		atrId = _mintAndTransfer721();
-	}
+		uint256[] memory atrIds = new uint256[](2);
+		atrIds[0] = atrId;
+		atrIds[1] = atrId2;
 
-	// ---> Helpers
-	function _mintAndTransfer20() internal returns (uint256) {
-		t20.mint(address(walletOther), 600e18);
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
+		assets[0] = asset;
+		assets[1] = asset;
 
-		uint256 _atrId = walletOther.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 600e18)
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
+		_mockToken(MultiToken.Category.ERC1155);
+
+		// ATR 5 & 102 token owner
+		vm.store(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(alice))));
+		vm.store(address(atr), keccak256(abi.encode(atrId2, ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(alice))));
+		// alice atr balance
+		vm.store(address(atr), keccak256(abi.encode(alice, ATR_TOKEN_BALANCES_SLOT)), bytes32(uint256(2)));
+
+		vm.mockCall(
+			safe,
+			abi.encodeWithSignature("execTransactionFromModule(address,uint256,bytes,uint8)"),
+			abi.encode(true)
 		);
-
-		walletOther.transferAtrTokenFrom(address(walletOther), address(wallet), _atrId);
-
-		return _atrId;
 	}
-
-	function _mintAndTransfer721() internal returns (uint256) {
-		t721.mint(address(walletOther), 42);
-
-		uint256 _atrId = walletOther.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-
-		walletOther.transferAtrTokenFrom(address(walletOther), address(wallet), _atrId);
-
-		return _atrId;
-	}
-
-	function _mintAndTransfer1155() internal returns (uint256) {
-		t1155.mint(address(walletOther), 42, 600);
-
-		uint256 _atrId = walletOther.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 600)
-		);
-
-		walletOther.transferAtrTokenFrom(address(walletOther), address(wallet), _atrId);
-
-		return _atrId;
-	}
-	// <--- Helpers
 
 
 	// ---> Basic checks
+	function test_shouldFail_whenTransferringToSameAddress() external {
+		vm.expectRevert("Attempting to transfer asset to the same address");
+		vm.prank(safe);
+		atr.claimAssetFrom(safe, atrId, true);
+	}
+
 	function test_shouldFail_whenTokenRightsAreNotTokenized() external {
 		vm.expectRevert("Transfer rights are not tokenized");
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), 4, false);
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, 4, true);
 	}
 
-	function test_shouldFail_whenSenderIsNotATRTokenOwner() external {
-		PWNWallet walletEmpty = PWNWallet(factory.newWallet());
-
+	function test_shouldFail_whenCallerIsNotATRTokenOwner() external {
 		vm.expectRevert("Caller is not ATR token owner");
-		vm.prank(address(walletEmpty));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
+		vm.prank(bob);
+		atr.claimAssetFrom(safe, atrId, true);
 	}
 
-	function test_shouldFail_whenAssetIsNotInWallet() external {
-		PWNWallet walletEmpty = PWNWallet(factory.newWallet());
+	function test_shouldFail_whenAssetIsNotInSafe() external {
+		address payable otherSafe = payable(address(0xfe));
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", otherSafe),
+			abi.encode(true)
+		);
 
-		vm.expectRevert("Asset is not in a target wallet");
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletEmpty), atrId, false);
-	}
-
-	function test_shouldFail_whenTransferringToSameAddress() external {
-		wallet.transferAtrTokenFrom(address(wallet), address(walletOther), atrId);
-
-		vm.expectRevert("Attempting to transfer asset to the same address");
-		vm.prank(address(walletOther));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
+		vm.expectRevert("Asset is not in a target safe");
+		vm.prank(alice);
+		atr.claimAssetFrom(otherSafe, atrId, true);
 	}
 	// <--- Basic checks
 
 	// ---> Process
-	function test_shouldRemoveStoredTokenizedAssetInfoFromSendersWallet() external {
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
+	function test_shouldStoreAssetIsNotInSafe() external {
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
 
-		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(walletOther)));
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(walletOther));
-
-		for (uint256 i; i < uint256(setSize); ++i) {
-			bytes32 storedId = vm.load(address(atr), bytes32(uint256(valuesSlot) + i));
-			if (uint256(storedId) == atrId) {
-				revert("ATR token is stored after transferAssetFrom");
-			}
-		}
+		// Atr id is not stored in safe
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
+		assertEq(uint256(atrIdIndexValue), 0);
+		// Atr ids length is one
+		bytes32 atrIdsLength = vm.load(address(atr), _assetsInSafeSetSlotFor(safe));
+		assertEq(uint256(atrIdsLength), 1);
+		// Only stored atr id is the second
+		bytes32 firstStoredAtrId = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
+		assertEq(uint256(firstStoredAtrId), atrId2);
 	}
 
-	function test_shouldTransferERC20Asset() external {
-		atrId = _mintAndTransfer20();
+	function test_shouldDecreaseAssetsTokenizedBalanceInOriginSafe() external {
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
 
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
-
-		assertEq(t20.balanceOf(address(wallet)), 600e18);
-		assertEq(t20.balanceOf(address(walletOther)), 0);
-	}
-
-	function test_shouldTransferERC721Asset() external {
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
-
-		assertEq(t721.ownerOf(42), address(wallet));
-	}
-
-	function test_shouldTransferERC1155Asset() external {
-		atrId = _mintAndTransfer1155();
-
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
-
-		assertEq(t1155.balanceOf(address(wallet), 42), 600);
-		assertEq(t1155.balanceOf(address(walletOther), 42), 0);
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
 	}
 	// <--- Process
 
-	// ---> Without `burnToken` flag
-	function test_shouldStoreThatRecipientHasTokenizedAsset_whenWithoutBurnFlag() external {
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
-
-		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(wallet)));
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(wallet));
-
-		bool find;
-		for (uint256 i; i < uint256(setSize); ++i) {
-			bytes32 storedId = vm.load(address(atr), bytes32(uint256(valuesSlot) + i));
-			if (uint256(storedId) == atrId) {
-				find = true;
-				break;
-			}
-		}
-
-		if (!find) {
-			revert("ATR token is not stored after transferAssetFrom");
-		}
-	}
-
-	function test_shouldFail_whenRecipientHasApprovalForAsset_whenWithoutBurnFlag() external {
-		vm.mockCall(
-			address(wallet),
-			abi.encodeWithSelector(wallet.hasApprovalsFor.selector),
-			abi.encode(true)
-		);
-
-		vm.expectRevert("Receiver has approvals set for an asset");
-		vm.prank(address(wallet));
-		atr.transferAssetFrom(address(walletOther), atrId, false);
-	}
-
-	function test_shouldFail_whenTransferringToNotPWNWallet_whenWithoutBurnFlag() external {
-		wallet.transferAtrTokenFrom(address(wallet), alice, atrId);
-
-		vm.expectRevert("Attempting to transfer asset to non PWN Wallet address");
-		vm.prank(alice);
-		atr.transferAssetFrom(address(walletOther), atrId, false);
-	}
-	// <--- Without `burnToken` flag
-
 	// ---> With `burnToken` flag
 	function test_shouldClearStoredTokenizedAssetData_whenWithBurnFlag() external {
-		wallet.transferAtrTokenFrom(address(wallet), alice, atrId);
-
 		vm.prank(alice);
-		atr.transferAssetFrom(address(walletOther), atrId, true);
+		atr.claimAssetFrom(safe, atrId, true);
 
 		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
 
 		// Category + address
 		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
-        assertEq(uint256(addrAndCategory), 0);
-        // Id
-        bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
-        assertEq(uint256(assetId), 0);
-        // Amount
-        bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
-        assertEq(uint256(assetAmount), 0);
+		assertEq(uint256(addrAndCategory), 0);
+		// Id
+		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
+		assertEq(uint256(assetId), 0);
+		// Amount
+		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
+		assertEq(uint256(assetAmount), 0);
 	}
 
 	function test_shouldBurnATRToken_whenWithBurnFlag() external {
-		wallet.transferAtrTokenFrom(address(wallet), alice, atrId);
-
 		vm.prank(alice);
-		atr.transferAssetFrom(address(walletOther), atrId, true);
+		atr.claimAssetFrom(safe, atrId, true);
 
-		vm.expectRevert("ERC721: invalid token ID");
-		atr.ownerOf(atrId);
-	}
-
-	function test_shouldTransferAssetToAnyWallet_whenWithBurnFlag() external {
-		wallet.transferAtrTokenFrom(address(wallet), alice, atrId);
-
-		vm.prank(alice);
-		atr.transferAssetFrom(address(walletOther), atrId, true);
-
-		assertEq(t721.ownerOf(42), alice);
+		// Load atr token owner
+		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner, 0);
 	}
 	// <--- With `burnToken` flag
 
-}
-
-
-/*----------------------------------------------------------*|
-|*  # TRANSFER ASSET WITH PERMISSION FROM                   *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_TransferAssetWithPermissionFrom_Test is AssetTransferRightsTest {
-
-	uint256 ownerPK = 1;
-	uint256 ownerOtherPK = 2;
-	address owner = vm.addr(ownerPK);
-	address ownerOther = vm.addr(ownerOtherPK);
-	PWNWallet walletOther;
-	uint256 atrId;
-
-	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
-
-	function setUp() external {
-		superSetUp();
-
-		walletOther = PWNWallet(factory.newWallet());
-
-		atrId = _mint721();
-
-		wallet.transferOwnership(owner);
-		walletOther.transferOwnership(ownerOther);
-	}
-
-	// ---> Helpers
-	function _mint20() internal returns (uint256) {
-		t20.mint(address(walletOther), 600e18);
-
-		uint256 _atrId = walletOther.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 600e18)
-		);
-
-		return _atrId;
-	}
-
-	function _mint721() internal returns (uint256) {
-		t721.mint(address(walletOther), 42);
-
-		uint256 _atrId = walletOther.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-
-		return _atrId;
-	}
-
-	function _mint1155() internal returns (uint256) {
-		t1155.mint(address(walletOther), 42, 600);
-
-		uint256 _atrId = walletOther.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 600)
-		);
-
-		return _atrId;
-	}
-
-	function _signPermission(AssetTransferRights.RecipientPermission memory permission, uint256 privateKey) internal returns (bytes memory permissionSignature, bytes32 permissionHash) {
-		permissionHash = atr.recipientPermissionHash(permission);
-		(uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, permissionHash);
-		permissionSignature = abi.encodePacked(r, s, v);
-	}
-	// <--- Helpers
-
-
-	// ---> Basic checks
-	function test_shouldFail_whenTokenRightsAreNotTokenized() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.expectRevert("Transfer rights are not tokenized");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId + 1, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenSenderIsNotATRTokenOwner() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.expectRevert("Caller is not ATR token owner");
-		vm.prank(owner);
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenAssetIsNotInWallet() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		PWNWallet walletEmpty = PWNWallet(factory.newWallet());
-
-		vm.expectRevert("Asset is not in a target wallet");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletEmpty), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenTransferringToSameAddress() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			ownerOther, address(walletOther), keccak256("nonce")
-		);
-
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerOtherPK);
-
-		vm.expectRevert("Attempting to transfer asset to the same address");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-	// <--- Basic checks
-
-	// ---> Process
-	function test_shouldRemoveStoredTokenizedAssetInfoFromSendersWallet() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, true, permission, permissionSignature);
-
-		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(walletOther)));
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(walletOther));
-
-		bool find;
-		for (uint256 i; i < uint256(setSize); ++i) {
-			bytes32 storedId = vm.load(address(atr), bytes32(uint256(valuesSlot) + i));
-			if (uint256(storedId) == atrId) {
-				find = true;
-				break;
-			}
-		}
-
-		if (find) {
-			revert("ATR token is stored after transferAssetWithPermissionFrom");
-		}
-	}
-
-	function test_shouldRevokePermission() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, true, permission, permissionSignature);
-
-		bytes32 permissionSlot = _revokedPermissionsSlotFor(permissionHash);
-		bytes32 isRevoked = vm.load(address(atr), permissionSlot);
-
-		assertEq(uint256(isRevoked), 1);
-	}
-	// <--- Process
-
-	// ---> Permission checks
-	function test_shouldFail_whenPermissionNotSignedByStatedEOAWalletOwner() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerOtherPK);
-
-		vm.expectRevert("Permission signer is not stated as wallet owner");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenPermissionNotSignedByStatedContractWalletOwner() external {
-		vm.prank(owner);
-		ContractWallet contractWallet = new ContractWallet();
-
-		vm.prank(owner);
-		wallet.transferOwnership(address(contractWallet));
-
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			address(contractWallet), address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerOtherPK);
-
-		vm.expectRevert("Signature on behalf of contract is invalid");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenPermissionIsRevoked() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
-
-		bytes32 revokedPermissionSlot = _revokedPermissionsSlotFor(permissionHash);
-		vm.store(address(atr), revokedPermissionSlot, bytes32(uint256(1)));
-
-		vm.expectRevert("Recipient permission is revoked");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldFail_whenStatedWalletOwnerIsNotRealOwner() external {
-		vm.prank(owner);
-		wallet.transferOwnership(alice);
-
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.expectRevert("Permission signer is not wallet owner");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-
-	function test_shouldEmitRecipientPermissionRevokedEvent() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, bytes32 permissionHash) = _signPermission(permission, ownerPK);
-
-		vm.expectEmit(true, false, false, false);
-		emit RecipientPermissionRevoked(permissionHash);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-	}
-	// <--- Permission checks
-
-	// ---> EOA caller
-	function test_shouldTransferERC20Asset_whenCallerIsEOA() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.startPrank(ownerOther);
-		atrId = _mint20();
-		walletOther.transferAtrTokenFrom(address(walletOther), alice, atrId);
-		vm.stopPrank();
-
-		vm.prank(alice);
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		assertEq(t20.balanceOf(address(wallet)), 600e18);
-		assertEq(t20.balanceOf(address(walletOther)), 0);
-	}
-
-	function test_shouldTransferERC721Asset_whenCallerIsEOA() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.prank(ownerOther);
-		walletOther.transferAtrTokenFrom(address(walletOther), alice, atrId);
-
-		vm.prank(alice);
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		assertEq(t721.ownerOf(42), address(wallet));
-	}
-
-	function test_shouldTransferERC1155Asset_whenCallerIsEOA() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.startPrank(ownerOther);
-		atrId = _mint1155();
-		walletOther.transferAtrTokenFrom(address(walletOther), alice, atrId);
-		vm.stopPrank();
-
-		vm.prank(alice);
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		assertEq(t1155.balanceOf(address(wallet), 42), 600);
-		assertEq(t1155.balanceOf(address(walletOther), 42), 0);
-	}
-	// <--- EOA caller
-
-	// ---> Contract wallet caller
-	function test_shouldTransferERC20Asset_whenCallerIsContractWallet() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		ContractWallet contractWallet = new ContractWallet();
-
-		vm.startPrank(ownerOther);
-		atrId = _mint20();
-		walletOther.transferAtrTokenFrom(address(walletOther), address(contractWallet), atrId);
-		vm.stopPrank();
-
-		vm.prank(address(contractWallet));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		assertEq(t20.balanceOf(address(wallet)), 600e18);
-		assertEq(t20.balanceOf(address(walletOther)), 0);
-	}
-
-	function test_shouldTransferERC721Asset_whenCallerIsContractWallet() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		ContractWallet contractWallet = new ContractWallet();
-
-		vm.prank(ownerOther);
-		walletOther.transferAtrTokenFrom(address(walletOther), address(contractWallet), atrId);
-
-		vm.prank(address(contractWallet));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		assertEq(t721.ownerOf(42), address(wallet));
-	}
-
-	function test_shouldTransferERC1155Asset_whenCallerIsContractWallet() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		ContractWallet contractWallet = new ContractWallet();
-
-		vm.startPrank(ownerOther);
-		atrId = _mint1155();
-		walletOther.transferAtrTokenFrom(address(walletOther), address(contractWallet), atrId);
-		vm.stopPrank();
-
-		vm.prank(address(contractWallet));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		assertEq(t1155.balanceOf(address(wallet), 42), 600);
-		assertEq(t1155.balanceOf(address(walletOther), 42), 0);
-	}
-	// <--- Contract wallet caller
-
 	// ---> Without `burnToken` flag
-	function test_shouldStoreThatRecipientHasTokenizedAsset_whenWithoutBurnFlag() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
-
-		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(wallet)));
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(wallet));
-
-		bool find;
-		for (uint256 i; i < uint256(setSize); ++i) {
-			bytes32 storedId = vm.load(address(atr), bytes32(uint256(valuesSlot) + i));
-			if (uint256(storedId) == atrId) {
-				find = true;
-				break;
-			}
-		}
-
-		if (!find) {
-			revert("ATR token is not stored after transferAssetFrom");
-		}
+	function test_shouldFail_whenRecipientIsNotPWNSafe_whenWithoutBurnFlag() external {
+		vm.expectRevert("Attempting to transfer asset to non PWNSafe address");
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
 	}
 
 	function test_shouldFail_whenRecipientHasApprovalForAsset_whenWithoutBurnFlag() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
+		// Alice is safe now
 		vm.mockCall(
-			address(wallet),
-			abi.encodeWithSelector(wallet.hasApprovalsFor.selector),
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
+		);
+		vm.mockCall(
+			guard,
+			abi.encodeWithSignature("hasOperatorFor(address,address)", alice),
 			abi.encode(true)
 		);
 
 		vm.expectRevert("Receiver has approvals set for an asset");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
 	}
 
-	function test_shouldFail_whenTransferringToNotPWNWallet_whenWithoutBurnFlag() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, owner, keccak256("nonce")
+	function test_shouldStoreAssetIsInRecipientSafe_whenWithoutBurnFlag() external {
+		// Alice is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
 		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
 
-		vm.expectRevert("Attempting to transfer asset to non PWN Wallet address");
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, false, permission, permissionSignature);
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
+
+		// Value is under first index
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(alice, atrId));
+		assertEq(uint256(atrIdIndexValue), 1);
+		// Value is stored under the first index
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(alice)); // 1 - 1
+		assertEq(uint256(atrIdValue), atrId);
+	}
+
+	function test_shouldIncreaseAssetsTokenizedBalanceInRecipientSafe_whenWithoutBurnFlag() external {
+		// Alice is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
+		);
+
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(alice, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
 	}
 	// <--- Without `burnToken` flag
-
-	// ---> With `burnToken` flag
-	function test_shouldClearStoredTokenizedAssetData_whenWithBurnFlag() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, true, permission, permissionSignature);
-
-		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
-
-		// Category + address
-		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
-        assertEq(uint256(addrAndCategory), 0);
-        // Id
-        bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
-        assertEq(uint256(assetId), 0);
-        // Amount
-        bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
-        assertEq(uint256(assetAmount), 0);
-	}
-
-	function test_shouldBurnATRToken_whenWithBurnFlag() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, true, permission, permissionSignature);
-
-		vm.expectRevert("ERC721: invalid token ID");
-		atr.ownerOf(atrId);
-	}
-
-	function test_shouldTransferAssetToAnyWallet_whenWithBurnFlag() external {
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, owner, keccak256("nonce")
-		);
-		(bytes memory permissionSignature, ) = _signPermission(permission, ownerPK);
-
-		vm.prank(address(walletOther));
-		atr.transferAssetWithPermissionFrom(address(walletOther), atrId, true, permission, permissionSignature);
-
-		assertEq(t721.ownerOf(42), owner);
-	}
-	// <--- With `burnToken` flag
-}
-
-
-/*----------------------------------------------------------*|
-|*  # REVOKE RECIPIENT PERMISSION                           *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_RevokeRecipientPermission_Test is AssetTransferRightsTest {
-
-	uint256 ownerPK = 1;
-	address owner = vm.addr(ownerPK);
-	bytes32 permissionHash;
-	bytes permissionSignature;
-
-	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
-
-	function setUp() external {
-		superSetUp();
-
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			owner, address(wallet), keccak256("nonce")
-		);
-		permissionHash = atr.recipientPermissionHash(permission);
-		(uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPK, permissionHash);
-		permissionSignature = abi.encodePacked(r, s, v);
-	}
-
-
-	function test_shouldFail_whenCallerIsNotPermissionSigned() external {
-		vm.expectRevert("Sender is not a recipient permission signer");
-		vm.prank(alice);
-		atr.revokeRecipientPermission(permissionHash, permissionSignature);
-	}
-
-	function test_shouldFail_whenPermissionIsRevoked() external {
-		bytes32 revokedPermissionSlot = _revokedPermissionsSlotFor(permissionHash);
-		vm.store(address(atr), revokedPermissionSlot, bytes32(uint256(1)));
-
-		vm.expectRevert("Recipient permission is revoked");
-		vm.prank(owner);
-		atr.revokeRecipientPermission(permissionHash, permissionSignature);
-	}
-
-	function test_shouldRevokePermission() external {
-		vm.prank(owner);
-		atr.revokeRecipientPermission(permissionHash, permissionSignature);
-
-		bytes32 revokedPermissionSlot = _revokedPermissionsSlotFor(permissionHash);
-		bytes32 isRevoked = vm.load(address(atr), revokedPermissionSlot);
-
-		assertEq(uint256(isRevoked), 1);
-	}
-
-	function test_shouldEmitRecipientPermissionRevokedEvent() external {
-		vm.expectEmit(true, false, false, false);
-		emit RecipientPermissionRevoked(permissionHash);
-
-		vm.prank(owner);
-		atr.revokeRecipientPermission(permissionHash, permissionSignature);
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
-|*  # CHECK TOKENIZED BALANCE                               *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_CheckTokenizedBalance_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
-
-	function test_shouldFail_whenInsufficientBalanceOfFungibleAsset() external {
-		t20.mint(address(wallet), 300e18);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
-		);
-
-		vm.mockCall(
-			address(t20),
-			abi.encodeWithSelector(t20.balanceOf.selector),
-			abi.encode(uint256(100e18))
-		);
-
-		vm.expectRevert("Insufficient tokenized balance");
-		atr.checkTokenizedBalance(address(wallet));
-	}
-
-	function test_shouldFail_whenMissingTokenizedNonFungibleAsset() external {
-		t721.mint(address(wallet), 42);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-
-		vm.mockCall(
-			address(t721),
-			abi.encodeWithSelector(t721.ownerOf.selector),
-			abi.encode(address(alice))
-		);
-
-		vm.expectRevert("Insufficient tokenized balance");
-		atr.checkTokenizedBalance(address(wallet));
-	}
-
-	function test_shouldFail_whenInsufficientBalanceOfSemifungibleAsset() external {
-		t1155.mint(address(wallet), 42, 300);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 300)
-		);
-
-		vm.mockCall(
-			address(t1155),
-			abi.encodeWithSelector(t1155.balanceOf.selector),
-			abi.encode(uint256(100))
-		);
-
-		vm.expectRevert("Insufficient tokenized balance");
-		atr.checkTokenizedBalance(address(wallet));
-	}
-
-	function test_shouldPass_whenSufficientBalanceOfFungibleAsset() external {
-		t20.mint(address(wallet), 300e18);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
-		);
-
-		vm.mockCall(
-			address(t20),
-			abi.encodeWithSelector(t20.balanceOf.selector),
-			abi.encode(uint256(500e18))
-		);
-
-		atr.checkTokenizedBalance(address(wallet));
-	}
-
-	function test_shouldPass_whenHoldingTokenizedNonFungibleAsset() external {
-		t721.mint(address(wallet), 42);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-
-		atr.checkTokenizedBalance(address(wallet));
-	}
-
-	function test_shouldPass_whenSufficientBalanceOfSemifungibleAsset() external {
-		t1155.mint(address(wallet), 42, 300);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 42, 300)
-		);
-
-		vm.mockCall(
-			address(t1155),
-			abi.encodeWithSelector(t1155.balanceOf.selector),
-			abi.encode(uint256(400))
-		);
-
-		atr.checkTokenizedBalance(address(wallet));
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
-|*  # RECOVER INVALID TOKENIZED BALANCE                     *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_RecoverInvalidTokenizedBalance_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
-
-	function test_shouldFail_whenWalletIsNotATRTokenOwner() external {
-		vm.expectRevert("Asset is not in callers wallet");
-		atr.recoverInvalidTokenizedBalance(address(wallet), 12);
-	}
-
-	function test_shouldFail_whenTokenizedBalanceIsNotSmallerThenActualBalance() external {
-		t721.mint(address(wallet), 42);
-
-		vm.prank(address(wallet));
-		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-
-		vm.expectRevert("Tokenized balance is not invalid");
-		atr.recoverInvalidTokenizedBalance(address(wallet), atrId);
-	}
-
-	function test_shouldDecreaseTokenizedBalance() external {
-		t20.mint(address(wallet), 500e18);
-
-		vm.prank(address(wallet));
-		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
-		);
-
-		vm.prank(address(wallet));
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 200e18)
-		);
-
-		vm.mockCall(
-			address(t20),
-			abi.encodeWithSelector(t20.balanceOf.selector),
-			abi.encode(uint256(200e18))
-		);
-
-		atr.recoverInvalidTokenizedBalance(address(wallet), atrId);
-
-		bytes32 tokenizedBalance = vm.load(
-			address(atr),
-			_tokenizedBalanceSlotFor(address(wallet), address(t20), 0)
-		);
-		assertEq(uint256(tokenizedBalance), 200e18);
-	}
-
-	function test_shouldRemoveATRTokenFromWallet() external {
-		t721.mint(address(wallet), 42);
-
-		vm.prank(address(wallet));
-		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
-		);
-
-		vm.mockCall(
-			address(t721),
-			abi.encodeWithSelector(t721.ownerOf.selector),
-			abi.encode(alice)
-		);
-
-		atr.recoverInvalidTokenizedBalance(address(wallet), atrId);
-
-		bytes32 setSize = vm.load(address(atr), _atrIdsSetSlotFor(address(wallet)));
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(address(wallet));
-
-		for (uint256 i; i < uint256(setSize); ++i) {
-			bytes32 storedId = vm.load(address(atr), bytes32(uint256(valuesSlot) + i));
-			if (uint256(storedId) == atrId) {
-				revert("ATR token is stored after recover");
-			}
-		}
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
-|*  # GET ASSET                                             *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_GetAsset_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
-
-	function test_shouldReturnStoredAsset() external {
-		uint256 atrId = 14;
-		bytes32 addrAndCategory = (bytes32(uint256(uint160(alice))) << 8) | bytes32(uint256(1));
-		bytes32 id = bytes32(uint256(42));
-		bytes32 amount = bytes32(uint256(300));
-
-		// Mock asset
-		bytes32 assetSlot = _assetStructSlotFor(atrId);
-		vm.store(address(atr), bytes32(uint256(assetSlot) + 0), addrAndCategory);
-		vm.store(address(atr), bytes32(uint256(assetSlot) + 1), id);
-		vm.store(address(atr), bytes32(uint256(assetSlot) + 2), amount);
-
-		MultiToken.Asset memory asset = atr.getAsset(atrId);
-
-		assertEq(asset.category == MultiToken.Category.ERC721, true);
-		assertEq(asset.assetAddress == alice, true);
-		assertEq(asset.id == uint256(id), true);
-		assertEq(asset.amount == uint256(amount), true);
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
-|*  # OWNED ASSET ATR IDS                                   *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_OwnedAssetATRIds_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
-
-	function test_shouldReturnListOfTokenizedAssetsInSendersWalletRepresentedByATRTokenIds() external {
-		// Mock number of items
-		bytes32 idsSlot = _atrIdsSetSlotFor(alice);
-		vm.store(address(atr), idsSlot, bytes32(uint256(3)));
-
-		// Mock items
-		bytes32 valuesSlot = _atrIdsValuesSlotFor(alice);
-		vm.store(address(atr), bytes32(uint256(valuesSlot) + 0), bytes32(uint256(32)));
-		vm.store(address(atr), bytes32(uint256(valuesSlot) + 1), bytes32(uint256(83)));
-		vm.store(address(atr), bytes32(uint256(valuesSlot) + 2), bytes32(uint256(98321)));
-
-		uint256[] memory ids = atr.ownedAssetATRIds(alice);
-
-		assertEq(ids[0], 32);
-		assertEq(ids[1], 83);
-		assertEq(ids[2], 98321);
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
-|*  # OWNED FROM COLLECTION                                 *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_OwnedFromCollection_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
-
-	function test_shouldReturnNumberOfTokenizedAssetsFromGivenContractAddress() external {
-		// Mock owned assets from collection
-		bytes32 ownedFromCollectionSlot = _ownedFromCollectionSlotFor(alice, address(0x1234));
-		vm.store(address(atr), ownedFromCollectionSlot, bytes32(uint256(4)));
-
-		uint256 ownedAssetsFromCollection = atr.ownedFromCollection(alice, address(0x1234));
-
-		assertEq(ownedAssetsFromCollection, 4);
-	}
-
-}
-
-
-/*----------------------------------------------------------*|
-|*  # RECIPIENT PERMISSION HASH                             *|
-|*----------------------------------------------------------*/
-
-contract AssetTransferRights_RecipientPermissionHash_Test is AssetTransferRightsTest {
-
-	function setUp() external {
-		superSetUp();
-	}
-
-
-	function test_shouldReturnRecipientPermissionTypedStructHash() external {
-		bytes32 hash = bytes32(uint256(0x94e6c42bee4a11932b7a7dbb2ddf8e5dc59fef266486d69cb7cc466229eb689a));
-		AssetTransferRights.RecipientPermission memory permission = AssetTransferRights.RecipientPermission(
-			alice, address(wallet), keccak256("nonce")
-		);
-
-		bytes32 permissionHash = atr.recipientPermissionHash(permission);
-
-		assertEq(permissionHash, hash);
-	}
 
 }

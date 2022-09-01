@@ -12,7 +12,7 @@ import "openzeppelin-contracts/contracts/utils/introspection/ERC165.sol";
 
 contract T1363 is ERC165, ERC20("ERC1363", "ERC1363") {
 
-	function foo() external {
+	function foo() payable external {
 
 	}
 

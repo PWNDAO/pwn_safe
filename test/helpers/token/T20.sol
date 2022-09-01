@@ -10,7 +10,7 @@ contract T20 is ERC165, ERC20("ERC20", "ERC20") {
 
 	bool private _supportingERC165 = true;
 
-	function foo() external {
+	function foo() payable external {
 
 	}
 
