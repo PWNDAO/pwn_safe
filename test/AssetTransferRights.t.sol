@@ -12,9 +12,9 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
 
-	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(11)); // `_owners` ERC721 mapping position
-	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(12)); // `_balances` ERC721 mapping position
-	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(15)); // `lastTokenId` property position
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(13)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(14)); // `_balances` ERC721 mapping position
+	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(17)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
 	address payable safe = payable(address(0xff));

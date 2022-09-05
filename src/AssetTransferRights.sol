@@ -16,6 +16,7 @@ import "MultiToken/MultiToken.sol";
 import "./guard/IAssetTransferRightsGuard.sol";
 import "./managers/AssetTransferRightsGuardManager.sol";
 import "./managers/PWNSafeValidatorManager.sol";
+import "./managers/RecipientPermissionManager.sol";
 import "./managers/TokenizedAssetManager.sol";
 import "./managers/WhitelistManager.sol";
 
@@ -31,6 +32,7 @@ contract AssetTransferRights is
 	AssetTransferRightsGuardManager,
 	PWNSafeValidatorManager,
 	TokenizedAssetManager,
+	RecipientPermissionManager,
 	ERC721
 {
 	using MultiToken for MultiToken.Asset;
@@ -255,13 +257,29 @@ contract AssetTransferRights is
 		uint256 atrTokenId,
 		bool burnToken
 	) external {
+		// Load asset
+		MultiToken.Asset memory asset = assets[atrTokenId];
+
 		// Process asset transfer
-		MultiToken.Asset memory asset = _processTransferAssetFrom(from, msg.sender, atrTokenId, burnToken);
+		_processTransferAssetFrom(asset, from, msg.sender, atrTokenId, burnToken);
+	}
 
-		bytes memory data = asset.transferAssetCalldata(from, msg.sender);
+	/// TODO: Doc
+	function transferAssetFrom(
+		address payable from,
+		uint256 atrTokenId,
+		bool burnToken,
+		RecipientPermission calldata permission,
+		bytes calldata permissionSignature
+	) external {
+		// Load asset
+		MultiToken.Asset memory asset = assets[atrTokenId];
 
-		// Transfer asset from `from` safe
-		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
+		// Check valid permission
+		_checkValidPermission(msg.sender, asset, permission, permissionSignature);
+
+		// Process asset transfer
+		_processTransferAssetFrom(asset, from, permission.recipient, atrTokenId, burnToken);
 	}
 
 	/**
@@ -272,14 +290,12 @@ contract AssetTransferRights is
 	 * @param burnToken Flag to burn ATR token in the same transaction.
 	 */
 	function _processTransferAssetFrom(
-		address from,
+		MultiToken.Asset memory asset,
+		address payable from,
 		address to,
 		uint256 atrTokenId,
 		bool burnToken
-	) private returns (MultiToken.Asset memory) {
-		// Load asset
-		MultiToken.Asset memory asset = assets[atrTokenId];
-
+	) private {
 		// Check that transferring to different address
 		require(from != to, "Attempting to transfer asset to the same address");
 
@@ -308,7 +324,10 @@ contract AssetTransferRights is
 			_increaseTokenizedBalance(atrTokenId, to, asset);
 		}
 
-		return asset;
+		bytes memory data = asset.transferAssetCalldata(from, to);
+
+		// Transfer asset from `from` safe
+		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
 }
