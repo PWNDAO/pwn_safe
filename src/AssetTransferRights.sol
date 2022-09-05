@@ -260,6 +260,8 @@ contract AssetTransferRights is
 		// Load asset
 		MultiToken.Asset memory asset = assets[atrTokenId];
 
+		_initialChecks(asset, from, msg.sender, atrTokenId);
+
 		// Process asset transfer
 		_processTransferAssetFrom(asset, from, msg.sender, atrTokenId, burnToken);
 	}
@@ -275,11 +277,29 @@ contract AssetTransferRights is
 		// Load asset
 		MultiToken.Asset memory asset = assets[atrTokenId];
 
+		_initialChecks(asset, from, permission.recipient, atrTokenId);
+
 		// Check valid permission
 		_checkValidPermission(msg.sender, asset, permission, permissionSignature);
 
 		// Process asset transfer
 		_processTransferAssetFrom(asset, from, permission.recipient, atrTokenId, burnToken);
+	}
+
+	function _initialChecks(
+		MultiToken.Asset memory asset,
+		address payable from,
+		address to,
+		uint256 atrTokenId
+	) private view {
+		// Check that transferring to different address
+		require(from != to, "Attempting to transfer asset to the same address");
+
+		// Check that asset transfer rights are tokenized
+		require(asset.assetAddress != address(0), "Transfer rights are not tokenized");
+
+		// Check that sender is ATR token owner
+		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
 	}
 
 	/**
@@ -296,15 +316,6 @@ contract AssetTransferRights is
 		uint256 atrTokenId,
 		bool burnToken
 	) private {
-		// Check that transferring to different address
-		require(from != to, "Attempting to transfer asset to the same address");
-
-		// Check that asset transfer rights are tokenized
-		require(asset.assetAddress != address(0), "Transfer rights are not tokenized");
-
-		// Check that sender is ATR token owner
-		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
-
 		// Update tokenized balance (would fail for invalid ATR token)
 		require(_decreaseTokenizedBalance(atrTokenId, from, asset), "Asset is not in a target safe");
 
