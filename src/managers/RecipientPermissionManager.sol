@@ -7,6 +7,10 @@ import "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "MultiToken/MultiToken.sol";
 
 
+/**
+ * @title Recipient Permission Manager contract
+ * @notice Contract responsible for checking valid recipient permissions, tracking granted and revoked permissions.
+ */
 abstract contract RecipientPermissionManager {
 
 	/*----------------------------------------------------------*|
@@ -19,6 +23,17 @@ abstract contract RecipientPermissionManager {
 		"RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bytes32 nonce)"
 	);
 
+	/**
+	 * @title RecipientPermission
+	 * @param assetCategory Category of an asset that is permitted to transfer.
+	 * @param assetAddress Contract address of an asset that is permitted to transfer.
+	 * @param assetId Id of an asset that is permitted to transfer.
+	 * @param assetAmount Amount of an asset that is permitted to transfer.
+	 * @param recipient Address of a recipient and permission signer.
+	 * @param agent Optional address of a permitted agenat, that can process the permission. If zero value, any agent can process the permission.
+	 * @param expiration Optional permission expiration timestamp (in seconds). If zero value, permission has no expiration.
+	 * @param nonce Additional value to enable otherwise identical permissions.
+	 */
 	struct RecipientPermission {
 		// MultiToken.Asset
 		MultiToken.Category assetCategory;
@@ -53,7 +68,15 @@ abstract contract RecipientPermissionManager {
 	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
 
 
+	/*----------------------------------------------------------*|
+	|*  # PERMISSION MANAGEMENT                                 *|
+	|*----------------------------------------------------------*/
 
+	/**
+	 * @notice Grant recipient permission on-chain.
+	 * @dev Function caller has to be permission recipient.
+	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
+	 */
 	function grantRecipientPermission(RecipientPermission calldata permission) external {
 		// Check that caller is permission signer
 		require(msg.sender == permission.recipient, "Sender is not permission recipient");
@@ -73,6 +96,11 @@ abstract contract RecipientPermissionManager {
 		emit RecipientPermissionGranted(permissionHash);
 	}
 
+	/**
+	 * @notice Revoke recipient permission.
+	 * @dev Function caller has to be permission recipient.
+	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
+	 */
 	function revokeRecipientPermission(RecipientPermission calldata permission) external {
 		// Check that caller is permission signer
 		require(msg.sender == permission.recipient, "Sender is not permission recipient");
@@ -90,7 +118,14 @@ abstract contract RecipientPermissionManager {
 	}
 
 
+	/*----------------------------------------------------------*|
+	|*  # PERMISSION HASH                                       *|
+	|*----------------------------------------------------------*/
 
+	/**
+	 * @notice Hash recipient permission struct according to EIP-712.
+	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
+	 */
 	function recipientPermissionHash(RecipientPermission calldata permission) public view returns (bytes32) {
 		return keccak256(abi.encodePacked(
 			"\x19\x01",
@@ -116,7 +151,17 @@ abstract contract RecipientPermissionManager {
 	}
 
 
+	/*----------------------------------------------------------*|
+	|*  # VALID PERMISSION CHECKS                               *|
+	|*----------------------------------------------------------*/
 
+	/**
+	 * @dev Checks if given permission is valid and mark permission as used.
+	 * @param sender Address of a caller. If permission has non-zero agent address, caller has to be the agent.
+	 * @param asset Struct representing asset to be transferred. See {MultiToken-Asset}.
+	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
+	 * @param permissionSignature Signature of permission struct hash. In case of on-chain permission or when ERC1271 don't need it, pass empty data.
+	 */
 	function _checkValidPermission(
 		address sender,
 		MultiToken.Asset memory asset,
