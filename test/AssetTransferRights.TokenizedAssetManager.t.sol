@@ -11,7 +11,7 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 // The only reason for this contract is to expose internal functions of TokenizedAssetManager
 // No additional logic is applied here
-contract AssetTransferRightsExposed is AssetTransferRights {
+contract TokenizedAssetManagerExposed is AssetTransferRights {
 
 	function increaseTokenizedBalance(
 		uint256 atrTokenId,
@@ -51,7 +51,7 @@ contract AssetTransferRightsExposed is AssetTransferRights {
 
 abstract contract TokenizedAssetManagerTest is TokenizedAssetManagerStorageHelper {
 
-	AssetTransferRightsExposed atr;
+	TokenizedAssetManagerExposed atr;
 	address safe = address(0xff);
 	address token = address(0x070ce2);
 
@@ -60,7 +60,7 @@ abstract contract TokenizedAssetManagerTest is TokenizedAssetManagerStorageHelpe
 	}
 
 	function setUp() virtual external {
-		atr = new AssetTransferRightsExposed();
+		atr = new TokenizedAssetManagerExposed();
 		setAtr(address(atr));
 	}
 

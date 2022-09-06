@@ -12,9 +12,11 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
 
-	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(11)); // `_owners` ERC721 mapping position
-	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(12)); // `_balances` ERC721 mapping position
-	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(15)); // `lastTokenId` property position
+	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(9)); // `grantedPermissions` mapping position
+	bytes32 internal constant REVOKED_PERMISSION_SLOT = bytes32(uint256(10)); // `revokedPermissions` mapping position
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(13)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(14)); // `_balances` ERC721 mapping position
+	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(17)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
 	address payable safe = payable(address(0xff));
@@ -897,6 +899,378 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		atr.claimAssetFrom(safe, atrId, false);
 
 		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(alice, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+	// <--- Without `burnToken` flag
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # TRANSFER ASSET FROM                                      *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
+
+	uint256 atrId = 5;
+	uint256 atrId2 = 102;
+	uint256 tokenId = 42;
+
+	RecipientPermissionManager.RecipientPermission permission;
+	bytes32 permissionHash;
+
+	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
+
+	function setUp() override public {
+		super.setUp();
+
+		// Mock state where safe has 2 tokenized assets and alice holds both ATR tokens
+
+		uint256[] memory atrIds = new uint256[](2);
+		atrIds[0] = atrId;
+		atrIds[1] = atrId2;
+
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
+		assets[0] = asset;
+		assets[1] = asset;
+
+		_tokenizeAssetsUnderIds(safe, atrIds, assets);
+		_mockToken(MultiToken.Category.ERC1155);
+
+		// ATR 5 & 102 token owner
+		vm.store(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(alice))));
+		vm.store(address(atr), keccak256(abi.encode(atrId2, ATR_TOKEN_OWNER_SLOT)), bytes32(uint256(uint160(alice))));
+		// alice atr balance
+		vm.store(address(atr), keccak256(abi.encode(alice, ATR_TOKEN_BALANCES_SLOT)), bytes32(uint256(2)));
+
+		vm.mockCall(
+			safe,
+			abi.encodeWithSignature("execTransactionFromModule(address,uint256,bytes,uint8)"),
+			abi.encode(true)
+		);
+
+		vm.warp(10202);
+
+		permission = RecipientPermissionManager.RecipientPermission(
+			MultiToken.Category.ERC1155,
+			token,
+			tokenId,
+			erc1155Amount / 2,
+			bob,
+			alice,
+			10302,
+			keccak256("nonce")
+		);
+		permissionHash = atr.recipientPermissionHash(permission);
+	}
+
+	function _mockGrantedPermission(bytes32 _permissionHash) internal {
+		bytes32 permissionSlot = keccak256(abi.encodePacked(_permissionHash, GRANTED_PERMISSION_SLOT));
+		vm.store(address(atr), permissionSlot, bytes32(uint256(1)));
+	}
+
+	function _mockRevokedPermission(bytes32 _permissionHash) internal {
+		bytes32 permissionSlot = keccak256(abi.encodePacked(_permissionHash, REVOKED_PERMISSION_SLOT));
+		vm.store(address(atr), permissionSlot, bytes32(uint256(1)));
+	}
+
+
+	// ---> Basic checks
+	function test_shouldFail_whenTransferringToSameAddress() external {
+		permission.recipient = safe;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Attempting to transfer asset to the same address");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenTokenRightsAreNotTokenized() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Transfer rights are not tokenized");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, 4, true, permission, "");
+	}
+
+	function test_shouldFail_whenCallerIsNotATRTokenOwner() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Caller is not ATR token owner");
+		vm.prank(bob);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+	// <--- Basic checks
+
+	// ---> Permission validation
+	function test_shouldFail_whenPermissionIsExpired() external {
+		permission.expiration = uint40(block.timestamp) - 100;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Recipient permission is expired");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldPass_whenPermissionHasNoExpiration() external {
+		permission.expiration = 0;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenCallerIsNotPermittedAgent() external {
+		permission.agent = address(0x01);
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Caller is not permitted agent");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldPass_whenPermittedAgentIsNotStated() external {
+		permission.agent = address(0);
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenAssetIsNotPermitted() external {
+		permission.assetCategory = MultiToken.Category.ERC721;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Invalid permitted asset");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenPermissionHasBeenRevoked() external {
+		_mockRevokedPermission(permissionHash);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Recipient permission is revoked");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenPermissionHasNotBeenGranted_whenERC1271InvalidSignature() external {
+		vm.etch(bob, bytes("data"));
+		vm.mockCall(
+			bob,
+			abi.encodeWithSignature("isValidSignature(bytes32,bytes)"),
+			abi.encode(bytes4(0xffffffff))
+		);
+
+		vm.expectRevert("Signature on behalf of contract is invalid");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenPermissionHasNotBeenGranted_whenInvalidSignature() external {
+		(uint8 v, bytes32 r, bytes32 s) = vm.sign(6, keccak256("invalid data"));
+
+		vm.expectRevert("Permission signer is not stated as recipient");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, abi.encodePacked(r, s, v));
+	}
+
+	function test_shouldPass_whenPermissionHasBeenGranted() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldPass_whenERC1271ValidSignature() external {
+		vm.etch(bob, bytes("data"));
+		vm.mockCall(
+			bob,
+			abi.encodeWithSignature("isValidSignature(bytes32,bytes)"),
+			abi.encode(bytes4(0x1626ba7e))
+		);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldPass_whenValidSignature() external {
+		uint256 pk = 6;
+		address recipient = vm.addr(pk);
+		permission.recipient = recipient;
+		permissionHash = atr.recipientPermissionHash(permission);
+		(uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, abi.encodePacked(r, s, v));
+	}
+
+	function test_shouldStoreThatPermissionIsRevoked() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+
+		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, REVOKED_PERMISSION_SLOT));
+		bytes32 permissionRevokedValue = vm.load(address(atr), permissionSlot);
+		assertEq(uint256(permissionRevokedValue), 1);
+	}
+
+	function test_shouldEmitRecipientPermissionRevokedEvent() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectEmit(true, false, false, false);
+		emit RecipientPermissionRevoked(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+	// <--- Permission validation
+
+	// ---> Process
+	function test_shouldFail_whenAssetIsNotInSafe() external {
+		_mockGrantedPermission(permissionHash);
+		address payable otherSafe = payable(address(0xfe));
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", otherSafe),
+			abi.encode(true)
+		);
+
+		vm.expectRevert("Asset is not in a target safe");
+		vm.prank(alice);
+		atr.transferAssetFrom(otherSafe, atrId, true, permission, "");
+	}
+
+	function test_shouldStoreAssetIsNotInSafe() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+
+		// Atr id is not stored in safe
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(safe, atrId));
+		assertEq(uint256(atrIdIndexValue), 0);
+		// Atr ids length is one
+		bytes32 atrIdsLength = vm.load(address(atr), _assetsInSafeSetSlotFor(safe));
+		assertEq(uint256(atrIdsLength), 1);
+		// Only stored atr id is the second
+		bytes32 firstStoredAtrId = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(safe));
+		assertEq(uint256(firstStoredAtrId), atrId2);
+	}
+
+	function test_shouldDecreaseAssetsTokenizedBalanceInOriginSafe() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
+		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+	// <--- Process
+
+	// ---> With `burnToken` flag
+	function test_shouldClearStoredTokenizedAssetData_whenWithBurnFlag() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+
+		bytes32 assetStructSlot = _assetStructSlotFor(atrId);
+
+		// Category + address
+		bytes32 addrAndCategory = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 0));
+		assertEq(uint256(addrAndCategory), 0);
+		// Id
+		bytes32 assetId = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 1));
+		assertEq(uint256(assetId), 0);
+		// Amount
+		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetStructSlot) + 2));
+		assertEq(uint256(assetAmount), 0);
+	}
+
+	function test_shouldBurnATRToken_whenWithBurnFlag() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+
+		// Load atr token owner
+		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
+		assertEq(owner, 0);
+	}
+	// <--- With `burnToken` flag
+
+	// ---> Without `burnToken` flag
+	function test_shouldFail_whenRecipientIsNotPWNSafe_whenWithoutBurnFlag() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Attempting to transfer asset to non PWNSafe address");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, false, permission, "");
+	}
+
+	function test_shouldFail_whenRecipientHasApprovalForAsset_whenWithoutBurnFlag() external {
+		// Bob is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", bob),
+			abi.encode(true)
+		);
+		vm.mockCall(
+			guard,
+			abi.encodeWithSignature("hasOperatorFor(address,address)", bob),
+			abi.encode(true)
+		);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Receiver has approvals set for an asset");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, false, permission, "");
+	}
+
+	function test_shouldStoreAssetIsInRecipientSafe_whenWithoutBurnFlag() external {
+		// Bob is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", bob),
+			abi.encode(true)
+		);
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, false, permission, "");
+
+		// Value is under first index
+		bytes32 atrIdIndexValue = vm.load(address(atr), _assetsInSafeIndexeSlotFor(bob, atrId));
+		assertEq(uint256(atrIdIndexValue), 1);
+		// Value is stored under the first index
+		bytes32 atrIdValue = vm.load(address(atr), _assetsInSafeFirstValueSlotFor(bob)); // 1 - 1
+		assertEq(uint256(atrIdValue), atrId);
+	}
+
+	function test_shouldIncreaseAssetsTokenizedBalanceInRecipientSafe_whenWithoutBurnFlag() external {
+		// Bob is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", bob),
+			abi.encode(true)
+		);
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, false, permission, "");
+
+		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(bob, token, tokenId));
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
 	}
 	// <--- Without `burnToken` flag

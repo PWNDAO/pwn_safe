@@ -16,6 +16,7 @@ import "MultiToken/MultiToken.sol";
 import "./guard/IAssetTransferRightsGuard.sol";
 import "./managers/AssetTransferRightsGuardManager.sol";
 import "./managers/PWNSafeValidatorManager.sol";
+import "./managers/RecipientPermissionManager.sol";
 import "./managers/TokenizedAssetManager.sol";
 import "./managers/WhitelistManager.sol";
 
@@ -31,6 +32,7 @@ contract AssetTransferRights is
 	AssetTransferRightsGuardManager,
 	PWNSafeValidatorManager,
 	TokenizedAssetManager,
+	RecipientPermissionManager,
 	ERC721
 {
 	using MultiToken for MultiToken.Asset;
@@ -178,7 +180,7 @@ contract AssetTransferRights is
 	 * @notice Tokenize given asset batch transfer rights and mint ATR tokens.
 	 * @dev Function will iterate over given list and call `mintAssetTransferRightsToken` on each of them.
 	 *      Requirements: See {AssetTransferRights-mintAssetTransferRightsToken}.
-	 * @param assets List of assets to tokenize theirs transfer rights.
+	 * @param assets List of assets to tokenize their transfer rights.
 	 */
 	function mintAssetTransferRightsTokenBatch(MultiToken.Asset[] calldata assets) external {
 		for (uint256 i; i < assets.length; ++i) {
@@ -255,31 +257,63 @@ contract AssetTransferRights is
 		uint256 atrTokenId,
 		bool burnToken
 	) external {
-		// Process asset transfer
-		MultiToken.Asset memory asset = _processTransferAssetFrom(from, msg.sender, atrTokenId, burnToken);
-
-		bytes memory data = asset.transferAssetCalldata(from, msg.sender);
-
-		// Transfer asset from `from` safe
-		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
-	}
-
-	/**
-	 * @dev Process internal state of an asset transfer.
-	 * @param from Address from which an asset will be transferred.
-	 * @param to Address to which an asset will be transferred.
-	 * @param atrTokenId Id of an ATR token which represents the underlying asset.
-	 * @param burnToken Flag to burn ATR token in the same transaction.
-	 */
-	function _processTransferAssetFrom(
-		address from,
-		address to,
-		uint256 atrTokenId,
-		bool burnToken
-	) private returns (MultiToken.Asset memory) {
 		// Load asset
 		MultiToken.Asset memory asset = assets[atrTokenId];
 
+		_initialChecks(asset, from, msg.sender, atrTokenId);
+
+		// Process asset transfer
+		_processTransferAssetFrom(asset, from, msg.sender, atrTokenId, burnToken);
+	}
+
+	/**
+	 * @notice Transfer assets via ATR token to any address.
+	 * @dev Asset can be transferred to any address, but needs to have recipient permission.
+	 *      Permission can be granted on-chain, through off-chain signature or via ERC1271.
+	 *      Flag `burnToken` will burn the ATR token and transfer asset to any address (don't have to be PWNSafe).
+	 *      Requirements:
+	 *      - caller has to be an ATR token owner
+	 *      - if `burnToken` is false, caller has to be PWNSafe, otherwise it could be any address
+	 *      - if `burnToken` is false, caller must not have any approvals for asset collection
+	 *      - caller has to have recipients permission (granted on-chain, signed off-chain or via ERC1271)
+	 * @param from PWNSafe address from which to transfer asset.
+	 * @param atrTokenId ATR token id which is used for the transfer.
+	 * @param burnToken Flag to burn an ATR token in the same transaction.
+	 * @param permission Struct representing recipient permission. See {RecipientPermissionManager-RecipientPermission}.
+	 * @param permissionSignature Signature of permission struct hash. In case of on-chain permission or when ERC1271 don't need it, pass empty data.
+	 */
+	function transferAssetFrom(
+		address payable from,
+		uint256 atrTokenId,
+		bool burnToken,
+		RecipientPermission calldata permission,
+		bytes calldata permissionSignature
+	) external {
+		// Load asset
+		MultiToken.Asset memory asset = assets[atrTokenId];
+
+		_initialChecks(asset, from, permission.recipient, atrTokenId);
+
+		// Check valid permission
+		_checkValidPermission(msg.sender, asset, permission, permissionSignature);
+
+		// Process asset transfer
+		_processTransferAssetFrom(asset, from, permission.recipient, atrTokenId, burnToken);
+	}
+
+	/**
+	 * @dev Check basic transfer conditions.
+	 * @param asset Struct representing asset to be transferred. See {MultiToken-Asset}.
+	 * @param from Address from which an asset will be transferred.
+	 * @param to Address to which an asset will be transferred.
+	 * @param atrTokenId Id of an ATR token which represents the underlying asset.
+	 */
+	function _initialChecks(
+		MultiToken.Asset memory asset,
+		address payable from,
+		address to,
+		uint256 atrTokenId
+	) private view {
 		// Check that transferring to different address
 		require(from != to, "Attempting to transfer asset to the same address");
 
@@ -288,7 +322,23 @@ contract AssetTransferRights is
 
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
+	}
 
+	/**
+	 * @dev Process internal state of an asset transfer and execute it.
+	 * @param asset Struct representing asset to be transferred. See {MultiToken-Asset}.
+	 * @param from Address from which an asset will be transferred.
+	 * @param to Address to which an asset will be transferred.
+	 * @param atrTokenId Id of an ATR token which represents the underlying asset.
+	 * @param burnToken Flag to burn ATR token in the same transaction.
+	 */
+	function _processTransferAssetFrom(
+		MultiToken.Asset memory asset,
+		address payable from,
+		address to,
+		uint256 atrTokenId,
+		bool burnToken
+	) private {
 		// Update tokenized balance (would fail for invalid ATR token)
 		require(_decreaseTokenizedBalance(atrTokenId, from, asset), "Asset is not in a target safe");
 
@@ -308,7 +358,10 @@ contract AssetTransferRights is
 			_increaseTokenizedBalance(atrTokenId, to, asset);
 		}
 
-		return asset;
+		bytes memory data = asset.transferAssetCalldata(from, to);
+
+		// Transfer asset from `from` safe
+		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
 	}
 
 }
