@@ -1,23 +1,13 @@
-# PWN Wallet
+# PWNSafe
 
-Prototype of new contract wallet with ability to tokenize assets transfer rights (TR token). Without transfer rights, wallet owner cannot transfer wrapped asset.
+Collection of guard and module used on top of gnosis safe multisig contract wallet with ability to tokenize assets transfer rights (ATR token). Without transfer rights, wallet owner cannot transfer tokenized assets.
 
-TR token can be used as a collateral in DeFi protocols as it doesn't make a difference from using the asset itself:
+ATR token can be used as a collateral in DeFi protocols as it doesn't make a difference from using the asset itself:
 1) borrower cannot move the asset while loan is in progress
-2) in case of default, lender can claim TR token and transfer the asset to his wallet even though he is not the wallet owner
+2) in case of default, lender can claim ATR token and transfer the asset to his wallet even though he is not the wallet owner
 
-If using TR token as a collateral instead of an asset, owner of the asset is still the contract wallet which has several interesting consequences:
-1) wallet is still the owner of the token so in case of games, it can still be productive asset
+If using ATR token as a collateral instead of an asset, owner of the asset is still the contract wallet which has several interesting consequences:
+1) wallet is still an owner of the token so tokens utility is usable
 2) all airdrops related to the asset will be collected by the wallet
 
-## Potential issues
-
-This prototype currently supports just ERC721 tokens, but can be extended for any other ERC standard.
-
-Assumption for the wallet to work is, that wallet owner cannot grant approval to any other address while asset is locker. In case the locked asset has some non-standard way how to transfer it / approve it to other address, the wallet cannot provide assurance to the "lender", that the asset is really locked even though TR token is minted.
-
-This leads to the biggest trade-off. Wallet cannot have tokenized transfer rights to some collection and at the same time provide approval for all assets in that collection (`setApproveForAll`) to any address (usually protocol which uses `transferFrom` to transfer assets to its vault).
-
-## Rinkeby
-- ATR contract: `0x5c2521691BF493d9A61bD7D6Ba76075e630B7865`
-- Wallet factory: `0x9391749dFA7ac542c96FE8B1Dee23bb8F9bb32E5`
+Assumption for the wallet to work is, that wallet owner cannot grant approval to other address while asset is has its transfer rights minted. In case where "tokenized" asset has some non-standard way how to transfer it / approve it to other address, the wallet cannot provide assurance to the "lender", that the asset is really locked even though ATR token is minted.
