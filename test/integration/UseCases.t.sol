@@ -782,4 +782,51 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		t1155.safeTransferFrom(address(safe), alice, 1, 600, "");
 	}
 
+	/**
+	 * 1:  mint asset id 1 amount 600
+	 * 2:  mint ATR token 1 for asset id 1 amount 600
+	 * 3:  transfer ATR token 1 to alice
+	 * 4:  fail to transfer asset to bob
+	 * 5:  grant bobs recipient permission to alice
+	 * 6:  transfer asset from safe to bob via ATR token hold by alice
+	 */
+	function test_UC_ERC1155_3() external {
+		// 1:
+		t1155.mint(address(safe), 1, 600);
+
+		// 2:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				AssetTransferRights.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 600)
+			)
+		);
+
+		// 3:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 1)
+		);
+
+		// 4:
+		RecipientPermissionManager.RecipientPermission memory permission = RecipientPermissionManager.RecipientPermission(
+			MultiToken.Category.ERC1155, address(t1155), 1, 600,
+			bob, alice, 0, keccak256("nonce")
+		);
+		(uint8 v, bytes32 r, bytes32 s) = vm.sign(6, atr.recipientPermissionHash(permission));
+
+		vm.expectRevert("Permission signer is not stated as recipient");
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 1, true, permission, abi.encodePacked(r, s, v));
+
+		// 5:
+		vm.prank(bob);
+		atr.grantRecipientPermission(permission);
+
+		// 6:
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 1, true, permission, "");
+	}
+
 }
