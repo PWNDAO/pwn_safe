@@ -22,6 +22,8 @@ contract PWNSafeFactory is IPWNSafeValidator {
 
 	bytes32 internal constant GUARD_STORAGE_SLOT = 0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
 	address internal constant SENTINEL_MODULES = address(0x1);
+	// Keccak256 of type(GnosisSafeProxy).runtimeCode
+	bytes32 internal constant GNOSIS_SAFE_PROXY_RUNTIMECODE_HASH = bytes32(0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000);
 
 	address internal immutable pwnFactorySingleton;
 	address internal immutable gnosisSafeSingleton;
@@ -112,7 +114,7 @@ contract PWNSafeFactory is IPWNSafeValidator {
 
 		// Check that caller is GnosisSafeProxy
 		// Need to hash bytes arrays first, because solidity cannot compare byte arrays directly
-		require(keccak256(type(GnosisSafeProxy).runtimeCode) == keccak256(address(this).code), "Caller is not gnosis safe proxy");
+		require(GNOSIS_SAFE_PROXY_RUNTIMECODE_HASH == keccak256(address(this).code), "Caller is not gnosis safe proxy");
 
 		// Check that proxy has correct singleton set
 		// GnosisSafeStorage.sol defines singleton address at the first position (-> index 0)
