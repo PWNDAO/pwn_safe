@@ -63,8 +63,22 @@ abstract contract WhitelistManager {
 	 * @param assetAddress Address of whitelisted asset.
 	 * @param _isWhitelisted New `isWhitelisted` mapping value.
 	 */
-	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) external onlyWhitelistManager {
+	function setIsWhitelisted(address assetAddress, bool _isWhitelisted) public onlyWhitelistManager {
 		isWhitelisted[assetAddress] = _isWhitelisted;
+	}
+
+	/**
+	 * @notice Set if asset addresses from a list are whitelisted.
+	 * @dev Set `isWhitelisted` mapping value for every address in a list.
+	 * @param assetAddresses List of whitelisted asset addresses.
+	 * @param _isWhitelisted New `isWhitelisted` mapping value for every address in a list.
+	 */
+	function setIsWhitelistedBatch(address[] calldata assetAddresses, bool _isWhitelisted) external onlyWhitelistManager {
+		uint256 length = assetAddresses.length;
+		for (uint256 i; i < length;) {
+			setIsWhitelisted(assetAddresses[i], _isWhitelisted);
+			unchecked { ++i; }
+		}
 	}
 
 }
