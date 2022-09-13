@@ -11,30 +11,14 @@ import "../src/factory/PWNSafeFactory.sol";
 abstract contract PWNSafeFactoryTest is Test {
 
 	PWNSafeFactory factory;
+	address singleton = address(0x01);
+	address gsProxyFactory = address(0x02);
 	address fallbackHandler = address(0x03);
 	address module = address(0x04);
 	address guard = address(0x05);
 	address safe = address(0x2afe);
 
-}
-
-
-/*----------------------------------------------------------*|
-|*  # DEPLOY PROXY                                          *|
-|*----------------------------------------------------------*/
-
-contract PWNSafeFactory_DeployProxy_Test is PWNSafeFactoryTest {
-
-	address singleton = address(0x01);
-	address gsProxyFactory = address(0x02);
-	uint256 threshold = 2;
-
-	constructor() {
-		vm.etch(gsProxyFactory, bytes("data"));
-		vm.etch(safe, bytes("data"));
-	}
-
-	function setUp() external {
+	function setUp() public virtual {
 		factory = new PWNSafeFactory(
 			singleton,
 			gsProxyFactory,
@@ -48,7 +32,29 @@ contract PWNSafeFactory_DeployProxy_Test is PWNSafeFactoryTest {
 			abi.encodeWithSignature("createProxy(address,bytes)", singleton, ""),
 			abi.encode(safe)
 		);
+		vm.mockCall(
+			gsProxyFactory,
+			abi.encodeWithSignature("proxyRuntimeCode()"),
+			abi.encode(type(GnosisSafeProxy).runtimeCode)
+		);
 	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # DEPLOY PROXY                                          *|
+|*----------------------------------------------------------*/
+
+contract PWNSafeFactory_DeployProxy_Test is PWNSafeFactoryTest {
+
+	uint256 threshold = 2;
+
+	constructor() {
+		vm.etch(gsProxyFactory, bytes("data"));
+		vm.etch(safe, bytes("data"));
+	}
+
 
 	function _owners() internal pure returns (address[] memory owners) {
 		owners = new address[](3);
@@ -111,17 +117,11 @@ contract PWNSafeFactory_SetupNewSafe_Test is PWNSafeFactoryTest {
 	address internal constant SENTINEL_OWNERS = address(0x1);
 
 	address alice = address(0xa11ce);
-	address singleton = address(new GnosisSafe());
 	bytes signature = abi.encodePacked(bytes32(uint256(uint160(alice))), bytes32(0), uint8(1));
 
-	function setUp() external {
-		factory = new PWNSafeFactory(
-			singleton,
-			address(0x02),
-			address(0x03),
-			module,
-			guard
-		);
+	function setUp() public override {
+		singleton = address(new GnosisSafe());
+		super.setUp();
 	}
 
 	function _mockSafe(bytes memory runtimeCode, address _singleton) private {

@@ -23,11 +23,11 @@ import "../helpers/token/T1155.sol";
 
 abstract contract UseCasesTest is Test {
 
-	address constant admin = address(0x0007);
+	address constant admin = address(0x8ea42a3334E2AaB7d144990FDa6afE67a85E2a5c);
 	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-	GnosisSafe immutable gnosisSafeSingleton = new GnosisSafe();
-	GnosisSafeProxyFactory immutable gnosisSafeFactory = new GnosisSafeProxyFactory();
-	DefaultCallbackHandler immutable gnosisFallbackHandler = new DefaultCallbackHandler();
+	GnosisSafe gnosisSafeSingleton;
+	GnosisSafeProxyFactory gnosisSafeFactory;
+	DefaultCallbackHandler gnosisFallbackHandler;
 
 	address constant alice = address(0xa11ce);
 	address constant bob = address(0xb0b);
@@ -42,13 +42,27 @@ abstract contract UseCasesTest is Test {
 	GnosisSafe safeOther;
 
 	constructor() {
-		// ERC1820 Registry
+		// Mock ERC1820 Registry
 		vm.etch(erc1820Registry, bytes("data"));
-		vm.mockCall( // Deploy real registry?
+		vm.mockCall(
 			erc1820Registry,
 			abi.encodeWithSignature("getInterfaceImplementer(address,bytes32)"),
 			abi.encode(address(0))
 		);
+
+		// Ethereum mainnet or Goerli testnet
+		if (block.chainid == 5) {
+			gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
+			gnosisSafeFactory = GnosisSafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
+			// Custom deployment of `DefaultCallbackHandler`
+			gnosisFallbackHandler = DefaultCallbackHandler(0xF97779f08Fa2f952eFb12F5827Ad95cE26fEF432);
+		}
+		// Local devnet
+		else if (block.chainid == 31337) {
+			gnosisSafeSingleton = new GnosisSafe();
+			gnosisSafeFactory = new GnosisSafeProxyFactory();
+			gnosisFallbackHandler = new DefaultCallbackHandler();
+		}
 	}
 
 	function setUp() public virtual {
