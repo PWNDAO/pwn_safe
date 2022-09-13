@@ -178,7 +178,28 @@ contract RecipientPermissionManager_RecipientPermissionHash_Test is RecipientPer
 		);
 		permissionHash = atr.recipientPermissionHash(permission);
 
-		assertEq(permissionHash, 0x43d523a326c7d54689746325fc6b805e2c1749f1f7d46b30c57fc045dc69c50a);
+		bytes32 expectedHash = keccak256(abi.encodePacked(
+			"\x19\x01",
+			keccak256(abi.encode(
+				keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+				keccak256(bytes("AssetTransferRights")),
+				keccak256(bytes("0.1")),
+				block.chainid,
+				address(atr)
+			)),
+			keccak256(abi.encode(
+				keccak256("RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bytes32 nonce)"),
+				permission.assetCategory,
+				permission.assetAddress,
+				permission.assetId,
+				permission.assetAmount,
+				permission.recipient,
+				permission.expiration,
+				permission.nonce
+			))
+		));
+
+		assertEq(permissionHash, expectedHash);
 	}
 
 }
