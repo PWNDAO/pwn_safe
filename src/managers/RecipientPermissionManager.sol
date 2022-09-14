@@ -20,7 +20,7 @@ abstract contract RecipientPermissionManager {
 	bytes4 constant internal EIP1271_VALID_SIGNATURE = 0x1626ba7e;
 
 	bytes32 constant internal RECIPIENT_PERMISSION_TYPEHASH = keccak256(
-		"RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bytes32 nonce)"
+		"RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bool isPersistent,bytes32 nonce)"
 	);
 
 	/**
@@ -32,6 +32,7 @@ abstract contract RecipientPermissionManager {
 	 * @param recipient Address of a recipient and permission signer.
 	 * @param agent Optional address of a permitted agenat, that can process the permission. If zero value, any agent can process the permission.
 	 * @param expiration Optional permission expiration timestamp (in seconds). If zero value, permission has no expiration.
+	 * @param isPersistent Flag stating if permission is not going to be revoked after usage.
 	 * @param nonce Additional value to enable otherwise identical permissions.
 	 */
 	struct RecipientPermission {
@@ -46,6 +47,7 @@ abstract contract RecipientPermissionManager {
 		address agent;
 		// Optional (highly recommended) expiration timestamp in seconds. 0 = no expiration.
 		uint40 expiration;
+		bool isPersistent;
 		bytes32 nonce;
 	}
 
@@ -145,6 +147,7 @@ abstract contract RecipientPermissionManager {
 				permission.assetAmount,
 				permission.recipient,
 				permission.expiration,
+				permission.isPersistent,
 				permission.nonce
 			))
 		));
@@ -198,8 +201,9 @@ abstract contract RecipientPermissionManager {
 			require(ECDSA.recover(permissionHash, permissionSignature) == permission.recipient, "Permission signer is not stated as recipient");
 		}
 
-		// Mark used permission as revoked
-		revokedPermissions[permissionHash] = true;
+		// Mark used permission as revoked when not persistent
+		if (permission.isPersistent == false)
+			revokedPermissions[permissionHash] = true;
 
 		// Emit event
 		emit RecipientPermissionRevoked(permissionHash);

@@ -960,6 +960,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 			bob,
 			alice,
 			10302,
+			false,
 			keccak256("nonce")
 		);
 		permissionHash = atr.recipientPermissionHash(permission);
@@ -1113,7 +1114,20 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		atr.transferAssetFrom(safe, atrId, true, permission, abi.encodePacked(r, s, v));
 	}
 
-	function test_shouldStoreThatPermissionIsRevoked() external {
+	function test_shouldNotStoreThatPermissionIsRevoked_whenPersistent() external {
+		permission.isPersistent = true;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+
+		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, REVOKED_PERMISSION_SLOT));
+		bytes32 permissionRevokedValue = vm.load(address(atr), permissionSlot);
+		assertEq(uint256(permissionRevokedValue), 0);
+	}
+
+	function test_shouldStoreThatPermissionIsRevoked_whenNotPersistent() external {
 		_mockGrantedPermission(permissionHash);
 
 		vm.prank(alice);

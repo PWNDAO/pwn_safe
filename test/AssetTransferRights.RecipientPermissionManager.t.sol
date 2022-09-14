@@ -52,6 +52,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 			alice,
 			bob,
 			10302,
+			false,
 			keccak256("nonce")
 		);
 		permissionHash = atr.recipientPermissionHash(permission);
@@ -174,6 +175,7 @@ contract RecipientPermissionManager_RecipientPermissionHash_Test is RecipientPer
 			alice,
 			bob,
 			10302,
+			true,
 			keccak256("lightning round!!")
 		);
 		permissionHash = atr.recipientPermissionHash(permission);
@@ -188,13 +190,14 @@ contract RecipientPermissionManager_RecipientPermissionHash_Test is RecipientPer
 				address(atr)
 			)),
 			keccak256(abi.encode(
-				keccak256("RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bytes32 nonce)"),
+				keccak256("RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bool isPersistent,bytes32 nonce)"),
 				permission.assetCategory,
 				permission.assetAddress,
 				permission.assetId,
 				permission.assetAmount,
 				permission.recipient,
 				permission.expiration,
+				permission.isPersistent,
 				permission.nonce
 			))
 		));
@@ -389,7 +392,24 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 	}
 
-	function test_shouldStoreThatPermissionIsRevoked() external {
+	function test_shouldNotStoreThatPermissionIsRevoked_whenPersistent() external {
+		permission.isPersistent = true;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		atr.checkValidPermission(
+			bob,
+			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
+			permission,
+			""
+		);
+
+		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, REVOKED_PERMISSION_SLOT));
+		bytes32 permissionRevokedValue = vm.load(address(atr), permissionSlot);
+		assertEq(uint256(permissionRevokedValue), 0);
+	}
+
+	function test_shouldStoreThatPermissionIsRevoked_whenNotPersistent() external {
 		_mockGrantedPermission(permissionHash);
 
 		atr.checkValidPermission(
