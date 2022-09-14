@@ -49,6 +49,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 			address(0x1001),
 			123,
 			1,
+			false,
 			alice,
 			bob,
 			10302,
@@ -172,6 +173,7 @@ contract RecipientPermissionManager_RecipientPermissionHash_Test is RecipientPer
 			address(0x1234),
 			1234,
 			103321,
+			false,
 			alice,
 			bob,
 			10302,
@@ -190,11 +192,12 @@ contract RecipientPermissionManager_RecipientPermissionHash_Test is RecipientPer
 				address(atr)
 			)),
 			keccak256(abi.encode(
-				keccak256("RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bool isPersistent,bytes32 nonce)"),
+				keccak256("RecipientPermission(uint8 assetCategory,address assetAddress,uint256 assetId,uint256 assetAmount,bool ignoreAssetIdAndAmount,address recipient,address agent,uint40 expiration,bool isPersistent,bytes32 nonce)"),
 				permission.assetCategory,
 				permission.assetAddress,
 				permission.assetId,
 				permission.assetAmount,
+				permission.ignoreAssetIdAndAmount,
 				permission.recipient,
 				permission.expiration,
 				permission.isPersistent,
@@ -300,6 +303,43 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 
 		vm.expectRevert("Invalid permitted asset");
+		atr.checkValidPermission(
+			bob,
+			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, 2),
+			permission,
+			""
+		);
+	}
+
+	function test_shouldIgnoreAssetIdAndAmount_whenFlagIsTrue() external {
+		permission.ignoreAssetIdAndAmount = true;
+		permission.isPersistent = true;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectRevert("Invalid permitted asset");
+		atr.checkValidPermission(
+			bob,
+			MultiToken.Asset(MultiToken.Category.ERC1155, permission.assetAddress, permission.assetId, permission.assetAmount),
+			permission,
+			""
+		);
+
+		vm.expectRevert("Invalid permitted asset");
+		atr.checkValidPermission(
+			bob,
+			MultiToken.Asset(permission.assetCategory, address(0x1221), permission.assetId, permission.assetAmount),
+			permission,
+			""
+		);
+
+		atr.checkValidPermission(
+			bob,
+			MultiToken.Asset(permission.assetCategory, permission.assetAddress, 42, permission.assetAmount),
+			permission,
+			""
+		);
+
 		atr.checkValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, 2),

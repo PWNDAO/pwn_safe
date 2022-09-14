@@ -957,6 +957,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 			token,
 			tokenId,
 			erc1155Amount / 2,
+			false,
 			bob,
 			alice,
 			10302,
@@ -1050,6 +1051,17 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectRevert("Invalid permitted asset");
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldIgnoreAssetIdAndAmount_whenFlagIsTrue() external {
+		permission.ignoreAssetIdAndAmount = true;
+		permission.assetId = 0;
+		permission.assetAmount = 0;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
 		vm.prank(alice);
 		atr.transferAssetFrom(safe, atrId, true, permission, "");
 	}

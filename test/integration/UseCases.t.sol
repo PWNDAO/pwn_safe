@@ -882,7 +882,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 
 		// 4:
 		RecipientPermissionManager.RecipientPermission memory permission = RecipientPermissionManager.RecipientPermission(
-			MultiToken.Category.ERC1155, address(t1155), 1, 600,
+			MultiToken.Category.ERC1155, address(t1155), 1, 600, false,
 			bob, alice, 0, false, keccak256("nonce")
 		);
 		(uint8 v, bytes32 r, bytes32 s) = vm.sign(6, atr.recipientPermissionHash(permission));

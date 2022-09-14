@@ -20,7 +20,7 @@ abstract contract RecipientPermissionManager {
 	bytes4 constant internal EIP1271_VALID_SIGNATURE = 0x1626ba7e;
 
 	bytes32 constant internal RECIPIENT_PERMISSION_TYPEHASH = keccak256(
-		"RecipientPermission(uint8 category,address assetAddress,uint256 id,uint256 amount,address recipient,address agent,uint40 expiration,bool isPersistent,bytes32 nonce)"
+		"RecipientPermission(uint8 assetCategory,address assetAddress,uint256 assetId,uint256 assetAmount,bool ignoreAssetIdAndAmount,address recipient,address agent,uint40 expiration,bool isPersistent,bytes32 nonce)"
 	);
 
 	/**
@@ -29,6 +29,7 @@ abstract contract RecipientPermissionManager {
 	 * @param assetAddress Contract address of an asset that is permitted to transfer.
 	 * @param assetId Id of an asset that is permitted to transfer.
 	 * @param assetAmount Amount of an asset that is permitted to transfer.
+	 * @param ignoreAssetIdAndAmount Flag statis if asset id and amount are ignored when checking permissioned asset.
 	 * @param recipient Address of a recipient and permission signer.
 	 * @param agent Optional address of a permitted agenat, that can process the permission. If zero value, any agent can process the permission.
 	 * @param expiration Optional permission expiration timestamp (in seconds). If zero value, permission has no expiration.
@@ -41,6 +42,7 @@ abstract contract RecipientPermissionManager {
 		address assetAddress;
 		uint256 assetId;
 		uint256 assetAmount;
+		bool ignoreAssetIdAndAmount;
 		// Permission signer
 		address recipient;
 		// Optional address of ATR token holder that will initiate a transfer
@@ -145,6 +147,7 @@ abstract contract RecipientPermissionManager {
 				permission.assetAddress,
 				permission.assetId,
 				permission.assetAmount,
+				permission.ignoreAssetIdAndAmount,
 				permission.recipient,
 				permission.expiration,
 				permission.isPersistent,
@@ -180,8 +183,11 @@ abstract contract RecipientPermissionManager {
 		// Check correct asset
 		require(permission.assetCategory == asset.category, "Invalid permitted asset");
 		require(permission.assetAddress == asset.assetAddress, "Invalid permitted asset");
-		require(permission.assetId == asset.id, "Invalid permitted asset");
-		require(permission.assetAmount == asset.amount, "Invalid permitted asset");
+		// Check id and amount if ignore flag is false
+		if (permission.ignoreAssetIdAndAmount == false) {
+			require(permission.assetId == asset.id, "Invalid permitted asset");
+			require(permission.assetAmount == asset.amount, "Invalid permitted asset");
+		} // Skip id and amount check if ignore flag is true
 
 		// Compute EIP-712 structured data hash
 		bytes32 permissionHash = recipientPermissionHash(permission);
