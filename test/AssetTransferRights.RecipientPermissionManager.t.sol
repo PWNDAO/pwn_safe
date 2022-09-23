@@ -25,7 +25,7 @@ contract RecipientPermissionManagerExposed is AssetTransferRights {
 abstract contract RecipientPermissionManagerTest is Test {
 
 	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(9)); // `grantedPermissions` mapping position
-	bytes32 internal constant REVOKED_PERMISSION_SLOT = bytes32(uint256(10)); // `revokedPermissions` mapping position
+	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(10)); // `revokedPermissionNonces` mapping position
 
 	RecipientPermissionManagerExposed atr;
 	address alice = address(0xa11ce);
@@ -35,7 +35,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 	bytes32 permissionHash;
 
 	event RecipientPermissionGranted(bytes32 indexed permissionHash);
-	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
+	event RecipientPermissionNonceRevoked(address indexed recipient, bytes32 indexed permissionNonce);
 
 	constructor() {
 		vm.etch(token, bytes("data"));
@@ -45,29 +45,41 @@ abstract contract RecipientPermissionManagerTest is Test {
 		atr = new RecipientPermissionManagerExposed();
 
 		permission = RecipientPermissionManager.RecipientPermission(
-			MultiToken.Category.ERC721,
-			address(0x1001),
-			123,
-			1,
-			false,
-			alice,
-			bob,
-			10302,
-			false,
-			keccak256("nonce")
+			MultiToken.Category.ERC721, // assetCategory
+			address(0x1001), // assetAddress
+			123, // assetId
+			1, // assetAmount
+			false, // ignoreAssetIdAndAmount
+			alice, // recipient
+			bob, // agent
+			10302, // expiration
+			false, // isPersistent
+			keccak256("nonce") // nonce
 		);
 		permissionHash = atr.recipientPermissionHash(permission);
 	}
 
 
 	function _mockGrantedPermission(bytes32 _permissionHash) internal {
-		bytes32 permissionSlot = keccak256(abi.encodePacked(_permissionHash, GRANTED_PERMISSION_SLOT));
+		bytes32 permissionSlot = keccak256(abi.encode(_permissionHash, GRANTED_PERMISSION_SLOT));
 		vm.store(address(atr), permissionSlot, bytes32(uint256(1)));
 	}
 
-	function _mockRevokedPermission(bytes32 _permissionHash) internal {
-		bytes32 permissionSlot = keccak256(abi.encodePacked(_permissionHash, REVOKED_PERMISSION_SLOT));
-		vm.store(address(atr), permissionSlot, bytes32(uint256(1)));
+	function _valueOfGrantedPermission(bytes32 _permissionHash) internal returns (bytes32) {
+		bytes32 permissionSlot = keccak256(abi.encode(_permissionHash, GRANTED_PERMISSION_SLOT));
+		return vm.load(address(atr), permissionSlot);
+	}
+
+	function _mockRevokedPermissionNonce(address _owner, bytes32 _permissionNonce) internal {
+		bytes32 ownersPermissionNonceSlot = keccak256(abi.encode(_owner, REVOKED_PERMISSION_NONCE_SLOT));
+		bytes32 permissionNonceSlot = keccak256(abi.encode(_permissionNonce, ownersPermissionNonceSlot));
+		vm.store(address(atr), permissionNonceSlot, bytes32(uint256(1)));
+	}
+
+	function _valueOfRevokePermissionNonce(address _owner, bytes32 _permissionNonce) internal returns (bytes32) {
+		bytes32 ownersPermissionNonceSlot = keccak256(abi.encode(_owner, REVOKED_PERMISSION_NONCE_SLOT));
+		bytes32 permissionNonceSlot = keccak256(abi.encode(_permissionNonce, ownersPermissionNonceSlot));
+		return vm.load(address(atr), permissionNonceSlot);
 	}
 
 }
@@ -94,9 +106,9 @@ contract RecipientPermissionManager_GrantRecipientPermission_Test is RecipientPe
 	}
 
 	function test_shouldFail_whenPermissionHasBeenRevoked() external {
-		_mockRevokedPermission(permissionHash);
+		_mockRevokedPermissionNonce(permission.recipient, permission.nonce);
 
-		vm.expectRevert("Recipient permission is revoked");
+		vm.expectRevert("Recipient permission nonce is revoked");
 		vm.prank(alice);
 		atr.grantRecipientPermission(permission);
 	}
@@ -105,8 +117,7 @@ contract RecipientPermissionManager_GrantRecipientPermission_Test is RecipientPe
 		vm.prank(alice);
 		atr.grantRecipientPermission(permission);
 
-		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, GRANTED_PERMISSION_SLOT));
-		bytes32 permissionGrantedValue = vm.load(address(atr), permissionSlot);
+		bytes32 permissionGrantedValue = _valueOfGrantedPermission(permissionHash);
 		assertEq(uint256(permissionGrantedValue), 1);
 	}
 
@@ -127,35 +138,30 @@ contract RecipientPermissionManager_GrantRecipientPermission_Test is RecipientPe
 
 contract RecipientPermissionManager_RevokeRecipientPermission_Test is RecipientPermissionManagerTest {
 
-	function test_shouldFail_whenCallerIsNotPermissionRecipient() external {
-		vm.expectRevert("Sender is not permission recipient");
-		vm.prank(bob);
-		atr.revokeRecipientPermission(permission);
-	}
+	bytes32 nonce = keccak256("alice nonce");
 
 	function test_shouldFail_whenPermissionHasBeenRevoked() external {
-		_mockRevokedPermission(permissionHash);
+		_mockRevokedPermissionNonce(alice, nonce);
 
-		vm.expectRevert("Recipient permission is revoked");
+		vm.expectRevert("Recipient permission nonce is revoked");
 		vm.prank(alice);
-		atr.revokeRecipientPermission(permission);
+		atr.revokeRecipientPermission(nonce);
 	}
 
 	function test_shouldStoreThatPermissionIsRevoked() external {
 		vm.prank(alice);
-		atr.revokeRecipientPermission(permission);
+		atr.revokeRecipientPermission(nonce);
 
-		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, REVOKED_PERMISSION_SLOT));
-		bytes32 permissionRevokedValue = vm.load(address(atr), permissionSlot);
-		assertEq(uint256(permissionRevokedValue), 1);
+		bytes32 permissionNonceRevokedValue = _valueOfRevokePermissionNonce(alice, nonce);
+		assertEq(uint256(permissionNonceRevokedValue), 1);
 	}
 
-	function test_shouldEmitRecipientPermissionRevokedEvent() external {
-		vm.expectEmit(true, false, false, false);
-		emit RecipientPermissionRevoked(permissionHash);
+	function test_shouldEmitRecipientPermissionNonceRevokedEvent() external {
+		vm.expectEmit(true, true, false, false);
+		emit RecipientPermissionNonceRevoked(alice, nonce);
 
 		vm.prank(alice);
-		atr.revokeRecipientPermission(permission);
+		atr.revokeRecipientPermission(nonce);
 	}
 
 }
@@ -349,10 +355,10 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 	}
 
 	function test_shouldFail_whenPermissionHasBeenRevoked() external {
-		_mockRevokedPermission(permissionHash);
+		_mockRevokedPermissionNonce(permission.recipient, permission.nonce);
 		_mockGrantedPermission(permissionHash);
 
-		vm.expectRevert("Recipient permission is revoked");
+		vm.expectRevert("Recipient permission nonce is revoked");
 		atr.checkValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
@@ -444,9 +450,8 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 			""
 		);
 
-		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, REVOKED_PERMISSION_SLOT));
-		bytes32 permissionRevokedValue = vm.load(address(atr), permissionSlot);
-		assertEq(uint256(permissionRevokedValue), 0);
+		bytes32 permissionNonceRevokedValue = _valueOfRevokePermissionNonce(permission.recipient, permission.nonce);
+		assertEq(uint256(permissionNonceRevokedValue), 0);
 	}
 
 	function test_shouldStoreThatPermissionIsRevoked_whenNotPersistent() external {
@@ -459,16 +464,15 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 			""
 		);
 
-		bytes32 permissionSlot = keccak256(abi.encodePacked(permissionHash, REVOKED_PERMISSION_SLOT));
-		bytes32 permissionRevokedValue = vm.load(address(atr), permissionSlot);
-		assertEq(uint256(permissionRevokedValue), 1);
+		bytes32 permissionNonceRevokedValue = _valueOfRevokePermissionNonce(permission.recipient, permission.nonce);
+		assertEq(uint256(permissionNonceRevokedValue), 1);
 	}
 
-	function test_shouldEmitRecipientPermissionRevokedEvent() external {
+	function test_shouldEmitRecipientPermissionNonceRevokedEvent() external {
 		_mockGrantedPermission(permissionHash);
 
-		vm.expectEmit(true, false, false, false);
-		emit RecipientPermissionRevoked(permissionHash);
+		vm.expectEmit(true, true, false, false);
+		emit RecipientPermissionNonceRevoked(permission.recipient, permission.nonce);
 
 		atr.checkValidPermission(
 			bob,

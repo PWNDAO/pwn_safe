@@ -59,9 +59,9 @@ abstract contract RecipientPermissionManager {
 	mapping (bytes32 => bool) public grantedPermissions;
 
 	/**
-	 * Mapping of revoked recipient permissions by recipient permission struct typed hash.
+	 * Mapping of revoked recipient nonces by recipient address.
 	 */
-	mapping (bytes32 => bool) public revokedPermissions;
+	mapping (address => mapping (bytes32 => bool)) public revokedPermissionNonces;
 
 
 	/*----------------------------------------------------------*|
@@ -69,7 +69,7 @@ abstract contract RecipientPermissionManager {
 	|*----------------------------------------------------------*/
 
 	event RecipientPermissionGranted(bytes32 indexed permissionHash); // More data for dune analytics?
-	event RecipientPermissionRevoked(bytes32 indexed permissionHash);
+	event RecipientPermissionNonceRevoked(address indexed recipient, bytes32 indexed permissionNonce);
 
 
 	/*----------------------------------------------------------*|
@@ -91,7 +91,7 @@ abstract contract RecipientPermissionManager {
 		require(grantedPermissions[permissionHash] == false, "Recipient permission is granted");
 
 		// Check that permission is not have been revoked
-		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
+		require(revokedPermissionNonces[msg.sender][permission.nonce] == false, "Recipient permission nonce is revoked");
 
 		// Grant permission
 		grantedPermissions[permissionHash] = true;
@@ -101,24 +101,18 @@ abstract contract RecipientPermissionManager {
 	}
 
 	/**
-	 * @notice Revoke recipient permission.
-	 * @dev Function caller has to be permission recipient.
-	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
+	 * @notice Revoke caller permission nonce.
+	 * @param permissionNonce Permission nonce to be revoked for a caller.
 	 */
-	function revokeRecipientPermission(RecipientPermission calldata permission) external {
-		// Check that caller is permission signer
-		require(msg.sender == permission.recipient, "Sender is not permission recipient");
-
-		bytes32 permissionHash = recipientPermissionHash(permission);
-
+	function revokeRecipientPermission(bytes32 permissionNonce) external {
 		// Check that permission is not have been revoked
-		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
+		require(revokedPermissionNonces[msg.sender][permissionNonce] == false, "Recipient permission nonce is revoked");
 
 		// Revoke permission
-		revokedPermissions[permissionHash] = true;
+		revokedPermissionNonces[msg.sender][permissionNonce] = true;
 
 		// Emit event
-		emit RecipientPermissionRevoked(permissionHash);
+		emit RecipientPermissionNonceRevoked(msg.sender, permissionNonce);
 	}
 
 
@@ -130,7 +124,7 @@ abstract contract RecipientPermissionManager {
 	 * @notice Hash recipient permission struct according to EIP-712.
 	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
 	 */
-	function recipientPermissionHash(RecipientPermission calldata permission) public view returns (bytes32) {
+	function recipientPermissionHash(RecipientPermission memory permission) public view returns (bytes32) {
 		return keccak256(abi.encodePacked(
 			"\x19\x01",
 			// Domain separator is composing to prevent replay attack in case of an Ethereum fork
@@ -171,14 +165,16 @@ abstract contract RecipientPermissionManager {
 	function _checkValidPermission(
 		address sender,
 		MultiToken.Asset memory asset,
-		RecipientPermission calldata permission,
+		RecipientPermission memory permission,
 		bytes calldata permissionSignature
 	) internal {
 		// Check that permission is not expired
-		require(permission.expiration == 0 || block.timestamp < permission.expiration, "Recipient permission is expired");
+		uint40 expiration = permission.expiration;
+		require(expiration == 0 || block.timestamp < expiration, "Recipient permission is expired");
 
 		// Check permitted agent
-		require(permission.agent == address(0) || sender == permission.agent, "Caller is not permitted agent");
+		address agent = permission.agent;
+		require(agent == address(0) || sender == agent, "Caller is not permitted agent");
 
 		// Check correct asset
 		require(permission.assetCategory == asset.category, "Invalid permitted asset");
@@ -189,30 +185,32 @@ abstract contract RecipientPermissionManager {
 			require(permission.assetAmount == asset.amount, "Invalid permitted asset");
 		} // Skip id and amount check if ignore flag is true
 
+		// Check that permission nonce is not revoked
+		address recipient = permission.recipient;
+		bytes32 nonce = permission.nonce;
+		require(revokedPermissionNonces[recipient][nonce] == false, "Recipient permission nonce is revoked");
+
 		// Compute EIP-712 structured data hash
 		bytes32 permissionHash = recipientPermissionHash(permission);
-
-		// Check that permission is not revoked
-		require(revokedPermissions[permissionHash] == false, "Recipient permission is revoked");
 
 		// Check that permission is granted
 		// Via on-chain tx, EIP-1271 or off-chain signature
 		if (grantedPermissions[permissionHash] == true) {
 			// Permission is granted on-chain, no need to check signature
-		} else if (permission.recipient.code.length > 0) {
+		} else if (recipient.code.length > 0) {
 			// Check that permission is valid
-			require(IERC1271(permission.recipient).isValidSignature(permissionHash, permissionSignature) == EIP1271_VALID_SIGNATURE, "Signature on behalf of contract is invalid");
+			require(IERC1271(recipient).isValidSignature(permissionHash, permissionSignature) == EIP1271_VALID_SIGNATURE, "Signature on behalf of contract is invalid");
 		} else {
 			// Check that permission signature is valid
-			require(ECDSA.recover(permissionHash, permissionSignature) == permission.recipient, "Permission signer is not stated as recipient");
+			require(ECDSA.recover(permissionHash, permissionSignature) == recipient, "Permission signer is not stated as recipient");
 		}
 
-		// Mark used permission as revoked when not persistent
+		// Mark used permission nonce as revoked if not persistent
 		if (permission.isPersistent == false)
-			revokedPermissions[permissionHash] = true;
+			revokedPermissionNonces[recipient][nonce] = true;
 
 		// Emit event
-		emit RecipientPermissionRevoked(permissionHash);
+		emit RecipientPermissionNonceRevoked(recipient, nonce);
 	}
 
 }

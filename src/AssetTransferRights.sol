@@ -286,7 +286,7 @@ contract AssetTransferRights is
 		address payable from,
 		uint256 atrTokenId,
 		bool burnToken,
-		RecipientPermission calldata permission,
+		RecipientPermission memory permission,
 		bytes calldata permissionSignature
 	) external {
 		// Load asset
