@@ -817,7 +817,6 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		);
 	}
 
-
 	/**
 	 * 1:  mint asset id 1 amount 600
 	 * 2:  mint ATR token 1 for asset id 1 amount 600
@@ -857,9 +856,9 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 	 * 1:  mint asset id 1 amount 600
 	 * 2:  mint ATR token 1 for asset id 1 amount 600
 	 * 3:  transfer ATR token 1 to alice
-	 * 4:  fail to transfer asset to bob
+	 * 4:  fail to transfer asset via ATR token to bob
 	 * 5:  grant bobs recipient permission to alice
-	 * 6:  transfer asset from safe to bob via ATR token hold by alice
+	 * 6:  transfer asset from safe to bob via ATR token held by alice
 	 */
 	function test_UC_ERC1155_3() external {
 		// 1:
@@ -896,6 +895,194 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		atr.grantRecipientPermission(permission);
 
 		// 6:
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 1, true, permission, "");
+	}
+
+	/**
+	 * 1:  mint asset id 1 amount 100
+	 * 2:  mint asset id 2 amount 100
+	 * 3:  mint ATR token 1 for asset id 1 amount 100
+	 * 4:  mint ATR token 2 for asset id 1 amount 100
+	 * 5:  transfer ATR token 1 & 2 to alice
+	 * 6:  grant bobs recipient permission for asset 1 to alice
+	 * 7:  grant bobs recipient permission for asset 2 with same nonce as 1 to alice
+	 * 8:  transfer asset 1 from safe to bob via ATR token held by alice
+	 * 9:  fail to transfer asset 2 from safe to bob via ATR token held by alice
+	 */
+	function test_UC_ERC1155_4() external {
+		// 1:
+		t1155.mint(address(safe), 1, 100);
+
+		// 2:
+		t1155.mint(address(safe), 2, 100);
+
+		// 3:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 100)
+			)
+		);
+
+		// 4:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 2, 100)
+			)
+		);
+
+		// 5:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 1)
+		);
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 2)
+		);
+
+		// 6:
+		RecipientPermissionManager.RecipientPermission memory permission1 = RecipientPermissionManager.RecipientPermission(
+			MultiToken.Category.ERC1155, address(t1155), 1, 100, false,
+			bob, alice, 0, false, keccak256("nonce")
+		);
+		vm.prank(bob);
+		atr.grantRecipientPermission(permission1);
+
+		// 7:
+		RecipientPermissionManager.RecipientPermission memory permission2 = RecipientPermissionManager.RecipientPermission(
+			MultiToken.Category.ERC1155, address(t1155), 2, 100, false,
+			bob, alice, 0, false, keccak256("nonce")
+		);
+		vm.prank(bob);
+		atr.grantRecipientPermission(permission2);
+
+		// 8:
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 1, true, permission1, "");
+
+		// 9:
+		vm.expectRevert("Recipient permission nonce is revoked");
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 2, true, permission2, "");
+	}
+
+	/**
+	 * 1:  mint asset id 1 amount 600
+	 * 2:  mint ATR token 1 for asset id 1 amount 200
+	 * 3:  mint ATR token 2 for asset id 1 amount 200
+	 * 4:  mint ATR token 3 for asset id 1 amount 200
+	 * 5:  transfer ATR token 1, 2 & 3 to alice
+	 * 6:  grant bobs persistent recipient permission to alice
+	 * 7:  transfer asset from safe to bob via ATR 1 token held by alice
+	 * 8:  transfer asset from safe to bob via ATR 2 token held by alice
+	 * 9:  transfer asset from safe to bob via ATR 3 token held by alice
+	 */
+	function test_UC_ERC1155_5() external {
+		// 1:
+		t1155.mint(address(safe), 1, 600);
+
+		// 2:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+			)
+		);
+
+		// 3:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+			)
+		);
+
+		// 4:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+			)
+		);
+
+		// 5:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 1)
+		);
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 2)
+		);
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 3)
+		);
+
+		// 6:
+		RecipientPermissionManager.RecipientPermission memory permission = RecipientPermissionManager.RecipientPermission(
+			MultiToken.Category.ERC1155, address(t1155), 1, 200, false,
+			bob, alice, 0, true, keccak256("nonce")
+		);
+		vm.prank(bob);
+		atr.grantRecipientPermission(permission);
+
+		// 7:
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 1, true, permission, "");
+
+		// 8:
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 2, true, permission, "");
+
+		// 9:
+		vm.prank(alice);
+		atr.transferAssetFrom(payable(address(safe)), 3, true, permission, "");
+	}
+
+	/**
+	 * 1:  mint asset id 1 amount 600
+	 * 2:  mint ATR token 1 for asset id 1 amount 600
+	 * 3:  transfer ATR token 1 to alice
+	 * 4:  grant bobs recipient permission to alice with any id and any amount
+	 * 5:  transfer asset from safe to bob via ATR 1 token held by alice
+	 */
+	function test_UC_ERC1155_6() external {
+		// 1:
+		t1155.mint(address(safe), 1, 600);
+
+		// 2:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+			)
+		);
+
+		// 3:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 1)
+		);
+
+		// 4:
+		RecipientPermissionManager.RecipientPermission memory permission = RecipientPermissionManager.RecipientPermission(
+			MultiToken.Category.ERC1155, address(t1155), 0, 0, true,
+			bob, alice, 0, false, keccak256("nonce")
+		);
+		vm.prank(bob);
+		atr.grantRecipientPermission(permission);
+
+		// 5:
 		vm.prank(alice);
 		atr.transferAssetFrom(payable(address(safe)), 1, true, permission, "");
 	}
