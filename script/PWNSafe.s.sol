@@ -27,26 +27,14 @@ contract Deploy is Script {
 	function run() external {
 		vm.startBroadcast();
 
-		if (block.chainid == 1)
-			deployMainnet();
-		else if (block.chainid == 5)
-			deployGoerli();
-
-		vm.stopBroadcast();
-	}
-
-
-	function deployMainnet() private {
-		// TODO:
-	}
-
-	function deployGoerli() private {
 		deploy(
-			address(0x0),
+			address(0x0), // Fill admin
 			address(0x3E5c63644E683549055b9Be8653de26E0B4CD36E),
 			address(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2),
 			address(0xF97779f08Fa2f952eFb12F5827Ad95cE26fEF432)
 		);
+
+		vm.stopBroadcast();
 	}
 
 
