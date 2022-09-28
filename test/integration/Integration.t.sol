@@ -41,7 +41,7 @@ contract Integration_Test is Test {
 			abi.encode(address(0))
 		);
 
-		// Ethereum mainnet or Goerli testnet
+		// Goerli testnet
 		if (block.chainid == 5) {
 			gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
 			gnosisSafeFactory = GnosisSafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
