@@ -13,9 +13,13 @@ If using ATR token as a collateral instead of an asset, owner of the asset is st
 Assumption for the wallet to work is, that wallet owner cannot grant approval to other address while asset is has its transfer rights minted. In case where "tokenized" asset has some non-standard way how to transfer it / approve it to other address, the wallet cannot provide assurance to the "lender", that the asset is really locked even though ATR token is minted.
 
 ## Deployed addresses
-| Name | Address | Mainnets | Testnets |
+### Mainnet
+TBD
+
+### Goerli
+| Name | Address | Link |
 | --- | --- | --- | --- |
-| AssetTransferRights | 0x1F8610B3805BfB8554Da24360b221Be0ec65D429 | `TBD` | [Goerli](https://goerli.etherscan.io/address/0x1F8610B3805BfB8554Da24360b221Be0ec65D429)
-| AssetTransferRightsGuard | 0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D | `TBD` | [Goerli](https://goerli.etherscan.io/address/0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D)
-| AssetTransferRightsGuardProxy | 0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81 | `TBD` | [Goerli](https://goerli.etherscan.io/address/0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81)
-| OperatorsContext | 0xc163c174F30903334FB641e5426793A057192F92 | `TBD` | [Goerli](https://goerli.etherscan.io/address/0xc163c174F30903334FB641e5426793A057192F92)
+| AssetTransferRights | 0x1F8610B3805BfB8554Da24360b221Be0ec65D429 | [Goerli](https://goerli.etherscan.io/address/0x1F8610B3805BfB8554Da24360b221Be0ec65D429)
+| AssetTransferRightsGuard | 0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D | [Goerli](https://goerli.etherscan.io/address/0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D)
+| AssetTransferRightsGuardProxy | 0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81 | [Goerli](https://goerli.etherscan.io/address/0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81)
+| OperatorsContext | 0xc163c174F30903334FB641e5426793A057192F92 | [Goerli](https://goerli.etherscan.io/address/0xc163c174F30903334FB641e5426793A057192F92)
