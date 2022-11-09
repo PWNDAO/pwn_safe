@@ -23,3 +23,4 @@ TBD
 | AssetTransferRightsGuard | 0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D | [Goerli](https://goerli.etherscan.io/address/0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D)
 | AssetTransferRightsGuardProxy | 0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81 | [Goerli](https://goerli.etherscan.io/address/0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81)
 | OperatorsContext | 0xc163c174F30903334FB641e5426793A057192F92 | [Goerli](https://goerli.etherscan.io/address/0xc163c174F30903334FB641e5426793A057192F92)
+| PWNSafeFactory | 0x705C7b2CC39849fB4Ec49B085FDDC92B7E7Cbd25 | [Goerli](https://goerli.etherscan.io/address/0x705C7b2CC39849fB4Ec49B085FDDC92B7E7Cbd25)
