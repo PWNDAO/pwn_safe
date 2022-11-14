@@ -38,6 +38,13 @@ contract PWNSafeFactory is IPWNSafeValidator {
 
 
 	/*----------------------------------------------------------*|
+	|*  # EVENTS & ERRORS DEFINITIONS                           *|
+	|*----------------------------------------------------------*/
+
+	event PWNSafeDeployed(address indexed safe);
+
+
+	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
@@ -92,6 +99,9 @@ contract PWNSafeFactory is IPWNSafeValidator {
 
 		// Store as valid address
 		isValidSafe[address(safe)] = true;
+
+		// Emit event
+		emit PWNSafeDeployed(address(safe));
 
 		return safe;
 	}

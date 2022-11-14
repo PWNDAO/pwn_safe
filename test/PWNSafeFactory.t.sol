@@ -18,6 +18,8 @@ abstract contract PWNSafeFactoryTest is Test {
 	address guard = address(0x05);
 	address safe = address(0x2afe);
 
+	event PWNSafeDeployed(address indexed safe);
+
 	function setUp() public virtual {
 		factory = new PWNSafeFactory(
 			singleton,
@@ -95,6 +97,13 @@ contract PWNSafeFactory_DeployProxy_Test is PWNSafeFactoryTest {
 
 		bytes32 isValid = vm.load(address(factory), keccak256(abi.encode(safe, uint256(0))));
 		assertEq(uint256(isValid), 1);
+	}
+
+	function test_shouldEmit_PWNSafeDeployed() external {
+		vm.expectEmit(true, false, false, false);
+		emit PWNSafeDeployed(safe);
+
+		factory.deployProxy(_owners(), threshold);
 	}
 
 	function test_shouldReturnNewGnosisSafeProxy() external {
