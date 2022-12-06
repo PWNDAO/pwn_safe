@@ -52,6 +52,11 @@ contract AssetTransferRights is
 	 */
 	uint256 public lastTokenId;
 
+	/**
+	 * @dev ATR token metadata URI with `{id}` placeholder.
+	 */
+	string private _metadataUri;
+
 
 	/*----------------------------------------------------------*|
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
@@ -362,6 +367,27 @@ contract AssetTransferRights is
 
 		// Transfer asset from `from` safe
 		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
+	}
+
+
+	/*----------------------------------------------------------*|
+	|*  # ATR TOKEN METADATA                                    *|
+	|*----------------------------------------------------------*/
+
+	/**
+     * @dev See {IERC721Metadata-tokenURI}.
+     */
+	function tokenURI(uint256 tokenId) override public view returns (string memory) {
+		_requireMinted(tokenId);
+		return _metadataUri;
+	}
+
+	/**
+	 * @notice Set new ATR token metadata URI.
+	 * @param metadataUri New metadata URI.
+	 */
+	function setMetadataUri(string memory metadataUri) external onlyOwner {
+		_metadataUri = metadataUri;
 	}
 
 }

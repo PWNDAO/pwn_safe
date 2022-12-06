@@ -907,7 +907,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 
 
 /*----------------------------------------------------------*|
-|*  # TRANSFER ASSET FROM                                      *|
+|*  # TRANSFER ASSET FROM                                   *|
 |*----------------------------------------------------------*/
 
 contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
@@ -1305,5 +1305,59 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
 	}
 	// <--- Without `burnToken` flag
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # TOKEN URI                                             *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_TokenUri_Test is AssetTransferRightsTest {
+
+	function test_shouldFail_whenTokenIdIsNotMinted() external {
+		vm.expectRevert("ERC721: invalid token ID");
+		atr.tokenURI(42);
+	}
+
+	function test_shouldReturnStoredMetadataUri() external {
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(42, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(address(safe)))));
+		string memory _uri = "test.pwn";
+		atr.setMetadataUri(_uri);
+
+		string memory uri = atr.tokenURI(42);
+
+		assertEq(keccak256(abi.encodePacked(uri)), keccak256(abi.encodePacked(_uri)));
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # SET METEDATA URI                                      *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_SetMetadataUri_Test is AssetTransferRightsTest {
+	using stdStorage for StdStorage;
+
+	function test_shouldFail_whenCallerIsNotOwner() external {
+		address notOwner = address(0x1234567890);
+
+		vm.expectRevert("Ownable: caller is not the owner");
+		vm.prank(notOwner);
+		atr.setMetadataUri("test.pwn");
+	}
+
+	function test_shouldSetMetadataUri() external {
+		bytes32 atrTokenOwnerSlot = keccak256(abi.encode(42, ATR_TOKEN_OWNER_SLOT));
+		vm.store(address(atr), atrTokenOwnerSlot, bytes32(uint256(uint160(address(safe)))));
+		string memory uri = "test.pwn";
+
+		atr.setMetadataUri(uri);
+
+		string memory _uri = atr.tokenURI(42);
+		assertEq(keccak256(abi.encodePacked(uri)), keccak256(abi.encodePacked(_uri)));
+	}
 
 }
