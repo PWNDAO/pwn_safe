@@ -19,8 +19,8 @@ TBD
 ### Goerli
 | Name | Address | Link |
 | --- | --- | --- |
-| AssetTransferRights | 0x1F8610B3805BfB8554Da24360b221Be0ec65D429 | [Goerli](https://goerli.etherscan.io/address/0x1F8610B3805BfB8554Da24360b221Be0ec65D429)
-| AssetTransferRightsGuard | 0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D | [Goerli](https://goerli.etherscan.io/address/0xC56a4B8ac8DD9e60730A7C80Dd0C796dE2F3dB1D)
-| AssetTransferRightsGuardProxy | 0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81 | [Goerli](https://goerli.etherscan.io/address/0x452e15e9B38bAf9578AA5d3a3b6c9c374DAB5D81)
-| OperatorsContext | 0xc163c174F30903334FB641e5426793A057192F92 | [Goerli](https://goerli.etherscan.io/address/0xc163c174F30903334FB641e5426793A057192F92)
-| PWNSafeFactory | 0x9DC2f0A1230f2Af2a4161c8E10b6249C6ADfE402 | [Goerli](https://goerli.etherscan.io/address/0x9DC2f0A1230f2Af2a4161c8E10b6249C6ADfE402)
+| AssetTransferRights | 0xE7e2556C63eC17A2B750c0a2Eb1d6DB2dE06DA89 | [Goerli](https://goerli.etherscan.io/address/0xE7e2556C63eC17A2B750c0a2Eb1d6DB2dE06DA89)
+| AssetTransferRightsGuard | 0x257058924Ba6B39Dd14E7560d3107993bbF4518D | [Goerli](https://goerli.etherscan.io/address/0x257058924Ba6B39Dd14E7560d3107993bbF4518D)
+| AssetTransferRightsGuardProxy | 0xaa80041E74Ae36078C29A68751097CEbf9E322F8 | [Goerli](https://goerli.etherscan.io/address/0xaa80041E74Ae36078C29A68751097CEbf9E322F8)
+| OperatorsContext | 0x90A9E0D74558d57D06Ce5ccA1Af07D9B9c53e0E8 | [Goerli](https://goerli.etherscan.io/address/0x90A9E0D74558d57D06Ce5ccA1Af07D9B9c53e0E8)
+| PWNSafeFactory | 0xAC69CDDE099348c979E3C14A2E754df08Ba7cecd | [Goerli](https://goerli.etherscan.io/address/0xAC69CDDE099348c979E3C14A2E754df08Ba7cecd)
