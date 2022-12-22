@@ -363,7 +363,7 @@ contract AssetTransferRights is
 			_increaseTokenizedBalance(atrTokenId, to, asset);
 		}
 
-		bytes memory data = asset.transferAssetCalldata(from, to);
+		bytes memory data = asset.transferAssetFromCalldata(from, to, true);
 
 		// Transfer asset from `from` safe
 		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
