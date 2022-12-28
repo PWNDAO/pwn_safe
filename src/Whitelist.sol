@@ -37,6 +37,23 @@ contract Whitelist is Ownable {
 
 
     /*----------------------------------------------------------*|
+    |*  # GETTERS                                               *|
+    |*----------------------------------------------------------*/
+
+    /**
+     * @notice Get if an asset can have its transfer rights tokenized.
+     * @param assetAddress Address of asset which transfer rights should be tokenized.
+     * @return True if asset is whitelisted or whitelist is not used at all.
+     */
+    function canBeTokenized(address assetAddress) external view returns (bool) {
+        if (!useWhitelist)
+            return true;
+
+        return isWhitelisted[assetAddress];
+    }
+
+
+    /*----------------------------------------------------------*|
     |*  # SETTERS                                               *|
     |*----------------------------------------------------------*/
 

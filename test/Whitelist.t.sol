@@ -24,6 +24,44 @@ abstract contract WhitelistTest is Test {
 
 }
 
+
+/*----------------------------------------------------------*|
+|*  # CAN BE TOKENIZED                                      *|
+|*----------------------------------------------------------*/
+
+contract Whitelist_CanBeTokenized_Test is WhitelistTest {
+
+    function test_shouldReturnTrue_whenNotUsingWhitelist() external {
+        bool canBeTokenized = whitelist.canBeTokenized(asset);
+
+        assertTrue(canBeTokenized);
+    }
+
+    function test_shouldReturnTrue_whenUsingWhitelist_whenWhitelisted() external {
+        bytes32 assetSlot = keccak256(abi.encode(asset, IS_WHITELISTED_SLOT));
+        vm.store(address(whitelist), assetSlot, bytes32(uint256(1)));
+        // can leave owner address as zero
+        bytes32 zeroSlotValue = bytes32(uint256(1)) << 160;
+        vm.store(address(whitelist), USE_WHITELIST_SLOT, zeroSlotValue);
+
+        bool canBeTokenized = whitelist.canBeTokenized(asset);
+
+        assertTrue(canBeTokenized);
+    }
+
+    function test_shouldReturnFalse_whenUsingWhitelist_whenNotWhitelisted() external {
+        // can leave owner address as zero
+        bytes32 zeroSlotValue = bytes32(uint256(1)) << 160;
+        vm.store(address(whitelist), USE_WHITELIST_SLOT, zeroSlotValue);
+
+        bool canBeTokenized = whitelist.canBeTokenized(asset);
+
+        assertFalse(canBeTokenized);
+    }
+
+}
+
+
 /*----------------------------------------------------------*|
 |*  # SET USE WHITELIST                                     *|
 |*----------------------------------------------------------*/

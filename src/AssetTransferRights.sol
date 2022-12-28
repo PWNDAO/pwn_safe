@@ -125,7 +125,7 @@ contract AssetTransferRights is
 		require(asset.assetAddress != address(this), "Attempting to tokenize ATR token");
 
 		// Check that address is whitelisted
-		require(whitelist.useWhitelist() == false || whitelist.isWhitelisted(asset.assetAddress) == true, "Asset is not whitelisted");
+		require(whitelist.canBeTokenized(asset.assetAddress) == true, "Asset is not whitelisted");
 
 		// Check that provided asset category is correct
 		if (asset.category == MultiToken.Category.ERC20) {

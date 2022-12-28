@@ -119,8 +119,8 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 		);
 		vm.mockCall(
 			whitelist,
-			abi.encodeWithSignature("useWhitelist()"),
-			abi.encode(false)
+			abi.encodeWithSignature("canBeTokenized(address)"),
+			abi.encode(true)
 		);
 	}
 
@@ -168,12 +168,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC721);
 		vm.mockCall(
 			whitelist,
-			abi.encodeWithSignature("useWhitelist()"),
-			abi.encode(true)
-		);
-		vm.mockCall(
-			whitelist,
-			abi.encodeWithSignature("isWhitelisted(address)", token),
+			abi.encodeWithSignature("canBeTokenized(address)", token),
 			abi.encode(false)
 		);
 
@@ -188,12 +183,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC721);
 		vm.mockCall(
 			whitelist,
-			abi.encodeWithSignature("useWhitelist()"),
-			abi.encode(true)
-		);
-		vm.mockCall(
-			whitelist,
-			abi.encodeWithSignature("isWhitelisted(address)", token),
+			abi.encodeWithSignature("canBeTokenized(address)", token),
 			abi.encode(true)
 		);
 
