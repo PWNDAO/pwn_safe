@@ -13,6 +13,8 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 // No additional logic is applied here
 contract TokenizedAssetManagerExposed is AssetTransferRights {
 
+	constructor(address whitelist) AssetTransferRights(whitelist) {}
+
 	function increaseTokenizedBalance(
 		uint256 atrTokenId,
 		address owner,
@@ -54,13 +56,14 @@ abstract contract TokenizedAssetManagerTest is TokenizedAssetManagerStorageHelpe
 	TokenizedAssetManagerExposed atr;
 	address safe = address(0xff);
 	address token = address(0x070ce2);
+	address whitelist = makeAddr("whitelist");
 
 	constructor() {
 		vm.etch(token, bytes("data"));
 	}
 
 	function setUp() virtual external {
-		atr = new TokenizedAssetManagerExposed();
+		atr = new TokenizedAssetManagerExposed(whitelist);
 		setAtr(address(atr));
 	}
 

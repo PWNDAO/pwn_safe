@@ -10,6 +10,8 @@ import "../src/managers/RecipientPermissionManager.sol";
 // No additional logic is applied here
 contract RecipientPermissionManagerExposed is AssetTransferRights {
 
+	constructor(address whitelist) AssetTransferRights(whitelist) {}
+
 	function checkValidPermission(
 		address sender,
 		MultiToken.Asset memory asset,
@@ -24,8 +26,8 @@ contract RecipientPermissionManagerExposed is AssetTransferRights {
 
 abstract contract RecipientPermissionManagerTest is Test {
 
-	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(9)); // `grantedPermissions` mapping position
-	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(10)); // `revokedPermissionNonces` mapping position
+	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(8)); // `grantedPermissions` mapping position
+	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(9)); // `revokedPermissionNonces` mapping position
 
 	RecipientPermissionManagerExposed atr;
 	address alice = address(0xa11ce);
@@ -33,6 +35,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 	address token = address(0x070ce2);
 	RecipientPermissionManager.RecipientPermission permission;
 	bytes32 permissionHash;
+	address whitelist = makeAddr("whitelist");
 
 	event RecipientPermissionGranted(bytes32 indexed permissionHash);
 	event RecipientPermissionNonceRevoked(address indexed recipient, bytes32 indexed permissionNonce);
@@ -42,7 +45,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 	}
 
 	function setUp() virtual public {
-		atr = new RecipientPermissionManagerExposed();
+		atr = new RecipientPermissionManagerExposed(whitelist);
 
 		permission = RecipientPermissionManager.RecipientPermission(
 			MultiToken.Category.ERC721, // assetCategory
@@ -65,7 +68,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 		vm.store(address(atr), permissionSlot, bytes32(uint256(1)));
 	}
 
-	function _valueOfGrantedPermission(bytes32 _permissionHash) internal returns (bytes32) {
+	function _valueOfGrantedPermission(bytes32 _permissionHash) internal view returns (bytes32) {
 		bytes32 permissionSlot = keccak256(abi.encode(_permissionHash, GRANTED_PERMISSION_SLOT));
 		return vm.load(address(atr), permissionSlot);
 	}
@@ -76,7 +79,7 @@ abstract contract RecipientPermissionManagerTest is Test {
 		vm.store(address(atr), permissionNonceSlot, bytes32(uint256(1)));
 	}
 
-	function _valueOfRevokePermissionNonce(address _owner, bytes32 _permissionNonce) internal returns (bytes32) {
+	function _valueOfRevokePermissionNonce(address _owner, bytes32 _permissionNonce) internal view returns (bytes32) {
 		bytes32 ownersPermissionNonceSlot = keccak256(abi.encode(_owner, REVOKED_PERMISSION_NONCE_SLOT));
 		bytes32 permissionNonceSlot = keccak256(abi.encode(_permissionNonce, ownersPermissionNonceSlot));
 		return vm.load(address(atr), permissionNonceSlot);

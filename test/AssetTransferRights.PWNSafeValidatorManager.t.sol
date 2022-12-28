@@ -7,18 +7,19 @@ import "../src/AssetTransferRights.sol";
 
 abstract contract PWNSafeValidatorManagerTest is Test {
 
-	bytes32 constant VALIDATOR_SLOT = bytes32(uint256(3)); // `safeValidator` property position
+	bytes32 constant VALIDATOR_SLOT = bytes32(uint256(2)); // `safeValidator` property position
 
 	AssetTransferRights atr;
 	address notOwner = address(0xff);
 	address validator = address(0xabcdef);
+	address whitelist = makeAddr("whitelist");
 
 	constructor() {
 
 	}
 
 	function setUp() external {
-		atr = new AssetTransferRights();
+		atr = new AssetTransferRights(whitelist);
 	}
 
 }

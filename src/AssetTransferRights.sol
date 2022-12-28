@@ -18,7 +18,8 @@ import "./managers/AssetTransferRightsGuardManager.sol";
 import "./managers/PWNSafeValidatorManager.sol";
 import "./managers/RecipientPermissionManager.sol";
 import "./managers/TokenizedAssetManager.sol";
-import "./managers/WhitelistManager.sol";
+
+import "./Whitelist.sol";
 
 
 /**
@@ -28,7 +29,6 @@ import "./managers/WhitelistManager.sol";
  */
 contract AssetTransferRights is
 	Ownable,
-	WhitelistManager,
 	AssetTransferRightsGuardManager,
 	PWNSafeValidatorManager,
 	TokenizedAssetManager,
@@ -53,6 +53,11 @@ contract AssetTransferRights is
 	uint256 public lastTokenId;
 
 	/**
+	 * @notice Address of the whitelist contract.
+	 */
+	Whitelist public whitelist;
+
+	/**
 	 * @dev ATR token metadata URI with `{id}` placeholder.
 	 */
 	string private _metadataUri;
@@ -74,11 +79,6 @@ contract AssetTransferRights is
 		_;
 	}
 
-	modifier onlyWhitelistManager override {
-		_checkOwner();
-		_;
-	}
-
 	modifier onlyValidatorManager override {
 		_checkOwner();
 		_;
@@ -89,11 +89,11 @@ contract AssetTransferRights is
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor()
+	constructor(address _whitelist)
 		Ownable()
 		ERC721("Asset Transfer Rights", "ATR")
 	{
-		useWhitelist = true;
+		whitelist = Whitelist(_whitelist);
 	}
 
 
@@ -125,7 +125,7 @@ contract AssetTransferRights is
 		require(asset.assetAddress != address(this), "Attempting to tokenize ATR token");
 
 		// Check that address is whitelisted
-		require(useWhitelist == false || isWhitelisted[asset.assetAddress] == true, "Asset is not whitelisted");
+		require(whitelist.useWhitelist() == false || whitelist.isWhitelisted(asset.assetAddress) == true, "Asset is not whitelisted");
 
 		// Check that provided asset category is correct
 		if (asset.category == MultiToken.Category.ERC20) {

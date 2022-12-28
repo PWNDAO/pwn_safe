@@ -7,18 +7,19 @@ import "../src/AssetTransferRights.sol";
 
 abstract contract AssetTransferRightsGuardManagerTest is Test {
 
-	bytes32 constant GUARD_SLOT = bytes32(uint256(2)); // `atrGuard` property position
+	bytes32 constant GUARD_SLOT = bytes32(uint256(1)); // `atrGuard` property position
 
 	AssetTransferRights atr;
-	address notOwner = address(0xff);
-	address guard = address(0xabcdef);
+	address notOwner = makeAddr("notOwner");
+	address guard = makeAddr("guard");
+	address whitelist = makeAddr("whitelist");
 
 	constructor() {
 
 	}
 
 	function setUp() external {
-		atr = new AssetTransferRights();
+		atr = new AssetTransferRights(whitelist);
 	}
 
 }

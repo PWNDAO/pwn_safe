@@ -12,11 +12,11 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
 
-	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(9)); // `grantedPermissions` mapping position
-	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(10)); // `revokedPermissionNonces` mapping position
-	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(13)); // `_owners` ERC721 mapping position
-	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(14)); // `_balances` ERC721 mapping position
-	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(17)); // `lastTokenId` property position
+	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(8)); // `grantedPermissions` mapping position
+	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(9)); // `revokedPermissionNonces` mapping position
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(12)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(13)); // `_balances` ERC721 mapping position
+	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(16)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
 	address payable safe = payable(address(0xff));
@@ -25,6 +25,7 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 	address bob = address(0xb0b);
 	address guard = address(0x1111);
 	address safeValidator = address(0x2222);
+	address whitelist = makeAddr("whitelist");
 
 	uint256 erc20Amount = 100e18;
 	uint256 erc1155Amount = 100;
@@ -36,12 +37,11 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 	}
 
 	function setUp() virtual public {
-		atr = new AssetTransferRights();
+		atr = new AssetTransferRights(whitelist);
 		setAtr(address(atr));
 
 		atr.setAssetTransferRightsGuard(guard);
 		atr.setPWNSafeValidator(safeValidator);
-		atr.setUseWhitelist(false);
 
 		_mockDependencyContracts();
 	}
@@ -117,6 +117,11 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 			abi.encodeWithSignature("isValidSafe(address)"),
 			abi.encode(false)
 		);
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("useWhitelist()"),
+			abi.encode(false)
+		);
 	}
 
 }
@@ -161,7 +166,16 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 	function test_shouldFail_whenUsingWhitelist_whenAssetIsNotWhitelisted() external {
 		_mockToken(MultiToken.Category.ERC721);
-		atr.setUseWhitelist(true);
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("useWhitelist()"),
+			abi.encode(true)
+		);
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("isWhitelisted(address)", token),
+			abi.encode(false)
+		);
 
 		vm.expectRevert("Asset is not whitelisted");
 		vm.prank(safe);
@@ -172,8 +186,16 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 	function test_shouldPass_whenUsingWhitelist_whenAssetWhitelisted() external {
 		_mockToken(MultiToken.Category.ERC721);
-		atr.setUseWhitelist(true);
-		atr.setIsWhitelisted(token, true);
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("useWhitelist()"),
+			abi.encode(true)
+		);
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("isWhitelisted(address)", token),
+			abi.encode(true)
+		);
 
 		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
@@ -978,7 +1000,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		vm.store(address(atr), permissionNonceSlot, bytes32(uint256(1)));
 	}
 
-	function _valueOfRevokePermissionNonce(address _owner, bytes32 _permissionNonce) internal returns (bytes32) {
+	function _valueOfRevokePermissionNonce(address _owner, bytes32 _permissionNonce) internal view returns (bytes32) {
 		bytes32 ownersPermissionNonceSlot = keccak256(abi.encode(_owner, REVOKED_PERMISSION_NONCE_SLOT));
 		bytes32 permissionNonceSlot = keccak256(abi.encode(_permissionNonce, ownersPermissionNonceSlot));
 		return vm.load(address(atr), permissionNonceSlot);
