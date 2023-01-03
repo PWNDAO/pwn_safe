@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
-import "openzeppelin-contracts/contracts/utils/structs/EnumerableMap.sol";
-import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/utils/structs/EnumerableMap.sol";
+import "@openzeppelin/utils/structs/EnumerableSet.sol";
 
 import "MultiToken/MultiToken.sol";
 

@@ -1,4 +1,10 @@
 [profile.default]
 solc_version = '0.8.15'
 
-# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+remappings = [
+    "@safe/=lib/safe-contracts/contracts/",
+    "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
+
+    "@pwn-safe/=src/",
+    "@pwn-safe-test/=test/"
+]

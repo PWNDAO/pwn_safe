@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
-import "openzeppelin-contracts/contracts/utils/introspection/IERC1820Registry.sol";
-import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/token/ERC20/IERC20.sol";
+import "@openzeppelin/token/ERC777/IERC777.sol";
+import "@openzeppelin/utils/introspection/IERC1820Registry.sol";
+import "@openzeppelin/utils/structs/EnumerableSet.sol";
 
-import "safe-contracts/base/GuardManager.sol";
-import "safe-contracts/common/Enum.sol";
+import "@safe/base/GuardManager.sol";
+import "@safe/common/Enum.sol";
 
-import "../AssetTransferRights.sol";
-import "./IAssetTransferRightsGuard.sol";
-import "./OperatorsContext.sol";
+import "@pwn-safe/guard/IAssetTransferRightsGuard.sol";
+import "@pwn-safe/guard/OperatorsContext.sol";
+import "@pwn-safe/module/AssetTransferRights.sol";
 
 
 /**

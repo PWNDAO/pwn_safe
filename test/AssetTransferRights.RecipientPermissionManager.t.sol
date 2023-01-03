@@ -2,8 +2,9 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../src/AssetTransferRights.sol";
-import "../src/managers/RecipientPermissionManager.sol";
+
+import "@pwn-safe/module/AssetTransferRights.sol";
+import "@pwn-safe/module/RecipientPermissionManager.sol";
 
 
 // The only reason for this contract is to expose internal functions of RecipientPermissionManager

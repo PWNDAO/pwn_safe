@@ -2,7 +2,8 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../src/guard/OperatorsContext.sol";
+
+import "@pwn-safe/guard/OperatorsContext.sol";
 
 
 // The only reason for this contract is to expose internal functions of OperatorsContext

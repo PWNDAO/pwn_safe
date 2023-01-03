@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
-import "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
-import "safe-contracts/GnosisSafe.sol";
-import "../../../src/AssetTransferRights.sol";
+import "@openzeppelin/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/utils/introspection/IERC165.sol";
+
+import "@safe/GnosisSafe.sol";
+
+import "@pwn-safe/module/AssetTransferRights.sol";
 
 
 contract HackerWallet is IERC165, IERC721Receiver {

@@ -2,10 +2,12 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "safe-contracts/proxies/GnosisSafeProxy.sol";
-import "safe-contracts/common/Enum.sol";
-import "safe-contracts/GnosisSafe.sol";
-import "../src/factory/PWNSafeFactory.sol";
+
+import "@safe/proxies/GnosisSafeProxy.sol";
+import "@safe/common/Enum.sol";
+import "@safe/GnosisSafe.sol";
+
+import "@pwn-safe/factory/PWNSafeFactory.sol";
 
 
 abstract contract PWNSafeFactoryTest is Test {

@@ -2,7 +2,8 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../src/handler/CompatibilityFallbackHandler.sol";
+
+import "@pwn-safe/handler/CompatibilityFallbackHandler.sol";
 
 
 // Testing only added functionality

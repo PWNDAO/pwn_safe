@@ -2,7 +2,8 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../src/guard/AssetTransferRightsGuard.sol";
+
+import "@pwn-safe/guard/AssetTransferRightsGuard.sol";
 
 
 abstract contract AssetTransferRightsGuardTest is Test {

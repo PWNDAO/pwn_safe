@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
-import "safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import "safe-contracts/proxies/GnosisSafeProxy.sol";
-import "safe-contracts/GnosisSafe.sol";
+import "@safe/proxies/GnosisSafeProxyFactory.sol";
+import "@safe/proxies/GnosisSafeProxy.sol";
+import "@safe/GnosisSafe.sol";
 
-import "./IPWNSafeValidator.sol";
+import "@pwn-safe/factory/IPWNSafeValidator.sol";
 
 
 /**

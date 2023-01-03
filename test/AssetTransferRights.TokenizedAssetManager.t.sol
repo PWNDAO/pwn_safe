@@ -2,11 +2,14 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC721.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC1155.sol";
-import "../src/AssetTransferRights.sol";
-import "./helpers/TokenizedAssetManagerStorageHelper.sol";
+
+import "@openzeppelin/interfaces/IERC20.sol";
+import "@openzeppelin/interfaces/IERC721.sol";
+import "@openzeppelin/interfaces/IERC1155.sol";
+
+import "@pwn-safe/module/AssetTransferRights.sol";
+
+import "@pwn-safe-test/helpers/TokenizedAssetManagerStorageHelper.sol";
 
 
 // The only reason for this contract is to expose internal functions of TokenizedAssetManager

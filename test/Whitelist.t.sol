@@ -2,7 +2,8 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
-import "../src/Whitelist.sol";
+
+import "@pwn-safe/Whitelist.sol";
 
 
 abstract contract WhitelistTest is Test {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.15;
 
-import "safe-contracts/handler/DefaultCallbackHandler.sol";
-import "safe-contracts/interfaces/ISignatureValidator.sol";
-import "safe-contracts/GnosisSafe.sol";
-import "../Whitelist.sol";
+import "@safe/handler/DefaultCallbackHandler.sol";
+import "@safe/interfaces/ISignatureValidator.sol";
+import "@safe/GnosisSafe.sol";
+
+import "@pwn-safe/Whitelist.sol";
 
 /**
  * This file is copy of https://github.com/safe-global/safe-contracts/blob/821d5fbdc2a4e7776d66c9f232b000b81e60bffc/contracts/handler/CompatibilityFallbackHandler.sol

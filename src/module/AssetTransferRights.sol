@@ -1,30 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
-import "openzeppelin-contracts/contracts/access/Ownable.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
-import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
-import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
-import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
+import "@openzeppelin/access/Ownable.sol";
+import "@openzeppelin/token/ERC20/IERC20.sol";
+import "@openzeppelin/token/ERC721/ERC721.sol";
+import "@openzeppelin/token/ERC721/IERC721.sol";
+import "@openzeppelin/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/proxy/utils/Initializable.sol";
+import "@openzeppelin/utils/introspection/ERC165Checker.sol";
 
-import "safe-contracts/common/Enum.sol";
-import "safe-contracts/GnosisSafe.sol";
+import "@safe/common/Enum.sol";
+import "@safe/GnosisSafe.sol";
 
 import "MultiToken/MultiToken.sol";
 
-import "./factory/IPWNSafeValidator.sol";
-import "./guard/IAssetTransferRightsGuard.sol";
-import "./managers/RecipientPermissionManager.sol";
-import "./managers/TokenizedAssetManager.sol";
-import "./Whitelist.sol";
+import "@pwn-safe/factory/IPWNSafeValidator.sol";
+import "@pwn-safe/guard/IAssetTransferRightsGuard.sol";
+import "@pwn-safe/module/RecipientPermissionManager.sol";
+import "@pwn-safe/module/TokenizedAssetManager.sol";
+import "@pwn-safe/Whitelist.sol";
 
 
 /**
  * @title Asset Transfer Rights contract
  * @notice This contract represents tokenized transfer rights of underlying asset (ATR token).
  *         ATR token can be used in lending protocols instead of an underlying asset.
+ * @dev Is used as a module of Gnosis Safe contract wallet.
  */
 contract AssetTransferRights is
 	Ownable,
