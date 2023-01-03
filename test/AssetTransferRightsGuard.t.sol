@@ -30,7 +30,8 @@ abstract contract AssetTransferRightsGuardTest is Test {
 	}
 
 	function setUp() external {
-		guard = new AssetTransferRightsGuard(module);
+		guard = new AssetTransferRightsGuard();
+		guard.initialize(module);
 	}
 
 
@@ -115,16 +116,26 @@ abstract contract AssetTransferRightsGuardTest is Test {
 
 
 /*----------------------------------------------------------*|
-|*  # CONSTRUCTOR                                           *|
+|*  # INITIALIZE                                            *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRightsGuard_Constructor_Test is AssetTransferRightsGuardTest {
+contract AssetTransferRightsGuard_Initialize_Test is AssetTransferRightsGuardTest {
 
 	function test_shouldSetParams() external {
-		guard = new AssetTransferRightsGuard(module);
+		guard = new AssetTransferRightsGuard();
+		guard.initialize(module);
 
-		bytes32 atrValue = vm.load(address(guard), ATR_SLOT);
+		// Check atr module value (need to shift by 2 bytes to clear Initializable properties)
+		bytes32 atrValue = vm.load(address(guard), ATR_SLOT) >> 16;
 		assertEq(atrValue, bytes32(uint256(uint160(module))));
+	}
+
+	function test_shouldFail_whenCalledSecondTime() external {
+		guard = new AssetTransferRightsGuard();
+		guard.initialize(module);
+
+		vm.expectRevert("Initializable: contract is already initialized");
+		guard.initialize(module);
 	}
 
 }

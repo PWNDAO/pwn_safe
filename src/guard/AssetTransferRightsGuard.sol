@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import "@openzeppelin/token/ERC20/IERC20.sol";
 import "@openzeppelin/token/ERC777/IERC777.sol";
+import "@openzeppelin/proxy/utils/Initializable.sol";
 import "@openzeppelin/utils/introspection/IERC1820Registry.sol";
 import "@openzeppelin/utils/structs/EnumerableSet.sol";
 
@@ -19,7 +20,7 @@ import "@pwn-safe/module/AssetTransferRights.sol";
  * @notice Contract responsible for enforcing asset transfer right rules.
  * @dev Should be used as a Gnosis Safe guard.
  */
-contract AssetTransferRightsGuard is Guard, OperatorsContext, IAssetTransferRightsGuard {
+contract AssetTransferRightsGuard is Guard, OperatorsContext, Initializable, IAssetTransferRightsGuard {
 	using EnumerableSet for EnumerableSet.AddressSet;
 
 
@@ -38,7 +39,15 @@ contract AssetTransferRightsGuard is Guard, OperatorsContext, IAssetTransferRigh
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor(address _atr) {
+	constructor() {
+
+	}
+
+	/**
+	 * @dev Initialize AssetTransferRightsGuard.
+	 * @param _atr Address of AssetTransferRights contract, used to check tokenized balances.
+	 */
+	function initialize(address _atr) external initializer {
 		atr = AssetTransferRights(_atr);
 	}
 
