@@ -6,6 +6,7 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 
 import "safe-contracts/common/Enum.sol";
@@ -13,12 +14,10 @@ import "safe-contracts/GnosisSafe.sol";
 
 import "MultiToken/MultiToken.sol";
 
+import "./factory/IPWNSafeValidator.sol";
 import "./guard/IAssetTransferRightsGuard.sol";
-import "./managers/AssetTransferRightsGuardManager.sol";
-import "./managers/PWNSafeValidatorManager.sol";
 import "./managers/RecipientPermissionManager.sol";
 import "./managers/TokenizedAssetManager.sol";
-
 import "./Whitelist.sol";
 
 
@@ -29,8 +28,7 @@ import "./Whitelist.sol";
  */
 contract AssetTransferRights is
 	Ownable,
-	AssetTransferRightsGuardManager,
-	PWNSafeValidatorManager,
+	Initializable,
 	TokenizedAssetManager,
 	RecipientPermissionManager,
 	ERC721
@@ -53,7 +51,19 @@ contract AssetTransferRights is
 	uint256 public lastTokenId;
 
 	/**
+	 * @notice Address of the safe validator.
+	 * @dev Safe validator keeps track of valid PWN Safes.
+	 */
+	IPWNSafeValidator public safeValidator;
+
+	/**
+	 * @notice Address of the ATR guard.
+	 */
+	IAssetTransferRightsGuard public atrGuard;
+
+	/**
 	 * @notice Address of the whitelist contract.
+	 * @dev If used, only assets that are whitelisted could be tokenized.
 	 */
 	Whitelist public whitelist;
 
@@ -71,21 +81,6 @@ contract AssetTransferRights is
 
 
 	/*----------------------------------------------------------*|
-	|*  # MODIFIERS                                             *|
-	|*----------------------------------------------------------*/
-
-	modifier onlyGuardManager override {
-		_checkOwner();
-		_;
-	}
-
-	modifier onlyValidatorManager override {
-		_checkOwner();
-		_;
-	}
-
-
-	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
@@ -94,6 +89,11 @@ contract AssetTransferRights is
 		ERC721("Asset Transfer Rights", "ATR")
 	{
 		whitelist = Whitelist(_whitelist);
+	}
+
+	function initialize(address _safeValidator, address _atrGuard) external initializer {
+		safeValidator = IPWNSafeValidator(_safeValidator);
+		atrGuard = IAssetTransferRightsGuard(_atrGuard);
 	}
 
 

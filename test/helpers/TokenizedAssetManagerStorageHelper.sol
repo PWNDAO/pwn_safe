@@ -7,11 +7,11 @@ import "MultiToken/MultiToken.sol";
 
 abstract contract TokenizedAssetManagerStorageHelper is Test {
 
-	bytes32 internal constant ASSETS_SLOT = bytes32(uint256(3)); // `assets` mapping position
-	bytes32 internal constant ASSETS_IN_SAFE_SLOT = bytes32(uint256(4)); // `tokenizedAssetsInSafe` mapping position
-	bytes32 internal constant TOKENIZED_BALANCES_SLOT = bytes32(uint256(5)); // `tokenizedBalances` mapping position
-	bytes32 internal constant INVALID_TOKENIZED_BALANCE_REPORTS_SLOT = bytes32(uint256(6)); // `invalidTokenizedBalanceReports` mapping position
-	bytes32 internal constant IS_INVALID_SLOT = bytes32(uint256(7)); // `isInvalid` mapping position
+	bytes32 internal constant ASSETS_SLOT = bytes32(uint256(1)); // `assets` mapping position
+	bytes32 internal constant ASSETS_IN_SAFE_SLOT = bytes32(uint256(2)); // `tokenizedAssetsInSafe` mapping position
+	bytes32 internal constant TOKENIZED_BALANCES_SLOT = bytes32(uint256(3)); // `tokenizedBalances` mapping position
+	bytes32 internal constant INVALID_TOKENIZED_BALANCE_REPORTS_SLOT = bytes32(uint256(4)); // `invalidTokenizedBalanceReports` mapping position
+	bytes32 internal constant IS_INVALID_SLOT = bytes32(uint256(5)); // `isInvalid` mapping position
 
 	address private atr;
 

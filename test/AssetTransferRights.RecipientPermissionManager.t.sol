@@ -26,8 +26,8 @@ contract RecipientPermissionManagerExposed is AssetTransferRights {
 
 abstract contract RecipientPermissionManagerTest is Test {
 
-	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(8)); // `grantedPermissions` mapping position
-	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(9)); // `revokedPermissionNonces` mapping position
+	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(6)); // `grantedPermissions` mapping position
+	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(7)); // `revokedPermissionNonces` mapping position
 
 	RecipientPermissionManagerExposed atr;
 	address alice = address(0xa11ce);

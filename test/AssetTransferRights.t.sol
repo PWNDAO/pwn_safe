@@ -12,11 +12,11 @@ import "./helpers/TokenizedAssetManagerStorageHelper.sol";
 
 abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper {
 
-	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(8)); // `grantedPermissions` mapping position
-	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(9)); // `revokedPermissionNonces` mapping position
-	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(12)); // `_owners` ERC721 mapping position
-	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(13)); // `_balances` ERC721 mapping position
-	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(16)); // `lastTokenId` property position
+	bytes32 internal constant GRANTED_PERMISSION_SLOT = bytes32(uint256(6)); // `grantedPermissions` mapping position
+	bytes32 internal constant REVOKED_PERMISSION_NONCE_SLOT = bytes32(uint256(7)); // `revokedPermissionNonces` mapping position
+	bytes32 internal constant ATR_TOKEN_OWNER_SLOT = bytes32(uint256(10)); // `_owners` ERC721 mapping position
+	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(11)); // `_balances` ERC721 mapping position
+	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(14)); // `lastTokenId` property position
 
 	AssetTransferRights atr;
 	address payable safe = payable(address(0xff));
@@ -40,8 +40,7 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 		atr = new AssetTransferRights(whitelist);
 		setAtr(address(atr));
 
-		atr.setAssetTransferRightsGuard(guard);
-		atr.setPWNSafeValidator(safeValidator);
+		atr.initialize(safeValidator, guard);
 
 		_mockDependencyContracts();
 	}
@@ -122,6 +121,73 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 			abi.encodeWithSignature("canBeTokenized(address)"),
 			abi.encode(true)
 		);
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # CONSTRUCTOR                                           *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_Constructor_Test is AssetTransferRightsTest {
+
+	function test_shouldSetCorrectMetadata() external {
+		atr = new AssetTransferRights(whitelist);
+
+		bytes32 nameValue = vm.load(address(atr), bytes32(uint256(8)));
+		bytes32 symbolValue = vm.load(address(atr), bytes32(uint256(9)));
+		// Asset Transfer Rights
+		assertEq(nameValue, 0x4173736574205472616e7366657220526967687473000000000000000000002a);
+		// ATR
+		assertEq(symbolValue, 0x4154520000000000000000000000000000000000000000000000000000000006);
+	}
+
+	function test_shouldStoreParameters() external {
+		address otherWhitelist = makeAddr("other whitelist");
+
+		atr = new AssetTransferRights(otherWhitelist);
+
+		bytes32 whitelistValue = vm.load(address(atr), bytes32(uint256(17)));
+		assertEq(whitelistValue, bytes32(uint256(uint160(otherWhitelist))));
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # INITIALIZABLE                                         *|
+|*----------------------------------------------------------*/
+
+contract AssetTransferRights_Initialize_Test is AssetTransferRightsTest {
+
+	function setUp() override public {
+		atr = new AssetTransferRights(whitelist);
+	}
+
+
+	function test_shouldStoreParameters() external {
+		atr.initialize(safeValidator, guard);
+
+		bytes32 safeValidatorValue = vm.load(address(atr), bytes32(uint256(15)));
+		bytes32 guardValue = vm.load(address(atr), bytes32(uint256(16)));
+		assertEq(safeValidatorValue, bytes32(uint256(uint160(safeValidator))));
+		assertEq(guardValue, bytes32(uint256(uint160(guard))));
+	}
+
+	function test_shouldFail_whenCalledTwice() external {
+		atr.initialize(safeValidator, guard);
+
+		vm.expectRevert("Initializable: contract is already initialized");
+		atr.initialize(safeValidator, guard);
+	}
+
+	function test_shouldSetContractAsInitialized() external {
+		atr.initialize(safeValidator, guard);
+
+		// `_initialized` valus is stored in the first slot with 20 bytes offset and take 1 byte
+		uint256 initializedValue = uint256(vm.load(address(atr), bytes32(uint256(0))) >> 160) & 0xff;
+		assertEq(initializedValue, 1);
 	}
 
 }
