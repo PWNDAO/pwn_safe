@@ -5,28 +5,59 @@ import "forge-std/Test.sol";
 import "../src/guard/OperatorsContext.sol";
 
 
+// The only reason for this contract is to expose internal functions of OperatorsContext
+// No additional logic is applied here
+contract OperatorsContextExposed is OperatorsContext {
+
+	function addOperator(address safe, address asset, address operator) external {
+		_addOperator(safe, asset, operator);
+	}
+
+	function removeOperator(address safe, address asset, address operator) external {
+		_removeOperator(safe, asset, operator);
+	}
+
+}
+
 abstract contract OperatorsContextTest is Test {
 
-	bytes32 internal constant OPERATORS_SLOT = bytes32(uint256(1)); // `operators` mapping position
+	bytes32 internal constant OPERATORS_SLOT = bytes32(uint256(0)); // `operators` mapping position
 
-	OperatorsContext context;
-	address guard = address(0x1111);
-	address notGuard = address(0x1112);
-
-	address safe = address(0xff);
-	address alice = address(0xa11ce);
-	address token = address(0x070ce2);
+	OperatorsContextExposed context;
+	address safe = makeAddr("safe");
+	address alice = makeAddr("alice");
+	address token = makeAddr("token");
 
 
 	function setUp() external {
-		context = new OperatorsContext(guard);
+		context = new OperatorsContextExposed();
 	}
 
 
 	function _mockStoredOperator(address _safe, address assetAddress, address operator) internal {
-		vm.store(address(context), _operatorsSetSlotFor(_safe, assetAddress), bytes32(uint256(1)));
-		vm.store(address(context), _operatorsFirstValueSlotFor(_safe, assetAddress), bytes32(uint256(uint160(operator))));
-		vm.store(address(context), _operatorsIndexeSlotFor(_safe, assetAddress, operator), bytes32(uint256(1)));
+		_mockStoredOperator(_safe, assetAddress, operator, 0);
+	}
+
+	// Used index has to be incremental. Skipping an index leads to undefined behaviour.
+	function _mockStoredOperator(address _safe, address assetAddress, address operator, uint256 index) internal {
+		// Store new number of operators
+		vm.store(
+			address(context),
+			_operatorsSetSlotFor(_safe, assetAddress),
+			bytes32(index + 1)
+		);
+		// Store operator
+		vm.store(
+			address(context),
+			bytes32(uint256(_operatorsFirstValueSlotFor(_safe, assetAddress)) + index),
+			bytes32(uint256(uint160(operator)))
+		);
+		// Store index of the operator
+		vm.store(
+			address(context),
+			_operatorsIndexeSlotFor(_safe, assetAddress, operator),
+			bytes32(index + 1)
+		);
 	}
 
 
@@ -71,15 +102,8 @@ abstract contract OperatorsContextTest is Test {
 
 contract OperatorsContext_Add_Test is OperatorsContextTest {
 
-	function test_shouldFail_whenCallerIsNotGuard() external {
-		vm.expectRevert("Sender is not guard address");
-		vm.prank(notGuard);
-		context.add(safe, token, alice);
-	}
-
 	function test_shouldAddOperatorToSafeUnderAsset() external {
-		vm.prank(guard);
-		context.add(safe, token, alice);
+		context.addOperator(safe, token, alice);
 
 		// Operator has first index
 		bytes32 operatorIndex = vm.load(address(context), _operatorsIndexeSlotFor(safe, token, alice));
@@ -95,8 +119,7 @@ contract OperatorsContext_Add_Test is OperatorsContextTest {
 	function test_shouldNotFail_whenOperatorIsStored() external {
 		_mockStoredOperator(safe, token, alice);
 
-		vm.prank(guard);
-		context.add(safe, token, alice);
+		context.addOperator(safe, token, alice);
 
 		// Set size does not change
 		bytes32 operatorsLength = vm.load(address(context), _operatorsSetSlotFor(safe, token));
@@ -112,17 +135,10 @@ contract OperatorsContext_Add_Test is OperatorsContextTest {
 
 contract OperatorsContext_Remove_Test is OperatorsContextTest {
 
-	function test_shouldFail_whenCallerIsNotGuard() external {
-		vm.expectRevert("Sender is not guard address");
-		vm.prank(notGuard);
-		context.remove(safe, token, alice);
-	}
-
 	function test_shouldRemoveOperatorFromSafeUnderAsset() external {
 		_mockStoredOperator(safe, token, alice);
 
-		vm.prank(guard);
-		context.remove(safe, token, alice);
+		context.removeOperator(safe, token, alice);
 
 		// Operator has no index
 		bytes32 operatorIndex = vm.load(address(context), _operatorsIndexeSlotFor(safe, token, alice));
@@ -133,8 +149,7 @@ contract OperatorsContext_Remove_Test is OperatorsContextTest {
 	}
 
 	function test_shouldNotFail_whenOperatorIsNotStored() external {
-		vm.prank(guard);
-		context.remove(safe, token, alice);
+		context.removeOperator(safe, token, alice);
 	}
 
 }
@@ -151,16 +166,46 @@ contract OperatorsContext_HasOperatorFor_Test is OperatorsContextTest {
 
 		bool hasOperator = context.hasOperatorFor(safe, token);
 
-		assertEq(hasOperator, true);
+		assertTrue(hasOperator);
 	}
 
 	function test_shouldReturnFalse_whenSafeDoesNotHaveOperatorUnderAsset() external {
-		address otherToken = address(0x070ce3);
+		address otherToken = makeAddr("other token");
 		_mockStoredOperator(safe, otherToken, alice);
 
 		bool hasOperator = context.hasOperatorFor(safe, token);
 
-		assertEq(hasOperator, false);
+		assertFalse(hasOperator);
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # OPERATORS FOR                                         *|
+|*----------------------------------------------------------*/
+
+contract OperatorsContext_OperatorsFor_Test is OperatorsContextTest {
+
+	function test_shouldReturnEmptyList_whenNoRecordedOperators() external {
+		address[] memory operators = context.operatorsFor(safe, token);
+
+		assertEq(operators.length, 0);
+	}
+
+	function test_shouldReturnListOfAllOperators_whenSomeRecordedOperators() external {
+		address bob = makeAddr("bob");
+		address peter = makeAddr("peter");
+		_mockStoredOperator(safe, token, alice, 0);
+		_mockStoredOperator(safe, token, bob, 1);
+		_mockStoredOperator(safe, token, peter, 2);
+
+		address[] memory operators = context.operatorsFor(safe, token);
+
+		assertEq(operators.length, 3);
+		assertEq(operators[0], alice);
+		assertEq(operators[1], bob);
+		assertEq(operators[2], peter);
 	}
 
 }

@@ -7,16 +7,15 @@ import "../src/guard/AssetTransferRightsGuard.sol";
 
 abstract contract AssetTransferRightsGuardTest is Test {
 
-	bytes32 internal constant ATR_SLOT = bytes32(uint256(0));
-	bytes32 internal constant OPERATORS_CONTEXT_SLOT = bytes32(uint256(1));
+	bytes32 internal constant OPERATORS_SLOT = bytes32(uint256(0));
+	bytes32 internal constant ATR_SLOT = bytes32(uint256(1));
 	address internal constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	AssetTransferRightsGuard guard;
-	address module = address(0x7701);
-	address operators = address(0x7702);
-	address safe = address(0x2afe);
-	address token = address(0x070ce2);
-	address alice = address(0xa11ce);
+	address module = makeAddr("module");
+	address safe = makeAddr("safe");
+	address token = makeAddr("token");
+	address alice = makeAddr("alice");
 
 	constructor() {
 		// ERC1820 Registry
@@ -27,41 +26,104 @@ abstract contract AssetTransferRightsGuardTest is Test {
 			abi.encode(address(0))
 		);
 		vm.etch(module, bytes("data"));
-		vm.etch(operators, bytes("data"));
 	}
 
 	function setUp() external {
-		guard = new AssetTransferRightsGuard();
-		guard.initialize(module, operators);
+		guard = new AssetTransferRightsGuard(module);
+	}
+
+
+	function _isOperatorInSet(address _safe, address assetAddress, address operator) internal view returns (bool) {
+		bytes32 indexValue = vm.load(
+			address(guard),
+			_operatorsIndexeSlotFor(_safe, assetAddress, operator)
+		);
+
+		// Check if operator has an index in the set
+		if (indexValue == 0)
+			return false;
+
+		bytes32 operatorValue = vm.load(
+			address(guard),
+			bytes32(uint256(_operatorsFirstValueSlotFor(_safe, assetAddress)) + uint256(indexValue) - 1)
+		);
+
+		// Check that under the index there is the operator value
+		return operatorValue == bytes32(uint256(uint160(operator)));
+	}
+
+	function _mockStoredOperator(address _safe, address assetAddress, address operator) internal {
+		_mockStoredOperator(_safe, assetAddress, operator, 0);
+	}
+
+	// Used index has to be incremental. Skipping an index leads to undefined behaviour.
+	function _mockStoredOperator(address _safe, address assetAddress, address operator, uint256 index) internal {
+		// Store new number of operators
+		vm.store(
+			address(guard),
+			_operatorsSetSlotFor(_safe, assetAddress),
+			bytes32(index + 1)
+		);
+		// Store operator
+		vm.store(
+			address(guard),
+			bytes32(uint256(_operatorsFirstValueSlotFor(_safe, assetAddress)) + index),
+			bytes32(uint256(uint160(operator)))
+		);
+		// Store index of the operator
+		vm.store(
+			address(guard),
+			_operatorsIndexeSlotFor(_safe, assetAddress, operator),
+			bytes32(index + 1)
+		);
+	}
+
+	function _operatorsFirstValueSlotFor(address _safe, address assetAddress) internal pure returns (bytes32) {
+		// Hash array position to get position of a first item in the array
+		return keccak256(
+			abi.encode(
+				_operatorsSetSlotFor(_safe, assetAddress) // `_values` array position
+			)
+		);
+	}
+
+	function _operatorsIndexeSlotFor(address _safe, address assetAddress, address operator) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				operator, // Operator as a mapping key
+				uint256(_operatorsSetSlotFor(_safe, assetAddress)) + 1 // `_indexes` mapping position
+			)
+		);
+	}
+
+	function _operatorsSetSlotFor(address _safe, address assetAddress) internal pure returns (bytes32) {
+		return keccak256(
+			abi.encode(
+				assetAddress, // Asset address as a mapping key
+				keccak256(
+					abi.encode(
+						_safe, // Safe address as a mapping key
+						OPERATORS_SLOT
+					)
+				)
+			)
+		);
 	}
 
 }
 
 
 /*----------------------------------------------------------*|
-|*  # INITIALIZE                                            *|
+|*  # CONSTRUCTOR                                           *|
 |*----------------------------------------------------------*/
 
-contract AssetTransferRightsGuard_Initialize_Test is AssetTransferRightsGuardTest {
+contract AssetTransferRightsGuard_Constructor_Test is AssetTransferRightsGuardTest {
 
 	function test_shouldSetParams() external {
-		guard = new AssetTransferRightsGuard();
-		guard.initialize(module, operators);
+		guard = new AssetTransferRightsGuard(module);
 
-		// Check atr module value (need to shift by 2 bytes to clear Initializable properties)
-		bytes32 atrValue = vm.load(address(guard), ATR_SLOT) >> 16;
+		bytes32 atrValue = vm.load(address(guard), ATR_SLOT);
 		assertEq(atrValue, bytes32(uint256(uint160(module))));
-		// Check operators context value
-		bytes32 operatorsValue = vm.load(address(guard), OPERATORS_CONTEXT_SLOT);
-		assertEq(operatorsValue, bytes32(uint256(uint160(operators))));
-	}
-
-	function test_shouldFail_whenCalledSecondTime() external {
-		guard = new AssetTransferRightsGuard();
-		guard.initialize(module, operators);
-
-		vm.expectRevert("Initializable: contract is already initialized");
-		guard.initialize(module, operators);
 	}
 
 }
@@ -105,20 +167,6 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 			token,
 			abi.encodeWithSignature("allowance(address,address)", safe, alice),
 			abi.encode(allowance)
-		);
-	}
-
-	function _expectAdd() private {
-		vm.expectCall(
-			operators,
-			abi.encodeWithSignature("add(address,address,address)", safe, token, alice)
-		);
-	}
-
-	function _expectRemove() private {
-		vm.expectCall(
-			operators,
-			abi.encodeWithSignature("remove(address,address,address)", safe, token, alice)
 		);
 	}
 
@@ -200,18 +248,21 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(0);
 
-		_expectAdd();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("approve(address,uint256)", alice, 100e18));
+
+		assertTrue(_isOperatorInSet(safe, token, alice));
 	}
 
 	function test_shouldRemoveOperator_onApprove_whenAllowanceNonZero_whenAmountZero_whenERC20NotTokenized() external {
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(100);
+		_mockStoredOperator(safe, token, alice);
 
-		_expectRemove();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("approve(address,uint256)", alice, 0));
+
+		assertFalse(_isOperatorInSet(safe, token, alice));
 	}
 
 	// TODO: Test when foundry implements `expectNoCall`
@@ -230,17 +281,20 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(0);
 
-		_expectAdd();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("increaseAllowance(address,uint256)", alice, 100e18));
+
+		assertTrue(_isOperatorInSet(safe, token, alice));
 	}
 
 	function test_shouldRemoveOperator_onDecreaseAllowance_whenERC20AllowanceLessOrEqThanAmount() external {
 		_mockAllowance(90e18);
+		_mockStoredOperator(safe, token, alice);
 
-		_expectRemove();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("decreaseAllowance(address,uint256)", alice, 100e18));
+
+		assertFalse(_isOperatorInSet(safe, token, alice));
 	}
 
 	// TODO: Test when foundry implements `expectNoCall`
@@ -259,17 +313,20 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 	function test_shouldAddOperator_onSetApprovalForAll_whenApproval_whenERC721NotTokenized() external {
 		_mockNumberOfTokenizedAssets(0);
 
-		_expectAdd();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("setApprovalForAll(address,bool)", alice, true));
+
+		assertTrue(_isOperatorInSet(safe, token, alice));
 	}
 
 	function test_shouldRemoveOperator_onSetApprovalForAll_whenNotApproval_whenERC721NotTokenized() external {
 		_mockNumberOfTokenizedAssets(0);
+		_mockStoredOperator(safe, token, alice);
 
-		_expectRemove();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("setApprovalForAll(address,bool)", alice, false));
+
+		assertFalse(_isOperatorInSet(safe, token, alice));
 	}
 	// <--- ERC721/ERC1155 approvals
 
@@ -285,15 +342,19 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 	function test_shouldAddOperator_onAuthorizeOperator_whenERC777NotTokenized() external {
 		_mockNumberOfTokenizedAssets(0);
 
-		_expectAdd();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("authorizeOperator(address)", alice));
+
+		assertTrue(_isOperatorInSet(safe, token, alice));
 	}
 
 	function test_shouldRemoveOperator_onRevokeOperator() external {
-		_expectRemove();
+		_mockStoredOperator(safe, token, alice);
+
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("revokeOperator(address)", alice));
+
+		assertFalse(_isOperatorInSet(safe, token, alice));
 	}
 	// <--- ERC777 approvals
 
@@ -310,18 +371,21 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(0);
 
-		_expectAdd();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 100e18));
+
+		assertTrue(_isOperatorInSet(safe, token, alice));
 	}
 
 	function test_shouldRemoveOperator_onApproveAndCall_whenAllowanceNonZero_whenAmountZero_whenERC1363NotTokenized() external {
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(100);
+		_mockStoredOperator(safe, token, alice);
 
-		_expectRemove();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256)", alice, 0));
+
+		assertFalse(_isOperatorInSet(safe, token, alice));
 	}
 
 	// TODO: Test when foundry implements `expectNoCall`
@@ -340,18 +404,21 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(0);
 
-		_expectAdd();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 100e18, "11 towel categories"));
+
+		assertTrue(_isOperatorInSet(safe, token, alice));
 	}
 
 	function test_shouldRemoveOperator_onApproveAndCallWithBytes_whenAllowanceNonZero_whenAmountZero_whenERC1363NotTokenized() external {
 		_mockNumberOfTokenizedAssets(0);
 		_mockAllowance(100);
+		_mockStoredOperator(safe, token, alice);
 
-		_expectRemove();
 		vm.prank(safe);
 		_checkTransaction(token, abi.encodeWithSignature("approveAndCall(address,uint256,bytes)", alice, 0, "it was always purple?"));
+
+		assertFalse(_isOperatorInSet(safe, token, alice));
 	}
 
 	// TODO: Test when foundry implements `expectNoCall`
@@ -412,15 +479,11 @@ contract AssetTransferRightsGuard_CheckAfterExecution_Test is AssetTransferRight
 contract AssetTransferRightsGuard_HasOperatorFor_Test is AssetTransferRightsGuardTest {
 
 	function test_shouldReturnTrue_whenCollectionHasOperator() external {
-		vm.mockCall(
-			operators,
-			abi.encodeWithSignature("hasOperatorFor(address,address)", safe, token),
-			abi.encode(true)
-		);
+		_mockStoredOperator(safe, token, alice);
 
 		bool hasOperator = guard.hasOperatorFor(safe, token);
 
-		assertEq(hasOperator, true);
+		assertTrue(hasOperator);
 	}
 
 	function test_shouldReturnTrue_whenERC777HasDefaultOperator() external {
@@ -445,19 +508,13 @@ contract AssetTransferRightsGuard_HasOperatorFor_Test is AssetTransferRightsGuar
 
 		bool hasOperator = guard.hasOperatorFor(safe, token);
 
-		assertEq(hasOperator, true);
+		assertTrue(hasOperator);
 	}
 
 	function test_shouldReturnFalse_whenCollectionHasNoOperator() external {
-		vm.mockCall(
-			operators,
-			abi.encodeWithSignature("hasOperatorFor(address,address)", safe, token),
-			abi.encode(false)
-		);
-
 		bool hasOperator = guard.hasOperatorFor(safe, token);
 
-		assertEq(hasOperator, false);
+		assertFalse(hasOperator);
 	}
 
 }

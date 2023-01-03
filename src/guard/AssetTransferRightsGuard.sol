@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
-import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/token/ERC777/IERC777.sol";
 import "openzeppelin-contracts/contracts/utils/introspection/IERC1820Registry.sol";
@@ -20,7 +19,7 @@ import "./OperatorsContext.sol";
  * @notice Contract responsible for enforcing asset transfer right rules.
  * @dev Should be used as a Gnosis Safe guard.
  */
-contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsGuard {
+contract AssetTransferRightsGuard is Guard, OperatorsContext, IAssetTransferRightsGuard {
 	using EnumerableSet for EnumerableSet.AddressSet;
 
 
@@ -33,25 +32,14 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 	address internal constant ERC1820_REGISTRY_ADDRESS = 0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24;
 
 	AssetTransferRights internal atr;
-	OperatorsContext internal operatorsContext;
 
 
 	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor() {
-
-	}
-
-	/**
-	 * @dev Initialize AssetTransferRightsGuard.
-	 * @param _atr Address of AssetTransferRights contract, used to check tokenized balances.
-	 * @param _operatorContext Address of OperatorsContext, used to manage approved operators per asset collection.
-	 */
-	function initialize(address _atr, address _operatorContext) external initializer {
+	constructor(address _atr) {
 		atr = AssetTransferRights(_atr);
-		operatorsContext = OperatorsContext(_operatorContext);
 	}
 
 
@@ -161,7 +149,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 
 			(address operator, uint256 amount) = abi.decode(data[4:], (address, uint256));
 			if (amount > 0) {
-				operatorsContext.add(safeAddress, target, operator);
+				_addOperator(safeAddress, target, operator);
 			}
 		}
 
@@ -171,7 +159,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			try IERC20(target).allowance(safeAddress, operator) returns (uint256 allowance) {
 
 				if (allowance <= amount) {
-					operatorsContext.remove(safeAddress, target, operator);
+					_removeOperator(safeAddress, target, operator);
 				}
 
 			} catch {}
@@ -188,9 +176,9 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			// That's why a wallet has to track them.
 
 			if (approved) {
-				operatorsContext.add(safeAddress, target, operator);
+				_addOperator(safeAddress, target, operator);
 			} else {
-				operatorsContext.remove(safeAddress, target, operator);
+				_removeOperator(safeAddress, target, operator);
 			}
 		}
 
@@ -200,13 +188,13 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 			require(atr.numberOfTokenizedAssetsFromCollection(safeAddress, target) == 0, "Some asset from collection has transfer right token minted");
 
 			address operator = abi.decode(data[4:], (address));
-			operatorsContext.add(safeAddress, target, operator);
+			_addOperator(safeAddress, target, operator);
 		}
 
 		// ERC777 - revokeOperator(address)
 		else if (funcSelector == 0xfad8b32a) {
 			address operator = abi.decode(data[4:], (address));
-			operatorsContext.remove(safeAddress, target, operator);
+			_removeOperator(safeAddress, target, operator);
 		}
 
 		// ERC1363 - approveAndCall(address,uint256)
@@ -234,10 +222,10 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 		try IERC20(target).allowance(safeAddress, operator) returns (uint256 allowance) {
 
 			if (allowance != 0 && amount == 0)
-				operatorsContext.remove(safeAddress, target, operator);
+				_removeOperator(safeAddress, target, operator);
 
 			else if (allowance == 0 && amount != 0)
-				operatorsContext.add(safeAddress, target, operator);
+				_addOperator(safeAddress, target, operator);
 
 		} catch {
 			// ERC721 approvals don't have to be tracked as they can be retrieved from an asset contract directly
@@ -251,7 +239,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 	/**
 	 * @dev See {IAssetTransferRightsGuard-hasOperatorFor}.
 	 */
-	function hasOperatorFor(address safeAddress, address assetAddress) external view returns (bool) {
+	function hasOperatorFor(address safeAddress, address assetAddress) override(OperatorsContext, IAssetTransferRightsGuard) public view returns (bool) {
 		// ERC777 defines `defaultOperators`
 		address implementer = IERC1820Registry(ERC1820_REGISTRY_ADDRESS).getInterfaceImplementer(assetAddress, keccak256("ERC777Token"));
         if (implementer == assetAddress) {
@@ -262,7 +250,7 @@ contract AssetTransferRightsGuard is Initializable, Guard, IAssetTransferRightsG
 	            	return true;
         }
 
-		return operatorsContext.hasOperatorFor(safeAddress, assetAddress);
+		return super.hasOperatorFor(safeAddress, assetAddress);
 	}
 
 }

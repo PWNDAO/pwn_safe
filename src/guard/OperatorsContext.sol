@@ -9,15 +9,13 @@ import "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
  * @title Operators Context contract
  * @notice Contract responsible for tracking approved operators of asset collections per safe address.
  */
-contract OperatorsContext {
+abstract contract OperatorsContext {
 	using EnumerableSet for EnumerableSet.AddressSet;
 
 
 	/*----------------------------------------------------------*|
 	|*  # VARIABLES & CONSTANTS DEFINITIONS                     *|
 	|*----------------------------------------------------------*/
-
-	address internal guard;
 
 	/**
 	 * @notice Set of operators per asset address per safe.
@@ -30,21 +28,11 @@ contract OperatorsContext {
 
 
 	/*----------------------------------------------------------*|
-	|*  # MODIFIERS                                             *|
-	|*----------------------------------------------------------*/
-
-	modifier onlyGuard() {
-		require(msg.sender == guard, "Sender is not guard address");
-		_;
-	}
-
-
-	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
-	constructor(address _guard) {
-		guard = _guard;
+	constructor() {
+
 	}
 
 
@@ -59,7 +47,7 @@ contract OperatorsContext {
 	 * @param asset Address of an asset collection that is approved.
 	 * @param operator Address of an operator that is approved by safe for asset collection.
 	 */
-	function add(address safe, address asset, address operator) external onlyGuard {
+	function _addOperator(address safe, address asset, address operator) internal {
 		operators[safe][asset].add(operator);
 	}
 
@@ -69,7 +57,7 @@ contract OperatorsContext {
 	 * @param asset Address of an asset collection that has been approved.
 	 * @param operator Address of an operator that has been approved by safe for asset collection.
 	 */
-	function remove(address safe, address asset, address operator) external onlyGuard {
+	function _removeOperator(address safe, address asset, address operator) internal {
 		operators[safe][asset].remove(operator);
 	}
 
@@ -79,13 +67,23 @@ contract OperatorsContext {
 	|*----------------------------------------------------------*/
 
 	/**
-	 * @dev Check if safe has an operator for asset collection.
+	 * @notice Check if safe has an operator for asset collection.
 	 * @param safe Address of a safe that is checked for operator.
 	 * @param asset Address of an asset collection that is checked for operator.
 	 * @return True if safe has na operator for asset collection.
 	 */
-	function hasOperatorFor(address safe, address asset) external view returns (bool) {
+	function hasOperatorFor(address safe, address asset) public virtual view returns (bool) {
 		return operators[safe][asset].length() > 0;
+	}
+
+	/**
+	 * @notice Get list of all operators for given safe and asset address.
+	 * @param safe Address of a safe that is checked for operator.
+	 * @param asset Address of an asset collection that is checked for operator.
+	 * @return List of recorded operators.
+	 */
+	function operatorsFor(address safe, address asset) external view returns (address[] memory) {
+		return operators[safe][asset].values();
 	}
 
 
