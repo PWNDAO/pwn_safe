@@ -3,22 +3,21 @@ pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
 
-import "safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import "safe-contracts/proxies/GnosisSafeProxy.sol";
-import "safe-contracts/GnosisSafe.sol";
+import "@safe/proxies/GnosisSafeProxyFactory.sol";
+import "@safe/proxies/GnosisSafeProxy.sol";
+import "@safe/GnosisSafe.sol";
 
-import "../../src/factory/PWNSafeFactory.sol";
-import "../../src/guard/AssetTransferRightsGuard.sol";
-import "../../src/guard/AssetTransferRightsGuardProxy.sol";
-import "../../src/guard/OperatorsContext.sol";
-import "../../src/handler/DefaultCallbackHandler.sol";
-import "../../src/AssetTransferRights.sol";
+import "@pwn-safe/factory/PWNSafeFactory.sol";
+import "@pwn-safe/guard/AssetTransferRightsGuard.sol";
+import "@pwn-safe/guard/AssetTransferRightsGuardProxy.sol";
+import "@pwn-safe/handler/CompatibilityFallbackHandler.sol";
+import "@pwn-safe/module/AssetTransferRights.sol";
 
-import "../helpers/malicious/DelegatecallContract.sol";
-import "../helpers/malicious/HackerWallet.sol";
-import "../helpers/token/T20.sol";
-import "../helpers/token/T721.sol";
-import "../helpers/token/T1155.sol";
+import "@pwn-safe-test/helpers/malicious/DelegatecallContract.sol";
+import "@pwn-safe-test/helpers/malicious/HackerWallet.sol";
+import "@pwn-safe-test/helpers/token/T20.sol";
+import "@pwn-safe-test/helpers/token/T721.sol";
+import "@pwn-safe-test/helpers/token/T1155.sol";
 
 
 abstract contract UseCasesTest is Test {
@@ -27,7 +26,7 @@ abstract contract UseCasesTest is Test {
 	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 	GnosisSafe gnosisSafeSingleton;
 	GnosisSafeProxyFactory gnosisSafeFactory;
-	DefaultCallbackHandler gnosisFallbackHandler;
+	CompatibilityFallbackHandler gnosisFallbackHandler;
 
 	address constant alice = address(0xa11ce);
 	address constant bob = address(0xb0b);
@@ -35,8 +34,9 @@ abstract contract UseCasesTest is Test {
 	address immutable owner = address(0x1001);
 	address immutable ownerOther = address(0x1002);
 
+	Whitelist whitelist;
 	AssetTransferRights atr;
-	OperatorsContext operatorsContext;
+	AssetTransferRightsGuard guard;
 	PWNSafeFactory factory;
 	GnosisSafe safe;
 	GnosisSafe safeOther;
@@ -50,18 +50,20 @@ abstract contract UseCasesTest is Test {
 			abi.encode(address(0))
 		);
 
-		// Ethereum mainnet or Goerli testnet
+		// Goerli testnet
 		if (block.chainid == 5) {
+			// whitelist = Whitelist(TODO);
 			gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
 			gnosisSafeFactory = GnosisSafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
-			// Custom deployment of `DefaultCallbackHandler`
-			gnosisFallbackHandler = DefaultCallbackHandler(0xF97779f08Fa2f952eFb12F5827Ad95cE26fEF432);
+			// TODO: Custom deployment of `CompatibilityFallbackHandler`
+			// gnosisFallbackHandler = CompatibilityFallbackHandler();
 		}
 		// Local devnet
 		else if (block.chainid == 31337) {
+			whitelist = new Whitelist();
 			gnosisSafeSingleton = new GnosisSafe();
 			gnosisSafeFactory = new GnosisSafeProxyFactory();
-			gnosisFallbackHandler = new DefaultCallbackHandler();
+			gnosisFallbackHandler = new CompatibilityFallbackHandler(address(whitelist));
 		}
 	}
 
@@ -78,9 +80,10 @@ abstract contract UseCasesTest is Test {
 	}
 
 	function _deployRealm() private {
-		atr = new AssetTransferRights();
+		// 1. Deploy ATR contract
+		atr = new AssetTransferRights(address(whitelist));
 
-		// 2. Deploy ATR Guard logic
+		// 2. Deploy ATR guard logic
 		AssetTransferRightsGuard guardLogic = new AssetTransferRightsGuard();
 
 		// 3. Deploye ATR Guard proxy with ATR Guard logic
@@ -88,13 +91,11 @@ abstract contract UseCasesTest is Test {
 			address(guardLogic), admin
 		);
 
-		// 4. Deploy Operators Context
-		operatorsContext = new OperatorsContext(address(guardProxy));
+		// 4. Initialized ATR Guard proxy as ATR Guard
+		guard = AssetTransferRightsGuard(address(guardProxy));
+		guard.initialize(address(atr));
 
-		// 5. Initialized ATR Guard proxy as ATR Guard
-		AssetTransferRightsGuard(address(guardProxy)).initialize(address(atr), address(operatorsContext));
-
-		// 6. Deploy PWNSafe factory
+		// 5. Deploy PWNSafe factory
 		factory = new PWNSafeFactory(
 			address(gnosisSafeSingleton),
 			address(gnosisSafeFactory),
@@ -103,11 +104,8 @@ abstract contract UseCasesTest is Test {
 			address(guardProxy)
 		);
 
-		// 7. Set guard address to ATR contract
-		atr.setAssetTransferRightsGuard(address(guardProxy));
-
-		// 8. Set PWNSafe validator to ATR contract
-		atr.setPWNSafeValidator(address(factory));
+		// 6. Initialize ATR contract
+		atr.initialize(address(factory), address(guardProxy));
 	}
 
 	function _executeTx(
@@ -175,7 +173,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 		super.setUp();
 
 		t20 = new T20();
-		atr.setIsWhitelisted(address(t20), true);
+		whitelist.setIsWhitelisted(address(t20), true);
 	}
 
 
@@ -223,9 +221,9 @@ contract UseCases_ERC20_Test is UseCasesTest {
 
 		// 6:
 		_executeTx(
-			safe, address(operatorsContext),
+			safe, address(guard),
 			abi.encodeWithSelector(
-				operatorsContext.resolveInvalidAllowance.selector,
+				guard.resolveInvalidAllowance.selector,
 				address(safe), address(t20), alice
 			)
 		);
@@ -345,9 +343,9 @@ contract UseCases_ERC20_Test is UseCasesTest {
 
 		// 10:
 		_executeTx(
-			safe, address(operatorsContext),
+			safe, address(guard),
 			abi.encodeWithSelector(
-				operatorsContext.resolveInvalidAllowance.selector,
+				guard.resolveInvalidAllowance.selector,
 				address(safe), address(t20), alice
 			)
 		);
@@ -424,7 +422,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 		super.setUp();
 
 		t721 = new T721();
-		atr.setIsWhitelisted(address(t721), true);
+		whitelist.setIsWhitelisted(address(t721), true);
 	}
 
 
@@ -739,7 +737,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		super.setUp();
 
 		t1155 = new T1155();
-		atr.setIsWhitelisted(address(t1155), true);
+		whitelist.setIsWhitelisted(address(t1155), true);
 	}
 
 
