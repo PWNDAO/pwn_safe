@@ -10,6 +10,7 @@ abstract contract WhitelistTest is Test {
 
     bytes32 constant USE_WHITELIST_SLOT = bytes32(uint256(0)); // `useWhitelist` flag position (combined with `owner`)
     bytes32 constant IS_WHITELISTED_SLOT = bytes32(uint256(1)); // `isWhitelisted` mapping position
+    bytes32 constant IS_WHITELISTED_LIB_SLOT = bytes32(uint256(2)); // `isWhitelistedLib` mapping position
 
     Whitelist whitelist;
     address notOwner = makeAddr("notOwner");
@@ -105,13 +106,13 @@ contract Whitelist_SetIsWhitelisted_Test is WhitelistTest {
     }
 
     function test_shouldSetIfAddressIsWhitelisted() external {
-        bytes32 assetSlot = keccak256(abi.encode(asset, IS_WHITELISTED_SLOT));
-        vm.store(address(whitelist), assetSlot, bytes32(uint256(0)));
+        bytes32 whitelistAssetSlot = keccak256(abi.encode(asset, IS_WHITELISTED_SLOT));
+        vm.store(address(whitelist), whitelistAssetSlot, bytes32(uint256(0)));
 
         whitelist.setIsWhitelisted(asset, true);
 
         assertEq(
-            uint256(vm.load(address(whitelist), assetSlot)),
+            uint256(vm.load(address(whitelist), whitelistAssetSlot)),
             1
         );
     }
@@ -156,6 +157,33 @@ contract Whitelist_SetIsWhitelistedBatch_Test is WhitelistTest {
         assertEq(uint256(vm.load(address(whitelist), assetSlot1)), 1);
         assertEq(uint256(vm.load(address(whitelist), assetSlot2)), 1);
         assertEq(uint256(vm.load(address(whitelist), assetSlot3)), 1);
+    }
+
+}
+
+
+/*----------------------------------------------------------*|
+|*  # SET IS WHITELISTED LIB                                *|
+|*----------------------------------------------------------*/
+
+contract Whitelist_SetIsWhitelistedLib_Test is WhitelistTest {
+
+    function test_shouldFail_whenCallerIsNotOwner() external {
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(notOwner);
+        whitelist.setIsWhitelistedLib(asset, true);
+    }
+
+    function test_shouldSetIfAddressIsWhitelisted() external {
+        bytes32 whitelistLibSlot = keccak256(abi.encode(asset, IS_WHITELISTED_LIB_SLOT));
+        vm.store(address(whitelist), whitelistLibSlot, bytes32(uint256(0)));
+
+        whitelist.setIsWhitelistedLib(asset, true);
+
+        assertEq(
+            uint256(vm.load(address(whitelist), whitelistLibSlot)),
+            1
+        );
     }
 
 }

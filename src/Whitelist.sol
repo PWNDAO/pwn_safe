@@ -26,6 +26,12 @@ contract Whitelist is Ownable {
      */
     mapping (address => bool) public isWhitelisted;
 
+    /**
+     * @notice Whitelist of library addresses, which are permited to be called via delegatecall.
+     * @dev Always used, even if `useWhitelist` flag is set to false.
+     */
+    mapping (address => bool) public isWhitelistedLib;
+
 
     /*----------------------------------------------------------*|
     |*  # CONSTRUCTOR                                           *|
@@ -69,7 +75,7 @@ contract Whitelist is Ownable {
     /**
      * @notice Set if asset address is whitelisted.
      * @dev Set `isWhitelisted` mapping value.
-     * @param assetAddress Address of whitelisted asset.
+     * @param assetAddress Address of the whitelisted asset.
      * @param _isWhitelisted New `isWhitelisted` mapping value.
      */
     function setIsWhitelisted(address assetAddress, bool _isWhitelisted) public onlyOwner {
@@ -88,6 +94,16 @@ contract Whitelist is Ownable {
             setIsWhitelisted(assetAddresses[i], _isWhitelisted);
             unchecked { ++i; }
         }
+    }
+
+    /**
+     * @notice Set if library address is whitelisted.
+     * @dev Set `isWhitelistedLib` mapping value.
+     * @param libAddress Address of the whitelisted library.
+     * @param _isWhitelisted New `isWhitelisted` mapping value.
+     */
+    function setIsWhitelistedLib(address libAddress, bool _isWhitelisted) public onlyOwner {
+        isWhitelistedLib[libAddress] = _isWhitelisted;
     }
 
 }
