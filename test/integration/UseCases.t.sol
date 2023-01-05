@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
 
+import "@safe/libraries/SignMessageLib.sol";
 import "@safe/proxies/GnosisSafeProxyFactory.sol";
 import "@safe/proxies/GnosisSafeProxy.sol";
 import "@safe/GnosisSafe.sol";
@@ -93,7 +94,7 @@ abstract contract UseCasesTest is Test {
 
 		// 4. Initialized ATR Guard proxy as ATR Guard
 		guard = AssetTransferRightsGuard(address(guardProxy));
-		guard.initialize(address(atr));
+		guard.initialize(address(atr), address(whitelist));
 
 		// 5. Deploy PWNSafe factory
 		factory = new PWNSafeFactory(
@@ -160,6 +161,91 @@ abstract contract UseCasesTest is Test {
 	}
 
 }
+
+
+/*----------------------------------------------------------*|
+|*  # EIP-1271                                              *|
+|*----------------------------------------------------------*/
+
+contract UseCases_EIP1271_Test is UseCasesTest {
+
+	SignMessageLib signMessageLib;
+
+	function setUp() override public {
+		super.setUp();
+
+		signMessageLib = new SignMessageLib();
+	}
+
+
+	/**
+	 * 1: enable whitelist
+	 * 2: sign message
+	 * 3: check if is valid signature
+	 * 4: disable whitelist
+	 * 5: check if is not valid signature
+	 * 6: remove whitelisted lib
+	 * 7: fail to sign message
+	 */
+	function test_UC_EIP1271_1() external {
+		bytes32 dataDigest = keccak256("data digest");
+
+		// 1:
+		whitelist.setUseWhitelist(true);
+		whitelist.setIsWhitelistedLib(address(signMessageLib), true);
+
+		// 2:
+		_executeTx({
+			_safe: safe,
+			to: address(signMessageLib),
+			value: 0,
+			data: abi.encodeWithSelector(signMessageLib.signMessage.selector, abi.encode(dataDigest)),
+			operation: Enum.Operation.DelegateCall,
+			safeTxGas: 0,
+			baseGas: 0,
+			gasPrice: 0,
+			gasToken: address(0),
+			refundReceiver: payable(0)
+		});
+
+		// 3:
+		(bool success, bytes memory responseBytes) = address(safe).call(
+			abi.encodeWithSignature("isValidSignature(bytes32,bytes)", dataDigest, "")
+		);
+		assertTrue(success);
+		assertEq(abi.decode(responseBytes, (bytes4)), bytes4(0x1626ba7e));
+
+		// 4:
+		whitelist.setUseWhitelist(false);
+
+		// 5:
+		(success, responseBytes) = address(safe).call(
+			abi.encodeWithSignature("isValidSignature(bytes32,bytes)", dataDigest, "")
+		);
+		assertTrue(success);
+		assertEq(abi.decode(responseBytes, (bytes4)), bytes4(0));
+
+		// 6:
+		whitelist.setIsWhitelistedLib(address(signMessageLib), false);
+
+		// 7:
+		vm.expectRevert("Address is not whitelisted for delegatecalls");
+		_executeTx({
+			_safe: safe,
+			to: address(signMessageLib),
+			value: 0,
+			data: abi.encodeWithSelector(signMessageLib.signMessage.selector, abi.encode(dataDigest)),
+			operation: Enum.Operation.DelegateCall,
+			safeTxGas: 0,
+			baseGas: 0,
+			gasPrice: 0,
+			gasToken: address(0),
+			refundReceiver: payable(0)
+		});
+	}
+
+}
+
 
 /*----------------------------------------------------------*|
 |*  # ERC20                                                 *|
