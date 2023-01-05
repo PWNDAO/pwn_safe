@@ -69,7 +69,7 @@ contract Deploy is Script {
 		console2.log("AssetTransferRightsGuardProxy address:", address(guardProxy));
 
 		// 4. Initialized ATR Guard proxy as ATR Guard
-		AssetTransferRightsGuard(address(guardProxy)).initialize(address(atr));
+		AssetTransferRightsGuard(address(guardProxy)).initialize(address(atr), whitelist);
 
 		// 5. Deploy PWNSafe factory
 		PWNSafeFactory factory = new PWNSafeFactory(

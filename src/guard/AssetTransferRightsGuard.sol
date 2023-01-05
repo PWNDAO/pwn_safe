@@ -13,6 +13,7 @@ import "@safe/common/Enum.sol";
 import "@pwn-safe/guard/IAssetTransferRightsGuard.sol";
 import "@pwn-safe/guard/OperatorsContext.sol";
 import "@pwn-safe/module/AssetTransferRights.sol";
+import "@pwn-safe/Whitelist.sol";
 
 
 /**
@@ -34,6 +35,8 @@ contract AssetTransferRightsGuard is Guard, OperatorsContext, Initializable, IAs
 
 	AssetTransferRights internal atr;
 
+	Whitelist internal whitelist;
+
 
 	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
@@ -47,8 +50,9 @@ contract AssetTransferRightsGuard is Guard, OperatorsContext, Initializable, IAs
 	 * @dev Initialize AssetTransferRightsGuard.
 	 * @param _atr Address of AssetTransferRights contract, used to check tokenized balances.
 	 */
-	function initialize(address _atr) external initializer {
+	function initialize(address _atr, address _whitelist) external initializer {
 		atr = AssetTransferRights(_atr);
+		whitelist = Whitelist(_whitelist);
 	}
 
 
@@ -80,17 +84,18 @@ contract AssetTransferRightsGuard is Guard, OperatorsContext, Initializable, IAs
 	) external {
 		require(safeTxGas == 0, "Safe tx gas has to be 0 for tx to revert in case of failure");
 		require(gasPrice == 0, "Gas price has to be 0 for tx to revert in case of failure");
-		require(operation == Enum.Operation.Call, "Only call operations are allowed");
+
+		// Libraries has to be whitelisted
+		if (operation == Enum.Operation.DelegateCall)
+			require(whitelist.isWhitelistedLib(to), "Address is not whitelisted for delegatecalls");
 
 		// Self authorization calls
-		if (to == msg.sender) {
+		if (to == msg.sender)
 			_checkManagerUpdates(data);
-		}
 
 		// Trust ATR contract
-		if (to != address(atr)) {
+		if (to != address(atr))
 			_checkExecutionCalls(msg.sender, to, data);
-		}
 	}
 
 	/**

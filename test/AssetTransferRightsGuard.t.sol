@@ -10,6 +10,7 @@ abstract contract AssetTransferRightsGuardTest is Test {
 
 	bytes32 internal constant OPERATORS_SLOT = bytes32(uint256(0));
 	bytes32 internal constant ATR_SLOT = bytes32(uint256(1));
+	bytes32 internal constant WHITELIST_SLOT = bytes32(uint256(2));
 	address internal constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
 	AssetTransferRightsGuard guard;
@@ -17,6 +18,7 @@ abstract contract AssetTransferRightsGuardTest is Test {
 	address safe = makeAddr("safe");
 	address token = makeAddr("token");
 	address alice = makeAddr("alice");
+	address whitelist = makeAddr("whitelist");
 
 	constructor() {
 		// ERC1820 Registry
@@ -31,7 +33,7 @@ abstract contract AssetTransferRightsGuardTest is Test {
 
 	function setUp() external {
 		guard = new AssetTransferRightsGuard();
-		guard.initialize(module);
+		guard.initialize(module, whitelist);
 	}
 
 
@@ -123,19 +125,22 @@ contract AssetTransferRightsGuard_Initialize_Test is AssetTransferRightsGuardTes
 
 	function test_shouldSetParams() external {
 		guard = new AssetTransferRightsGuard();
-		guard.initialize(module);
+		guard.initialize(module, whitelist);
 
 		// Check atr module value (need to shift by 2 bytes to clear Initializable properties)
 		bytes32 atrValue = vm.load(address(guard), ATR_SLOT) >> 16;
 		assertEq(atrValue, bytes32(uint256(uint160(module))));
+
+		bytes32 whitelistValue = vm.load(address(guard), WHITELIST_SLOT);
+		assertEq(whitelistValue, bytes32(uint256(uint160(whitelist))));
 	}
 
 	function test_shouldFail_whenCalledSecondTime() external {
 		guard = new AssetTransferRightsGuard();
-		guard.initialize(module);
+		guard.initialize(module, whitelist);
 
 		vm.expectRevert("Initializable: contract is already initialized");
-		guard.initialize(module);
+		guard.initialize(module, whitelist);
 	}
 
 }
@@ -208,8 +213,31 @@ contract AssetTransferRightsGuard_CheckTransaction_Test is AssetTransferRightsGu
 		);
 	}
 
-	function test_shouldFail_whenOperationIsDelegatecall() external {
-		vm.expectRevert("Only call operations are allowed");
+	function test_shouldFail_whenOperationIsDelegatecall_whenNotWhitelistedLib() external {
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("isWhitelistedLib(address)"),
+			abi.encode(false)
+		);
+
+		vm.expectRevert("Address is not whitelisted for delegatecalls");
+		vm.prank(safe);
+		_checkTransaction(
+			address(0xde57),
+			abi.encode("bert, bert, bert"),
+			Enum.Operation.DelegateCall,
+			0,
+			0
+		);
+	}
+
+	function test_shouldPass_whenOperationIsDelegatecall_whenWhitelistedLib() external {
+		vm.mockCall(
+			whitelist,
+			abi.encodeWithSignature("isWhitelistedLib(address)"),
+			abi.encode(true)
+		);
+
 		vm.prank(safe);
 		_checkTransaction(
 			address(0xde57),
