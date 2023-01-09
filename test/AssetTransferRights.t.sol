@@ -877,7 +877,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 
 		vm.expectRevert("ATR token is invalid due to recovered invalid tokenized balance");
 		vm.prank(alice);
-		atr.claimAsset(atrId, true);
+		atr.claimAssetFrom(safe, atrId, true);
 	}
 	// <--- Basic checks
 
@@ -1110,7 +1110,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 
 		vm.expectRevert("ATR token is invalid due to recovered invalid tokenized balance");
 		vm.prank(alice);
-		atr.transferAsset(atrId, true, permission, "");
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
 	}
 	// <--- Basic checks
 

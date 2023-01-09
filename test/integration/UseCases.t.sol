@@ -857,7 +857,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 		// 7:
 		vm.expectRevert("ATR token is invalid due to recovered invalid tokenized balance");
 		vm.prank(alice);
-		atr.claimAsset(1, false);
+		atr.claimAssetFrom(payable(safe), 1, false);
 
 		// 8:
 		vm.prank(alice);
