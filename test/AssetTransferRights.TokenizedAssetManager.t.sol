@@ -211,8 +211,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 
 	function test_shouldFail_whenATRTokenIsNotInCallersSafe() external {
 		vm.expectRevert("Asset is not in callers safe");
-		vm.prank(address(0xa11ce));
-		atr.reportInvalidTokenizedBalance(43);
+		atr.reportInvalidTokenizedBalance(43, address(0xa11ce));
 	}
 
 	function test_shouldFail_whenTokenizedBalanceIsNotInvalid() external {
@@ -224,8 +223,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 		);
 
 		vm.expectRevert("Tokenized balance is not invalid");
-		vm.prank(safe);
-		atr.reportInvalidTokenizedBalance(42);
+		atr.reportInvalidTokenizedBalance(42, safe);
 	}
 
 	function test_shouldStoreReport() external {
@@ -236,8 +234,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 			abi.encode(uint256(100e18))
 		);
 
-		vm.prank(safe);
-		atr.reportInvalidTokenizedBalance(42);
+		atr.reportInvalidTokenizedBalance(42, safe);
 
 		bytes32 reportSlot = keccak256(abi.encode(safe, INVALID_TOKENIZED_BALANCE_REPORTS_SLOT));
 		// Check stored ATR id
@@ -262,8 +259,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 		);
 		vm.roll(110);
 
-		vm.prank(safe);
-		atr.reportInvalidTokenizedBalance(42);
+		atr.reportInvalidTokenizedBalance(42, safe);
 
 		// Check stored ATR id
 		bytes32 reportAtrTokenId = vm.load(address(atr), bytes32(uint256(reportSlot) + 0));

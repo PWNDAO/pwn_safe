@@ -30,12 +30,7 @@ contract HackerWallet is IERC165, IERC721Receiver {
         uint256 /*_tokenId*/,
         bytes calldata /*data*/
     ) external returns (bytes4) {
-    	GnosisSafe(payable(from)).execTransaction(
-			address(atr), 0,
-			abi.encodeWithSignature("reportInvalidTokenizedBalance(uint256)", atrId),
-			Enum.Operation.Call, 0, 0, 0, address(0), payable(0),
-			abi.encodePacked(uint256(uint160(address(this))), bytes32(0), uint8(1))
-		);
+    	AssetTransferRights(atr).reportInvalidTokenizedBalance(atrId, from);
 
 		GnosisSafe(payable(from)).execTransaction(
 			address(atr), 0,

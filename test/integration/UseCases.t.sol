@@ -759,7 +759,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 	 * 4:  mint ATR token id 1
 	 * 5:  transfer ATR token to alice
 	 * 6:  fail to execute reentrancy hack
-	 *     - reportInvalidTokenizedBalance(uint256) will fail with 'Insufficient tokenized balance'
+	 *     - recoverInvalidTokenizedBalance(uint256) will fail with 'Report block number has to be smaller then current block number'
 	 */
 	function test_UC_ERC721_4() external {
 		// 1:
@@ -806,6 +806,62 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			abi.encodePacked(uint256(uint160(address(hackerWallet))), bytes32(0), uint8(1))
 		);
 
+	}
+
+	/**
+	 * 1: mint asset id 42
+	 * 2: mint ATR token 1
+	 * 3: transfer ATR token 1 to alice
+	 * 4: force transfer asset id 42 from safe
+	 * 5: report invalid tokenized balance
+	 * 6: recovert invalid tokenized balance
+	 * 7: fail to claim asset id 42 via invalid ATR token
+	 * 8: burn ATR token 1
+	 */
+	function test_UC_ERC721_5() external {
+		vm.roll(100);
+
+		// 1:
+		t721.mint(address(safe), 42);
+
+		// 2:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+			)
+		);
+
+		// 3:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(atr.transferFrom.selector, address(safe), alice, 1)
+		);
+
+		// 4:
+		t721.forceTransfer(address(safe), bob, 42);
+
+		// 5:
+		atr.reportInvalidTokenizedBalance(1, address(safe));
+		vm.roll(200);
+
+		// 6:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.recoverInvalidTokenizedBalance.selector
+			)
+		);
+
+		// 7:
+		vm.expectRevert("ATR token is invalid due to recovered invalid tokenized balance");
+		vm.prank(alice);
+		atr.claimAsset(1, false);
+
+		// 8:
+		vm.prank(alice);
+		atr.burnAssetTransferRightsToken(1);
 	}
 
 }

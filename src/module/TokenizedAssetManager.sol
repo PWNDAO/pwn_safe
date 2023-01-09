@@ -113,11 +113,12 @@ abstract contract TokenizedAssetManager {
 	 *      call recover function, that would recover the safe from that transitory invalid state
 	 *      and tokenized balance check would pass, effectively bypassing transfer rights rules.
 	 * @param atrTokenId Id of an ATR token that is causing the invalid tokenized balance state.
+	 * @param owner Address of the safe, which holds the underlying asset of the ATR token.
+	 *              Safe cannot call this function directly, because if in the insufficient tokenized balance state,
+	 *              all execution calls would revert. That's why safe address needs to be passed as a parameter.
 	 */
-	function reportInvalidTokenizedBalance(uint256 atrTokenId) external {
-		address owner = msg.sender;
-
-		// Check if atr token is in callers safe
+	function reportInvalidTokenizedBalance(uint256 atrTokenId, address owner) external {
+		// Check if atr token is in owners safe
 		// That would also check for non-existing ATR tokens
 		require(tokenizedAssetsInSafe[owner].contains(atrTokenId), "Asset is not in callers safe");
 
