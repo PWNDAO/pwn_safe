@@ -870,6 +870,15 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		vm.prank(alice);
 		atr.claimAssetFrom(otherSafe, atrId, true);
 	}
+
+	function test_shouldFail_whenATRTokenIsInvalid() external {
+		bytes32 isInvalidSlot = keccak256(abi.encode(atrId, IS_INVALID_SLOT));
+		vm.store(address(atr), isInvalidSlot, bytes32(uint256(1)));
+
+		vm.expectRevert("ATR token is invalid due to recovered invalid tokenized balance");
+		vm.prank(alice);
+		atr.claimAsset(atrId, true);
+	}
 	// <--- Basic checks
 
 	// ---> Process
@@ -1092,6 +1101,16 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		vm.expectRevert("Caller is not ATR token owner");
 		vm.prank(bob);
 		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenATRTokenIsInvalid() external {
+		_mockGrantedPermission(permissionHash);
+		bytes32 isInvalidSlot = keccak256(abi.encode(atrId, IS_INVALID_SLOT));
+		vm.store(address(atr), isInvalidSlot, bytes32(uint256(1)));
+
+		vm.expectRevert("ATR token is invalid due to recovered invalid tokenized balance");
+		vm.prank(alice);
+		atr.transferAsset(atrId, true, permission, "");
 	}
 	// <--- Basic checks
 

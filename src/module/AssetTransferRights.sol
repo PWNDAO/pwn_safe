@@ -328,6 +328,9 @@ contract AssetTransferRights is
 
 		// Check that sender is ATR token owner
 		require(ownerOf(atrTokenId) == msg.sender, "Caller is not ATR token owner");
+
+		// Check that ATR token is not invalid
+		require(!isInvalid[atrTokenId], "ATR token is invalid due to recovered invalid tokenized balance");
 	}
 
 	/**
