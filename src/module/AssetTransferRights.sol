@@ -78,7 +78,11 @@ contract AssetTransferRights is
 	|*  # EVENTS & ERRORS DEFINITIONS                           *|
 	|*----------------------------------------------------------*/
 
-	// No event nor error defined
+	/**
+	 * @dev Emitted when asset is transferred via ATR token from `from` to `to`.
+	 *      ATR token can be held by a different address.
+	 */
+	event TransferViaATR(address indexed from, address indexed to, uint256 indexed atrTokenId, MultiToken.Asset asset);
 
 
 	/*----------------------------------------------------------*|
@@ -179,6 +183,8 @@ contract AssetTransferRights is
 		// Mint ATR token
 		_mint(msg.sender, atrTokenId);
 
+		emit TransferViaATR(address(0), msg.sender, atrTokenId, asset);
+
 		return atrTokenId;
 	}
 
@@ -214,13 +220,14 @@ contract AssetTransferRights is
 
 		if (isInvalid[atrTokenId] == false) {
 
-			// Is this part necessary? -----
+			// Check asset balance
 			require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
-			// -----------------------------
 
 			// Update tokenized balance
 			require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a safe");
 		}
+
+		emit TransferViaATR(msg.sender, address(0), atrTokenId, asset);
 
 		// Clear asset data
 		_clearTokenizedAsset(atrTokenId);
@@ -371,6 +378,7 @@ contract AssetTransferRights is
 
 		// Transfer asset from `from` safe
 		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
+		emit TransferViaATR(from, to, atrTokenId, asset);
 	}
 
 

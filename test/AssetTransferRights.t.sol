@@ -22,6 +22,8 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 	bytes32 internal constant ATR_TOKEN_BALANCES_SLOT = bytes32(uint256(11)); // `_balances` ERC721 mapping position
 	bytes32 internal constant LAST_TOKEN_ID_SLOT = bytes32(uint256(14)); // `lastTokenId` property position
 
+	event TransferViaATR(address indexed from, address indexed to, uint256 indexed atrTokenId, MultiToken.Asset asset);
+
 	AssetTransferRights atr;
 	address payable safe = payable(address(0xff));
 	address token = address(0x070ce2);
@@ -591,6 +593,17 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		assertEq(atr.ownerOf(atrId), safe);
 	}
+
+	function test_shouldEmit_TransferViaATR() external {
+		_mockToken(MultiToken.Category.ERC721);
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1);
+
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(address(0), safe, 1, asset);
+
+		vm.prank(safe);
+		atr.mintAssetTransferRightsToken(asset);
+	}
 	// <--- Process
 
 }
@@ -632,11 +645,11 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 
 	uint256 tokenId = 42;
 	uint256 atrId = 5;
+	MultiToken.Asset asset = MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1);
 
 	function setUp() override public {
 		super.setUp();
 
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 		_mockToken(MultiToken.Category.ERC721);
 
@@ -748,6 +761,14 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 		atr.burnAssetTransferRightsToken(invalidAtrTokenId);
 	}
 
+	function test_shouldEmit_TransferViaATR() external {
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, address(0), atrId, asset);
+
+		vm.prank(safe);
+		atr.burnAssetTransferRightsToken(atrId);
+	}
+
 }
 
 
@@ -807,6 +828,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 	uint256 atrId = 5;
 	uint256 atrId2 = 102;
 	uint256 tokenId = 42;
+	MultiToken.Asset asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
 
 	function setUp() override public {
 		super.setUp();
@@ -817,7 +839,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		atrIds[0] = atrId;
 		atrIds[1] = atrId2;
 
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
 		assets[0] = asset;
 		assets[1] = asset;
@@ -903,6 +925,14 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 
 		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+
+	function test_shouldEmit_TransferViaATR() external {
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, alice, atrId, asset);
+
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
 	}
 	// <--- Process
 
@@ -1006,6 +1036,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 	uint256 atrId = 5;
 	uint256 atrId2 = 102;
 	uint256 tokenId = 42;
+	MultiToken.Asset asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
 
 	RecipientPermissionManager.RecipientPermission permission;
 	bytes32 permissionHash;
@@ -1021,7 +1052,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		atrIds[0] = atrId;
 		atrIds[1] = atrId2;
 
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
 		assets[0] = asset;
 		assets[1] = asset;
@@ -1307,6 +1338,16 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 
 		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(safe, token, tokenId));
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+
+	function test_shouldEmit_TransferViaATR() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, bob, atrId, asset);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
 	}
 	// <--- Process
 
