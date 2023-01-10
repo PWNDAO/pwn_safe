@@ -28,6 +28,7 @@ abstract contract UseCasesTest is Test {
 	GnosisSafe gnosisSafeSingleton;
 	GnosisSafeProxyFactory gnosisSafeFactory;
 	CompatibilityFallbackHandler gnosisFallbackHandler;
+	SignMessageLib signMessageLib;
 
 	address constant alice = address(0xa11ce);
 	address constant bob = address(0xb0b);
@@ -36,6 +37,7 @@ abstract contract UseCasesTest is Test {
 	address immutable ownerOther = address(0x1002);
 
 	Whitelist whitelist;
+	address whitelistOwner;
 	AssetTransferRights atr;
 	AssetTransferRightsGuard guard;
 	PWNSafeFactory factory;
@@ -53,23 +55,36 @@ abstract contract UseCasesTest is Test {
 
 		// Goerli testnet
 		if (block.chainid == 5) {
-			// whitelist = Whitelist(TODO);
+			whitelist = Whitelist(0x8Ce467a4985B6170F1461A42032ff827c57Aa3C6);
+			whitelistOwner = address(0x1Eaa0f4D9b62611032Fa75B8f109fC5ef1A5AC79);
 			gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
 			gnosisSafeFactory = GnosisSafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
-			// TODO: Custom deployment of `CompatibilityFallbackHandler`
-			// gnosisFallbackHandler = CompatibilityFallbackHandler();
+			// Custom deployment of `CompatibilityFallbackHandler`
+			gnosisFallbackHandler = CompatibilityFallbackHandler(0xd23f1e8d26C35295aBcd17362063bac7999F7Bc5);
+			signMessageLib = SignMessageLib(0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2);
 		}
 		// Local devnet
 		else if (block.chainid == 31337) {
 			whitelist = new Whitelist();
+			whitelistOwner = address(this);
 			gnosisSafeSingleton = new GnosisSafe();
 			gnosisSafeFactory = new GnosisSafeProxyFactory();
 			gnosisFallbackHandler = new CompatibilityFallbackHandler(address(whitelist));
+			signMessageLib = new SignMessageLib();
 		}
 	}
 
 	function setUp() public virtual {
-		_deployRealm();
+		// Goerli testnet
+		if (block.chainid == 5) {
+			atr = AssetTransferRights(0xA9d6ADC15054B1b668Ad886159132FCBCCACC280);
+			guard = AssetTransferRightsGuard(0x49ec29913b506dE5aea2F944483FA8868d806fd0);
+			factory = PWNSafeFactory(0x83daf9E6204D8A6b60bCc24e531c20457fe1Ccf4);
+		}
+		// Local devnet
+		else if (block.chainid == 31337) {
+			_deployRealm();
+		}
 
 		address[] memory owners = new address[](1);
 
@@ -169,15 +184,6 @@ abstract contract UseCasesTest is Test {
 
 contract UseCases_EIP1271_Test is UseCasesTest {
 
-	SignMessageLib signMessageLib;
-
-	function setUp() override public {
-		super.setUp();
-
-		signMessageLib = new SignMessageLib();
-	}
-
-
 	/**
 	 * 1: enable whitelist
 	 * 2: sign message
@@ -191,7 +197,9 @@ contract UseCases_EIP1271_Test is UseCasesTest {
 		bytes32 dataDigest = keccak256("data digest");
 
 		// 1:
+		vm.prank(whitelistOwner);
 		whitelist.setUseWhitelist(true);
+		vm.prank(whitelistOwner);
 		whitelist.setIsWhitelistedLib(address(signMessageLib), true);
 
 		// 2:
@@ -216,6 +224,7 @@ contract UseCases_EIP1271_Test is UseCasesTest {
 		assertEq(abi.decode(responseBytes, (bytes4)), bytes4(0x1626ba7e));
 
 		// 4:
+		vm.prank(whitelistOwner);
 		whitelist.setUseWhitelist(false);
 
 		// 5:
@@ -226,6 +235,7 @@ contract UseCases_EIP1271_Test is UseCasesTest {
 		assertEq(abi.decode(responseBytes, (bytes4)), bytes4(0));
 
 		// 6:
+		vm.prank(whitelistOwner);
 		whitelist.setIsWhitelistedLib(address(signMessageLib), false);
 
 		// 7:
@@ -259,6 +269,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 		super.setUp();
 
 		t20 = new T20();
+		vm.prank(whitelistOwner);
 		whitelist.setIsWhitelisted(address(t20), true);
 	}
 
@@ -508,6 +519,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 		super.setUp();
 
 		t721 = new T721();
+		vm.prank(whitelistOwner);
 		whitelist.setIsWhitelisted(address(t721), true);
 	}
 
@@ -879,6 +891,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		super.setUp();
 
 		t1155 = new T1155();
+		vm.prank(whitelistOwner);
 		whitelist.setIsWhitelisted(address(t1155), true);
 	}
 
