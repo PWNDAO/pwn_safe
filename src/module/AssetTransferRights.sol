@@ -374,10 +374,15 @@ contract AssetTransferRights is
 			_increaseTokenizedBalance(atrTokenId, to, asset);
 		}
 
-		bytes memory data = asset.transferAssetFromCalldata(from, to, true);
-
 		// Transfer asset from `from` safe
-		GnosisSafe(from).execTransactionFromModule(asset.assetAddress, 0, data, Enum.Operation.Call);
+		bool success = GnosisSafe(from).execTransactionFromModule({
+			to: asset.assetAddress,
+			value: 0,
+			data: asset.transferAssetFromCalldata(from, to, true),
+			operation: Enum.Operation.Call
+		});
+		require(success, "Asset transfer failed");
+
 		emit TransferViaATR(from, to, atrTokenId, asset);
 	}
 

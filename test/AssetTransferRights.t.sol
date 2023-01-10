@@ -934,6 +934,18 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		vm.prank(alice);
 		atr.claimAssetFrom(safe, atrId, true);
 	}
+
+	function test_shouldFail_whenExecutionUnsuccessful() external {
+		vm.mockCall(
+			safe,
+			abi.encodeWithSignature("execTransactionFromModule(address,uint256,bytes,uint8)"),
+			abi.encode(false)
+		);
+
+		vm.expectRevert("Asset transfer failed");
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
+	}
 	// <--- Process
 
 	// ---> With `burnToken` flag
@@ -1346,6 +1358,20 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		vm.expectEmit(true, true, true, true);
 		emit TransferViaATR(safe, bob, atrId, asset);
 
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
+	}
+
+	function test_shouldFail_whenExecutionUnsuccessful() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.mockCall(
+			safe,
+			abi.encodeWithSignature("execTransactionFromModule(address,uint256,bytes,uint8)"),
+			abi.encode(false)
+		);
+
+		vm.expectRevert("Asset transfer failed");
 		vm.prank(alice);
 		atr.transferAssetFrom(safe, atrId, true, permission, "");
 	}
