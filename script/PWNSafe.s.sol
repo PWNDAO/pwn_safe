@@ -88,3 +88,32 @@ contract Deploy is Script {
 	}
 
 }
+
+
+/*
+Set ATR token metadata URI by executing commands:
+
+source .env
+
+forge script script/PWNSafe.s.sol:Metadata \
+--sig "set(address,string)" $ATR $METADATA_URI \
+--rpc-url $RPC_URL \
+--private-key $DEPLOY_PRIVATE_KEY \
+--with-gas-price $(cast --to-wei 10 gwei) \
+--broadcast
+*/
+contract Metadata is Script {
+
+	function set(
+		address atr,
+		string memory metadataUri
+	) external {
+		vm.startBroadcast();
+
+		// Script have to be called by ATR contract owner
+		AssetTransferRights(atr).setMetadataUri(metadataUri);
+
+		vm.stopBroadcast();
+	}
+
+}
