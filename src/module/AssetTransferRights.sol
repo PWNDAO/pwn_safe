@@ -383,7 +383,7 @@ contract AssetTransferRights is
 		});
 		require(success, "Asset transfer failed");
 
-		emit TransferViaATR(from, to, atrTokenId, asset);
+		emit TransferViaATR(from, burnToken ? address(0) : to, atrTokenId, asset);
 	}
 
 

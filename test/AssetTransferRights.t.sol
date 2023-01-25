@@ -927,14 +927,6 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
 	}
 
-	function test_shouldEmit_TransferViaATR() external {
-		vm.expectEmit(true, true, true, true);
-		emit TransferViaATR(safe, alice, atrId, asset);
-
-		vm.prank(alice);
-		atr.claimAssetFrom(safe, atrId, true);
-	}
-
 	function test_shouldFail_whenExecutionUnsuccessful() external {
 		vm.mockCall(
 			safe,
@@ -973,6 +965,14 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 		// Load atr token owner
 		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
 		assertEq(owner, 0);
+	}
+
+	function test_shouldEmit_TransferViaATR_whenWithBurnFlag() external {
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, address(0), atrId, asset);
+
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, true);
 	}
 	// <--- With `burnToken` flag
 
@@ -1033,6 +1033,21 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 
 		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(alice, token, tokenId));
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+
+	function test_shouldEmit_TransferViaATR_whenWithoutBurnFlag() external {
+		// Alice is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", alice),
+			abi.encode(true)
+		);
+
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, alice, atrId, asset);
+
+		vm.prank(alice);
+		atr.claimAssetFrom(safe, atrId, false);
 	}
 	// <--- Without `burnToken` flag
 
@@ -1352,16 +1367,6 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
 	}
 
-	function test_shouldEmit_TransferViaATR() external {
-		_mockGrantedPermission(permissionHash);
-
-		vm.expectEmit(true, true, true, true);
-		emit TransferViaATR(safe, bob, atrId, asset);
-
-		vm.prank(alice);
-		atr.transferAssetFrom(safe, atrId, true, permission, "");
-	}
-
 	function test_shouldFail_whenExecutionUnsuccessful() external {
 		_mockGrantedPermission(permissionHash);
 
@@ -1406,6 +1411,16 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 		// Load atr token owner
 		bytes32 owner = vm.load(address(atr), keccak256(abi.encode(atrId, ATR_TOKEN_OWNER_SLOT)));
 		assertEq(owner, 0);
+	}
+
+	function test_shouldEmit_TransferViaATR_whenWithBurnFlag() external {
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, address(0), atrId, asset);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, true, permission, "");
 	}
 	// <--- With `burnToken` flag
 
@@ -1471,6 +1486,22 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 
 		bytes32 tokenizedBalanceValue = vm.load(address(atr), _tokenizedBalanceValuesSlotFor(bob, token, tokenId));
 		assertEq(uint256(tokenizedBalanceValue), erc1155Amount / 2);
+	}
+
+	function test_shouldEmit_TransferViaATR_whenWithoutBurnFlag() external {
+		// Bob is safe now
+		vm.mockCall(
+			safeValidator,
+			abi.encodeWithSignature("isValidSafe(address)", bob),
+			abi.encode(true)
+		);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, bob, atrId, asset);
+
+		vm.prank(alice);
+		atr.transferAssetFrom(safe, atrId, false, permission, "");
 	}
 	// <--- Without `burnToken` flag
 
