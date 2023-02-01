@@ -472,7 +472,23 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		assertEq(uint256(permissionNonceRevokedValue), 1);
 	}
 
-	function test_shouldEmitRecipientPermissionNonceRevokedEvent() external {
+	function testFail_shouldNotEmitRecipientPermissionNonceRevokedEvent_whenPersistent() external {
+		permission.isPersistent = true;
+		permissionHash = atr.recipientPermissionHash(permission);
+		_mockGrantedPermission(permissionHash);
+
+		vm.expectEmit(true, true, false, false);
+		emit RecipientPermissionNonceRevoked(permission.recipient, permission.nonce);
+
+		atr.checkValidPermission(
+			bob,
+			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
+			permission,
+			""
+		);
+	}
+
+	function test_shouldEmitRecipientPermissionNonceRevokedEvent_whenNotPersistent() external {
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectEmit(true, true, false, false);

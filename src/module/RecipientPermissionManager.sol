@@ -206,11 +206,12 @@ abstract contract RecipientPermissionManager {
 		}
 
 		// Mark used permission nonce as revoked if not persistent
-		if (permission.isPersistent == false)
+		if (permission.isPersistent == false) {
 			revokedPermissionNonces[recipient][nonce] = true;
 
-		// Emit event
-		emit RecipientPermissionNonceRevoked(recipient, nonce);
+			emit RecipientPermissionNonceRevoked(recipient, nonce);
+		}
+
 	}
 
 }
