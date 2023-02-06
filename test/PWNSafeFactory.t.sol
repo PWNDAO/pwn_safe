@@ -47,6 +47,70 @@ abstract contract PWNSafeFactoryTest is Test {
 
 
 /*----------------------------------------------------------*|
+|*  # CONSTRUCTOR                                           *|
+|*----------------------------------------------------------*/
+
+contract PWNSafeFactory_Constructor_Test is PWNSafeFactoryTest {
+
+	function test_shouldFail_whenSafeSingletonIsZeroAddress() external {
+		vm.expectRevert("Safe signleton is zero address");
+		factory = new PWNSafeFactory(
+			address(0),
+			gsProxyFactory,
+			fallbackHandler,
+			module,
+			guard
+		);
+	}
+
+	function test_shouldFail_whenSafeProxyFactoryIsZeroAddress() external {
+		vm.expectRevert("Safe proxy factory is zero address");
+		factory = new PWNSafeFactory(
+			singleton,
+			address(0),
+			fallbackHandler,
+			module,
+			guard
+		);
+	}
+
+	function test_shouldFail_whenFallbackHandlerIsZeroAddress() external {
+		vm.expectRevert("Fallback handler is zero address");
+		factory = new PWNSafeFactory(
+			singleton,
+			gsProxyFactory,
+			address(0),
+			module,
+			guard
+		);
+	}
+
+	function test_shouldFail_whenATRModuleIsZeroAddress() external {
+		vm.expectRevert("ATR module is zero address");
+		factory = new PWNSafeFactory(
+			singleton,
+			gsProxyFactory,
+			fallbackHandler,
+			address(0),
+			guard
+		);
+	}
+
+	function test_shouldFail_whenATRGuardIsZeroAddress() external {
+		vm.expectRevert("ATR guard is zero address");
+		factory = new PWNSafeFactory(
+			singleton,
+			gsProxyFactory,
+			fallbackHandler,
+			module,
+			address(0)
+		);
+	}
+
+}
+
+
+/*----------------------------------------------------------*|
 |*  # DEPLOY PROXY                                          *|
 |*----------------------------------------------------------*/
 

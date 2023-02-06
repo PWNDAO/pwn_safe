@@ -56,10 +56,20 @@ contract PWNSafeFactory is IPWNSafeValidator {
 		address _atrGuard
 	) {
 		pwnFactorySingleton = address(this);
+
+		require(_gnosisSafeSingleton != address(0), "Safe signleton is zero address");
 		gnosisSafeSingleton = _gnosisSafeSingleton;
+
+		require(_gnosisSafeProxyFactory != address(0), "Safe proxy factory is zero address");
 		gnosisSafeProxyFactory = GnosisSafeProxyFactory(_gnosisSafeProxyFactory);
+
+		require(_fallbackHandler != address(0), "Fallback handler is zero address");
 		fallbackHandler = _fallbackHandler;
+
+		require(_atrModule != address(0), "ATR module is zero address");
 		atrModule = _atrModule;
+
+		require(_atrGuard != address(0), "ATR guard is zero address");
 		atrGuard = _atrGuard;
 	}
 
