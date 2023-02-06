@@ -143,6 +143,20 @@ contract AssetTransferRightsGuard_Initialize_Test is AssetTransferRightsGuardTes
 		guard.initialize(module, whitelist);
 	}
 
+	function test_shouldFail_whenATRIsZeroAddress() external {
+		guard = new AssetTransferRightsGuard();
+
+		vm.expectRevert("ATR module is zero address");
+		guard.initialize(address(0), whitelist);
+	}
+
+	function test_shouldFail_whenWhitelistIsZeroAddress() external {
+		guard = new AssetTransferRightsGuard();
+
+		vm.expectRevert("Whitelist is zero address");
+		guard.initialize(module, address(0));
+	}
+
 }
 
 

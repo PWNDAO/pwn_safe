@@ -51,7 +51,10 @@ contract AssetTransferRightsGuard is Guard, OperatorsContext, Initializable, IAs
 	 * @param _atr Address of AssetTransferRights contract, used to check tokenized balances.
 	 */
 	function initialize(address _atr, address _whitelist) external initializer {
+		require(_atr != address(0), "ATR module is zero address");
 		atr = AssetTransferRights(_atr);
+
+		require(_whitelist != address(0), "Whitelist is zero address");
 		whitelist = Whitelist(_whitelist);
 	}
 
