@@ -152,7 +152,7 @@ abstract contract RecipientPermissionManager {
 
 
 	/*----------------------------------------------------------*|
-	|*  # VALID PERMISSION CHECKS                               *|
+	|*  # VALID PERMISSION                                      *|
 	|*----------------------------------------------------------*/
 
 	/**
@@ -162,7 +162,7 @@ abstract contract RecipientPermissionManager {
 	 * @param permission Struct representing recipient permission. See {RecipientPermission}.
 	 * @param permissionSignature Signature of permission struct hash. In case of on-chain permission or when ERC1271 don't need it, pass empty data.
 	 */
-	function _checkValidPermission(
+	function _useValidPermission(
 		address sender,
 		MultiToken.Asset memory asset,
 		RecipientPermission memory permission,

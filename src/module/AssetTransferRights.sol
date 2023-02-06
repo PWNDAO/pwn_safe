@@ -307,8 +307,8 @@ contract AssetTransferRights is
 
 		_initialChecks(asset, from, permission.recipient, atrTokenId);
 
-		// Check valid permission
-		_checkValidPermission(msg.sender, asset, permission, permissionSignature);
+		// Use valid permission
+		_useValidPermission(msg.sender, asset, permission, permissionSignature);
 
 		// Process asset transfer
 		_processTransferAssetFrom(asset, from, permission.recipient, atrTokenId, burnToken);

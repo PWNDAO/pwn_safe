@@ -13,13 +13,13 @@ contract RecipientPermissionManagerExposed is AssetTransferRights {
 
 	constructor(address whitelist) AssetTransferRights(whitelist) {}
 
-	function checkValidPermission(
+	function useValidPermission(
 		address sender,
 		MultiToken.Asset memory asset,
 		RecipientPermission calldata permission,
 		bytes calldata permissionSignature
 	) external {
-		_checkValidPermission(sender, asset, permission, permissionSignature);
+		_useValidPermission(sender, asset, permission, permissionSignature);
 	}
 
 }
@@ -222,10 +222,10 @@ contract RecipientPermissionManager_RecipientPermissionHash_Test is RecipientPer
 
 
 /*----------------------------------------------------------*|
-|*  # CHECK VALID PERMISSION                                *|
+|*  # USE VALID PERMISSION                                  *|
 |*----------------------------------------------------------*/
 
-contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermissionManagerTest {
+contract RecipientPermissionManager_UseValidPermission_Test is RecipientPermissionManagerTest {
 
 	function setUp() override public {
 		super.setUp();
@@ -239,7 +239,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectRevert("Recipient permission is expired");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -252,7 +252,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		permissionHash = atr.recipientPermissionHash(permission);
 		_mockGrantedPermission(permissionHash);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -264,7 +264,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectRevert("Caller is not permitted agent");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			alice,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -277,7 +277,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		permissionHash = atr.recipientPermissionHash(permission);
 		_mockGrantedPermission(permissionHash);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			alice,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -289,7 +289,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectRevert("Invalid permitted asset");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(MultiToken.Category.ERC1155, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -297,7 +297,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 
 		vm.expectRevert("Invalid permitted asset");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, address(0x1221), permission.assetId, permission.assetAmount),
 			permission,
@@ -305,7 +305,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 
 		vm.expectRevert("Invalid permitted asset");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, 42, permission.assetAmount),
 			permission,
@@ -313,7 +313,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 
 		vm.expectRevert("Invalid permitted asset");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, 2),
 			permission,
@@ -328,7 +328,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectRevert("Invalid permitted asset");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(MultiToken.Category.ERC1155, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -336,21 +336,21 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 
 		vm.expectRevert("Invalid permitted asset");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, address(0x1221), permission.assetId, permission.assetAmount),
 			permission,
 			""
 		);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, 42, permission.assetAmount),
 			permission,
 			""
 		);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, 2),
 			permission,
@@ -363,7 +363,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		_mockGrantedPermission(permissionHash);
 
 		vm.expectRevert("Recipient permission nonce is revoked");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -380,7 +380,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		);
 
 		vm.expectRevert("Signature on behalf of contract is invalid");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -392,7 +392,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		(uint8 v, bytes32 r, bytes32 s) = vm.sign(6, keccak256("invalid data"));
 
 		vm.expectRevert("Permission signer is not stated as recipient");
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -403,7 +403,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 	function test_shouldPass_whenPermissionHasBeenGranted() external {
 		_mockGrantedPermission(permissionHash);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -419,7 +419,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 			abi.encode(bytes4(0x1626ba7e))
 		);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -434,7 +434,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		permissionHash = atr.recipientPermissionHash(permission);
 		(uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, permissionHash);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -447,7 +447,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		permissionHash = atr.recipientPermissionHash(permission);
 		_mockGrantedPermission(permissionHash);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -461,7 +461,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 	function test_shouldStoreThatPermissionIsRevoked_whenNotPersistent() external {
 		_mockGrantedPermission(permissionHash);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -480,7 +480,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		vm.expectEmit(true, true, false, false);
 		emit RecipientPermissionNonceRevoked(permission.recipient, permission.nonce);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
@@ -494,7 +494,7 @@ contract RecipientPermissionManager_CheckValidPermission_Test is RecipientPermis
 		vm.expectEmit(true, true, false, false);
 		emit RecipientPermissionNonceRevoked(permission.recipient, permission.nonce);
 
-		atr.checkValidPermission(
+		atr.useValidPermission(
 			bob,
 			MultiToken.Asset(permission.assetCategory, permission.assetAddress, permission.assetId, permission.assetAmount),
 			permission,
