@@ -24,17 +24,15 @@ TBD
 | --- | --- | --- |
 | Whitelist | 0x8Ce467a4985B6170F1461A42032ff827c57Aa3C6 | [Goerli](https://goerli.etherscan.io/address/0x8Ce467a4985B6170F1461A42032ff827c57Aa3C6)
 | FallbackHandler | 0xd23f1e8d26C35295aBcd17362063bac7999F7Bc5 | [Goerli](https://goerli.etherscan.io/address/0xd23f1e8d26C35295aBcd17362063bac7999F7Bc5)
-| AssetTransferRights | 0xA9d6ADC15054B1b668Ad886159132FCBCCACC280 | [Goerli](https://goerli.etherscan.io/address/0xA9d6ADC15054B1b668Ad886159132FCBCCACC280)
-| AssetTransferRightsGuard | 0x4Ee0dD324e7ef1980010947EA172eAc3f6270F0F | [Goerli](https://goerli.etherscan.io/address/0x4Ee0dD324e7ef1980010947EA172eAc3f6270F0F)
-| AssetTransferRightsGuardProxy | 0x49ec29913b506dE5aea2F944483FA8868d806fd0 | [Goerli](https://goerli.etherscan.io/address/0x49ec29913b506dE5aea2F944483FA8868d806fd0)
-| PWNSafeFactory | 0x83daf9E6204D8A6b60bCc24e531c20457fe1Ccf4 | [Goerli](https://goerli.etherscan.io/address/0x83daf9E6204D8A6b60bCc24e531c20457fe1Ccf4)
+| AssetTransferRights | 0x9a5869a2E15fDFB92ad5fBB1e1853042bc70768f | [Goerli](https://goerli.etherscan.io/address/0x9a5869a2E15fDFB92ad5fBB1e1853042bc70768f)
+| AssetTransferRightsGuard (proxy) | 0x7aab799C02df6181d765015D09c8a93F0052FEdD | [Goerli](https://goerli.etherscan.io/address/0x7aab799C02df6181d765015D09c8a93F0052FEdD)
+| PWNSafeFactory | 0xD80FC95381dFca116db921775a1ee0DA99d1fB09 | [Goerli](https://goerli.etherscan.io/address/0xD80FC95381dFca116db921775a1ee0DA99d1fB09)
 
 ### Mumbai
 | Name | Address | Link |
 | --- | --- | --- |
 | Whitelist | 0xd8c27167232A4e744343dfD76027FbB4eD5B2542 | [Mumbai](https://mumbai.polygonscan.com/address/0xd8c27167232A4e744343dfD76027FbB4eD5B2542)
 | FallbackHandler | 0x038A7810955fb548e5a38a256cfc6FA702173c13 | [Mumbai](https://mumbai.polygonscan.com/address/0x038A7810955fb548e5a38a256cfc6FA702173c13)
-| AssetTransferRights | 0x92Ce756b54d15494141a87b59467c7682B230c0d | [Mumbai](https://mumbai.polygonscan.com/address/0x92Ce756b54d15494141a87b59467c7682B230c0d)
-| AssetTransferRightsGuard | 0xF97779f08Fa2f952eFb12F5827Ad95cE26fEF432 | [Mumbai](https://mumbai.polygonscan.com/address/0xF97779f08Fa2f952eFb12F5827Ad95cE26fEF432)
-| AssetTransferRightsGuardProxy | 0x2f705615E25D705813cC0E29f4225Db0EDB82eCa | [Mumbai](https://mumbai.polygonscan.com/address/0x2f705615E25D705813cC0E29f4225Db0EDB82eCa)
-| PWNSafeFactory | 0x34fCA53BbCbc2a4E2fF5D7F704b7143133dfaCF7 | [Mumbai](https://mumbai.polygonscan.com/address/0x34fCA53BbCbc2a4E2fF5D7F704b7143133dfaCF7)
+| AssetTransferRights | 0xE989a297c033C963B57b513D845a034615C34b2D | [Mumbai](https://mumbai.polygonscan.com/address/0xE989a297c033C963B57b513D845a034615C34b2D)
+| AssetTransferRightsGuard (proxy) | 0xe2cb6Bfb0cff0c4B9b24ab605899B1B4F7e13cc9 | [Mumbai](https://mumbai.polygonscan.com/address/0xe2cb6Bfb0cff0c4B9b24ab605899B1B4F7e13cc9)
+| PWNSafeFactory | 0x6B5e585C76ABca1AD431613817aA71BE1d025f65 | [Mumbai](https://mumbai.polygonscan.com/address/0x6B5e585C76ABca1AD431613817aA71BE1d025f65)
