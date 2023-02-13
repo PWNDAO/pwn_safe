@@ -7,6 +7,8 @@ import "@openzeppelin/interfaces/IERC20.sol";
 import "@openzeppelin/interfaces/IERC721.sol";
 import "@openzeppelin/interfaces/IERC1155.sol";
 
+import "MultiToken/MultiToken.sol";
+
 import "@pwn-safe/module/AssetTransferRights.sol";
 
 import "@pwn-safe-test/helpers/TokenizedAssetManagerStorageHelper.sol";
@@ -60,6 +62,8 @@ abstract contract TokenizedAssetManagerTest is TokenizedAssetManagerStorageHelpe
 	address safe = address(0xff);
 	address token = address(0x070ce2);
 	address whitelist = makeAddr("whitelist");
+
+	event TransferViaATR(address indexed from, address indexed to, uint256 indexed atrTokenId, MultiToken.Asset asset);
 
 	constructor() {
 		vm.etch(token, bytes("data"));
@@ -340,6 +344,19 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 		bytes32 isInvalidSlot = keccak256(abi.encode(uint256(42), IS_INVALID_SLOT));
 		bytes32 isInvalidValue = vm.load(address(atr), isInvalidSlot);
 		assertEq(uint256(isInvalidValue), 1);
+	}
+
+	function test_shouldEmit_TransferViaATR() external {
+		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18);
+		_tokenizeAssetUnderId(safe, 42, asset);
+		_mockReport(safe, 42, 100);
+		vm.roll(110);
+
+		vm.expectEmit(true, true, true, true);
+		emit TransferViaATR(safe, address(0), 42, asset);
+
+		vm.prank(safe);
+		atr.recoverInvalidTokenizedBalance();
 	}
 
 }

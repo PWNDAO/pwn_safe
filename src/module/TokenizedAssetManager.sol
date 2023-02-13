@@ -71,6 +71,17 @@ abstract contract TokenizedAssetManager {
 
 
 	/*----------------------------------------------------------*|
+	|*  # EVENTS & ERRORS DEFINITIONS                           *|
+	|*----------------------------------------------------------*/
+
+	/**
+	 * @dev Emitted when asset is transferred via ATR token from `from` to `to`.
+	 *      ATR token can be held by a different address.
+	 */
+	event TransferViaATR(address indexed from, address indexed to, uint256 indexed atrTokenId, MultiToken.Asset asset);
+
+
+	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
@@ -157,6 +168,8 @@ abstract contract TokenizedAssetManager {
 		require(_decreaseTokenizedBalance(atrTokenId, owner, asset), "Asset is not in callers safe");
 
 		delete invalidTokenizedBalanceReports[owner];
+
+		emit TransferViaATR(owner, address(0), atrTokenId, asset);
 
 		// Mark atr token as invalid (tokens asset holder is lost)
 		isInvalid[atrTokenId] = true;

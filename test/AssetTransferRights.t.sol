@@ -761,7 +761,7 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 		atr.burnAssetTransferRightsToken(invalidAtrTokenId);
 	}
 
-	function test_shouldEmit_TransferViaATR() external {
+	function test_shouldEmit_TransferViaATR_whenNotInvalid() external {
 		vm.expectEmit(true, true, true, true);
 		emit TransferViaATR(safe, address(0), atrId, asset);
 

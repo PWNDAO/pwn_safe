@@ -75,17 +75,6 @@ contract AssetTransferRights is
 
 
 	/*----------------------------------------------------------*|
-	|*  # EVENTS & ERRORS DEFINITIONS                           *|
-	|*----------------------------------------------------------*/
-
-	/**
-	 * @dev Emitted when asset is transferred via ATR token from `from` to `to`.
-	 *      ATR token can be held by a different address.
-	 */
-	event TransferViaATR(address indexed from, address indexed to, uint256 indexed atrTokenId, MultiToken.Asset asset);
-
-
-	/*----------------------------------------------------------*|
 	|*  # CONSTRUCTOR                                           *|
 	|*----------------------------------------------------------*/
 
@@ -225,9 +214,9 @@ contract AssetTransferRights is
 
 			// Update tokenized balance
 			require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a safe");
-		}
 
-		emit TransferViaATR(msg.sender, address(0), atrTokenId, asset);
+			emit TransferViaATR(msg.sender, address(0), atrTokenId, asset);
+		}
 
 		// Clear asset data
 		_clearTokenizedAsset(atrTokenId);
