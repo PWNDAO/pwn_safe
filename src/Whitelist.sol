@@ -34,6 +34,16 @@ contract Whitelist is Ownable {
 
 
     /*----------------------------------------------------------*|
+    |*  # EVENTS & ERRORS DEFINITIONS                           *|
+    |*----------------------------------------------------------*/
+
+    /**
+     * @dev Emitted when asset address is whitelisted.
+     */
+    event AssetWhitelisted(address indexed assetAddress, bool indexed isWhitelisted);
+
+
+    /*----------------------------------------------------------*|
     |*  # CONSTRUCTOR                                           *|
     |*----------------------------------------------------------*/
 
@@ -80,6 +90,8 @@ contract Whitelist is Ownable {
      */
     function setIsWhitelisted(address assetAddress, bool _isWhitelisted) public onlyOwner {
         isWhitelisted[assetAddress] = _isWhitelisted;
+
+        emit AssetWhitelisted(assetAddress, _isWhitelisted);
     }
 
     /**

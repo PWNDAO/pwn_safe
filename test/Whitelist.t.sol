@@ -16,6 +16,8 @@ abstract contract WhitelistTest is Test {
     address notOwner = makeAddr("notOwner");
     address asset = makeAddr("asset");
 
+    event AssetWhitelisted(address indexed assetAddress, bool indexed isWhitelisted);
+
     constructor() {
 
     }
@@ -117,6 +119,13 @@ contract Whitelist_SetIsWhitelisted_Test is WhitelistTest {
         );
     }
 
+    function test_shouldEmit_AssetWhitelisted() external {
+        vm.expectEmit(true, true, true, true);
+        emit AssetWhitelisted(asset, true);
+
+        whitelist.setIsWhitelisted(asset, true);
+    }
+
 }
 
 
@@ -157,6 +166,15 @@ contract Whitelist_SetIsWhitelistedBatch_Test is WhitelistTest {
         assertEq(uint256(vm.load(address(whitelist), assetSlot1)), 1);
         assertEq(uint256(vm.load(address(whitelist), assetSlot2)), 1);
         assertEq(uint256(vm.load(address(whitelist), assetSlot3)), 1);
+    }
+
+    function test_shouldEmit_AssetWhitelisted() external {
+        for (uint256 i; i < assetAddresses.length; ++i) {
+            vm.expectEmit(true, true, true, true);
+            emit AssetWhitelisted(assetAddresses[i], true);
+        }
+
+        whitelist.setIsWhitelistedBatch(assetAddresses, true);
     }
 
 }
