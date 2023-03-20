@@ -131,7 +131,7 @@ abstract contract TokenizedAssetManager {
 	function reportInvalidTokenizedBalance(uint256 atrTokenId, address owner) external {
 		// Check if atr token is in owners safe
 		// That would also check for non-existing ATR tokens
-		require(tokenizedAssetsInSafe[owner].contains(atrTokenId), "Asset is not in callers safe");
+		require(tokenizedAssetsInSafe[owner].contains(atrTokenId), "Asset is not in owners safe");
 
 		// Check if state is really invalid
 		MultiToken.Asset memory asset = assets[atrTokenId];

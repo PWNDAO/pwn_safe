@@ -214,7 +214,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAssetManagerTest {
 
 	function test_shouldFail_whenATRTokenIsNotInCallersSafe() external {
-		vm.expectRevert("Asset is not in callers safe");
+		vm.expectRevert("Asset is not in owners safe");
 		atr.reportInvalidTokenizedBalance(43, address(0xa11ce));
 	}
 
