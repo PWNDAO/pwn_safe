@@ -1240,4 +1240,60 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 		atr.transferAssetFrom(payable(address(safe)), 1, true, permission, "");
 	}
 
+	/**
+	 * 1:  fail to mint ATR token 1 for asset id 1
+	 * 2:  mint asset id 1 amount 1
+	 * 3:  mint ATR token 1 for asset id 1
+	 * 4:  fail to mint ATR token 2 for asset id 1
+	 * 5:  fail to transfer asset id 1 from safe
+	 * 6:  fail to report invalid tokenized balance of ATR token 1
+	 */
+	function test_UC_ERC1155_7() external {
+		// 1:
+		vm.expectRevert("GS013"); // Insufficient balance to tokenize
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.ERC1155(address(t1155), 1, 0)
+			)
+		);
+
+		// 2:
+		t1155.mint(address(safe), 1, 1);
+
+		// 3:
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.ERC1155(address(t1155), 1, 0)
+			)
+		);
+
+		// 4:
+		vm.expectRevert("GS013"); // Insufficient balance to tokenize
+		_executeTx(
+			safe, address(atr),
+			abi.encodeWithSelector(
+				atr.mintAssetTransferRightsToken.selector,
+				MultiToken.ERC1155(address(t1155), 1, 0)
+			)
+		);
+
+		// 5:
+		vm.expectRevert("Insufficient tokenized balance");
+		_executeTx(
+			safe, address(t1155),
+			abi.encodeWithSignature(
+				"safeTransferFrom(address,address,uint256,uint256,bytes)",
+				address(safe), alice, 1, 1, ""
+			)
+		);
+
+		// 6:
+		vm.expectRevert("Tokenized balance is not invalid");
+		atr.reportInvalidTokenizedBalance(1, address(safe));
+	}
+
 }
