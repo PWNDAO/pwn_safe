@@ -218,7 +218,7 @@ abstract contract TokenizedAssetManager {
 		tokenizedAssetsInSafe[owner].add(atrTokenId);
 		EnumerableMap.UintToUintMap storage map = tokenizedBalances[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
-		map.set(asset.id, tokenizedBalance + asset.amount);
+		map.set(asset.id, tokenizedBalance + asset.getTransferAmount());
 	}
 
 	function _decreaseTokenizedBalance(
@@ -232,10 +232,10 @@ abstract contract TokenizedAssetManager {
 		EnumerableMap.UintToUintMap storage map = tokenizedBalances[owner][asset.assetAddress];
 		(, uint256 tokenizedBalance) = map.tryGet(asset.id);
 
-		if (tokenizedBalance == asset.amount) {
+		if (tokenizedBalance == asset.getTransferAmount()) {
 			map.remove(asset.id);
 		} else {
-			map.set(asset.id, tokenizedBalance - asset.amount);
+			map.set(asset.id, tokenizedBalance - asset.getTransferAmount());
 		}
 
 		return true;
@@ -247,7 +247,7 @@ abstract contract TokenizedAssetManager {
 	) internal view returns (bool) {
 		uint256 balance = asset.balanceOf(owner);
 		(, uint256 tokenizedBalance) = tokenizedBalances[owner][asset.assetAddress].tryGet(asset.id);
-		return (balance - tokenizedBalance) >= asset.amount;
+		return (balance - tokenizedBalance) >= asset.getTransferAmount();
 	}
 
 	function _storeTokenizedAsset(

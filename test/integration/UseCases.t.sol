@@ -308,7 +308,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
+				MultiToken.ERC20(address(t20), 300e18)
 			)
 		);
 
@@ -331,7 +331,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
+				MultiToken.ERC20(address(t20), 300e18)
 			)
 		);
 
@@ -346,7 +346,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
+				MultiToken.ERC20(address(t20), 300e18)
 			)
 		);
 
@@ -380,7 +380,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 300e18)
+				MultiToken.ERC20(address(t20), 300e18)
 			)
 		);
 
@@ -474,7 +474,7 @@ contract UseCases_ERC20_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC20, address(t20), 0, 200e18)
+				MultiToken.ERC20(address(t20), 200e18)
 			)
 		);
 
@@ -559,7 +559,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 2, 1)
+				MultiToken.ERC721(address(t721), 2)
 			)
 		);
 
@@ -569,7 +569,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+				MultiToken.ERC721(address(t721), 1)
 			)
 		);
 
@@ -637,7 +637,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+				MultiToken.ERC721(address(t721), 1)
 			)
 		);
 
@@ -652,7 +652,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+				MultiToken.ERC721(address(t721), 1)
 			)
 		);
 
@@ -711,7 +711,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			0,
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+				MultiToken.ERC721(address(t721), 1)
 			),
 			Enum.Operation.Call,
 			0,
@@ -730,7 +730,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 				0,
 				abi.encodeWithSelector(
 					atr.mintAssetTransferRightsToken.selector,
-					MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+					MultiToken.ERC721(address(t721), 1)
 				),
 				Enum.Operation.Call,
 				0,
@@ -752,7 +752,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			0,
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 1, 1)
+				MultiToken.ERC721(address(t721), 1)
 			),
 			Enum.Operation.Call,
 			0,
@@ -791,7 +791,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			address(atr), 0,
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+				MultiToken.ERC721(address(t721), 42)
 			),
 			Enum.Operation.Call, 0, 0, 0, address(0), payable(0),
 			abi.encodePacked(uint256(uint160(address(hackerWallet))), bytes32(0), uint8(1))
@@ -841,7 +841,7 @@ contract UseCases_ERC721_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC721, address(t721), 42, 1)
+				MultiToken.ERC721(address(t721), 42)
 			)
 		);
 
@@ -927,7 +927,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 600)
+				MultiToken.ERC1155(address(t1155), 1, 600)
 			)
 		);
 
@@ -942,7 +942,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 600)
+				MultiToken.ERC1155(address(t1155), 1, 600)
 			)
 		);
 
@@ -985,7 +985,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 600)
+				MultiToken.ERC1155(address(t1155), 1, 600)
 			)
 		);
 
@@ -1022,7 +1022,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 600)
+				MultiToken.ERC1155(address(t1155), 1, 600)
 			)
 		);
 
@@ -1075,7 +1075,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 100)
+				MultiToken.ERC1155(address(t1155), 1, 100)
 			)
 		);
 
@@ -1084,7 +1084,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 2, 100)
+				MultiToken.ERC1155(address(t1155), 2, 100)
 			)
 		);
 
@@ -1144,7 +1144,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+				MultiToken.ERC1155(address(t1155), 1, 200)
 			)
 		);
 
@@ -1153,7 +1153,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+				MultiToken.ERC1155(address(t1155), 1, 200)
 			)
 		);
 
@@ -1162,7 +1162,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+				MultiToken.ERC1155(address(t1155), 1, 200)
 			)
 		);
 
@@ -1217,7 +1217,7 @@ contract UseCases_ERC1155_Test is UseCasesTest {
 			safe, address(atr),
 			abi.encodeWithSelector(
 				atr.mintAssetTransferRightsToken.selector,
-				MultiToken.Asset(MultiToken.Category.ERC1155, address(t1155), 1, 200)
+				MultiToken.ERC1155(address(t1155), 1, 200)
 			)
 		);
 

@@ -84,7 +84,7 @@ abstract contract TokenizedAssetManagerTest is TokenizedAssetManagerStorageHelpe
 contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAssetManagerTest {
 
 	function test_shouldReturnFalse_whenInsufficientBalanceOfFungibleAsset() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18);
+		MultiToken.Asset memory asset = MultiToken.ERC20(token, 101e18);
 		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
@@ -99,7 +99,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 	}
 
 	function test_shouldReturnFalse_whenMissingTokenizedNonFungibleAsset() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
+		MultiToken.Asset memory asset = MultiToken.ERC721(token, 142);
 		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
@@ -114,7 +114,7 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 	}
 
 	function test_shouldReturnFalse_whenInsufficientBalanceOfSemifungibleAsset() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 142, 300);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 142, 300);
 		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
@@ -136,10 +136,10 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 		atrIds[3] = 82;
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
-		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
-		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+		assets[0] = MultiToken.ERC721(address(0x1002), 100);
+		assets[1] = MultiToken.ERC721(address(0x1002), 102);
+		assets[2] = MultiToken.ERC1155(address(0x1003), 42, 100);
+		assets[3] = MultiToken.ERC20(address(0x1001), 100e18);
 
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
@@ -174,10 +174,10 @@ contract TokenizedAssetManager_HasSufficientTokenizedBalance_Test is TokenizedAs
 		atrIds[3] = 82;
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
-		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
-		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+		assets[0] = MultiToken.ERC721(address(0x1002), 100);
+		assets[1] = MultiToken.ERC721(address(0x1002), 102);
+		assets[2] = MultiToken.ERC1155(address(0x1003), 42, 100);
+		assets[3] = MultiToken.ERC20(address(0x1001), 100e18);
 
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
@@ -219,7 +219,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 	}
 
 	function test_shouldFail_whenTokenizedBalanceIsNotInvalid() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 100e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 100e18));
 		vm.mockCall(
 			token,
 			abi.encodeWithSelector(IERC20.balanceOf.selector),
@@ -231,7 +231,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 	}
 
 	function test_shouldStoreReport() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 101e18));
 		vm.mockCall(
 			token,
 			abi.encodeWithSelector(IERC20.balanceOf.selector),
@@ -250,7 +250,7 @@ contract TokenizedAssetManager_ReportInvalidTokenizedBalance_Test is TokenizedAs
 	}
 
 	function test_shouldOverrideExistingStoredReport() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 101e18));
 
 		bytes32 reportSlot = keccak256(abi.encode(safe, INVALID_TOKENIZED_BALANCE_REPORTS_SLOT));
 		vm.store(address(atr), bytes32(uint256(reportSlot) + 0), bytes32(uint256(40)));
@@ -296,7 +296,7 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 	}
 
 	function test_shouldFail_whenCalledWithingSameBlockAsReport() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 101e18));
 		_mockReport(safe, 42, block.number);
 
 		vm.expectRevert("Report block number has to be smaller then current block number");
@@ -305,7 +305,7 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 	}
 
 	function test_shouldFail_whenCallerIsNotUnderlyingAssetHolder() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 101e18));
 		address alice = address(0xa11ce);
 		_mockReport(alice, 42, 100);
 		vm.roll(110);
@@ -316,7 +316,7 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 	}
 
 	function test_shouldDeleteReport() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 101e18));
 		_mockReport(safe, 42, 100);
 		vm.roll(110);
 
@@ -333,7 +333,7 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 	}
 
 	function test_shouldMarkATRTokenAsInvalid() external {
-		_tokenizeAssetUnderId(safe, 42, MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18));
+		_tokenizeAssetUnderId(safe, 42, MultiToken.ERC20(token, 101e18));
 		_mockReport(safe, 42, 100);
 		vm.roll(110);
 
@@ -347,7 +347,7 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 	}
 
 	function test_shouldEmit_TransferViaATR() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 101e18);
+		MultiToken.Asset memory asset = MultiToken.ERC20(token, 101e18);
 		_tokenizeAssetUnderId(safe, 42, asset);
 		_mockReport(safe, 42, 100);
 		vm.roll(110);
@@ -369,7 +369,7 @@ contract TokenizedAssetManager_RecoverInvalidTokenizedBalance_Test is TokenizedA
 contract TokenizedAssetManager_GetAsset_Test is TokenizedAssetManagerTest {
 
 	function test_shouldReturnStoredAsset() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 142, 1);
+		MultiToken.Asset memory asset = MultiToken.ERC721(token, 142);
 		_tokenizeAssetUnderId(safe, 42, asset);
 
 		MultiToken.Asset memory returnedAsset = atr.getAsset(42);
@@ -397,10 +397,10 @@ contract TokenizedAssetManager_TokenizedAssetsInSafeOf_Test is TokenizedAssetMan
 		atrIds[3] = 82;
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
-		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
-		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+		assets[0] = MultiToken.ERC721(address(0x1002), 100);
+		assets[1] = MultiToken.ERC721(address(0x1002), 102);
+		assets[2] = MultiToken.ERC1155(address(0x1003), 42, 100);
+		assets[3] = MultiToken.ERC20(address(0x1001), 100e18);
 
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
@@ -429,10 +429,10 @@ contract TokenizedAssetManager_NumberOfTokenizedAssetsFromCollection_Test is Tok
 		atrIds[3] = 82;
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](4);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 100, 1);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC721, address(0x1002), 102, 1);
-		assets[2] = MultiToken.Asset(MultiToken.Category.ERC1155, address(0x1003), 42, 100);
-		assets[3] = MultiToken.Asset(MultiToken.Category.ERC20, address(0x1001), 0, 100e18);
+		assets[0] = MultiToken.ERC721(address(0x1002), 100);
+		assets[1] = MultiToken.ERC721(address(0x1002), 102);
+		assets[2] = MultiToken.ERC1155(address(0x1003), 42, 100);
+		assets[3] = MultiToken.ERC20(address(0x1001), 100e18);
 
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
 
@@ -462,7 +462,7 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 	uint256 private atrId = 42;
 
 	function test_shouldStoreAssetIsInSafe() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 
 		atr.increaseTokenizedBalance(atrId, safe, asset);
 
@@ -473,7 +473,7 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 	}
 
 	function test_shouldNotFail_whenAssetIsAlreadyInSafe() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		atr.increaseTokenizedBalance(atrId, safe, asset);
@@ -485,7 +485,7 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 	}
 
 	function test_shouldSetAssetsTokenizedBalance_whenBalanceIsZero() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 
 		atr.increaseTokenizedBalance(atrId, safe, asset);
 
@@ -494,7 +494,7 @@ contract TokenizedAssetManager_IncreaseTokenizedBalance_Test is TokenizedAssetMa
 	}
 
 	function test_shouldIncreaseAssetsTokenizedBalance_whenBalanceIsNonZero() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		atr.increaseTokenizedBalance(atrId + 1, safe, asset);
@@ -515,7 +515,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 	uint256 private atrId = 42;
 
 	function test_shouldReturnFalse_whenAssetIsNotInSafe() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 
 		bool success = atr.decreaseTokenizedBalance(atrId, safe, asset);
 
@@ -523,7 +523,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 	}
 
 	function test_shouldReturnTrue_whenAssetIsInSafe() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		bool success = atr.decreaseTokenizedBalance(atrId, safe, asset);
@@ -532,7 +532,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 	}
 
 	function test_shouldStoreAssetIsNotInSafe() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		atr.decreaseTokenizedBalance(atrId, safe, asset);
@@ -548,7 +548,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 		atrIds[0] = 42;
 		atrIds[1] = 43;
 
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
 		assets[0] = asset;
 		assets[1] = asset;
@@ -566,7 +566,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 	}
 
 	function test_shouldRemoveAssetIdFromSet_whenTokenizedBalanceIsEqualAmount() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		atr.decreaseTokenizedBalance(atrId, safe, asset);
@@ -587,7 +587,7 @@ contract TokenizedAssetManager_DecreaseTokenizedBalance_Test is TokenizedAssetMa
 contract TokenizedAssetManager_CanBeTokenized_Test is TokenizedAssetManagerTest {
 
 	function test_shouldReturnFalse_whenInsufficientBalance() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
@@ -602,7 +602,7 @@ contract TokenizedAssetManager_CanBeTokenized_Test is TokenizedAssetManagerTest 
 	}
 
 	function test_shouldReturnTrue_whenSufficientBalance() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, 42, asset);
 
 		vm.mockCall(
@@ -628,7 +628,7 @@ contract TokenizedAssetManager_StoreTokenizedAsset_Test is TokenizedAssetManager
 	uint256 atrId = 42;
 
 	function test_shouldStoreAsset() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 
 		atr.storeTokenizedAsset(atrId, asset);
 
@@ -656,7 +656,7 @@ contract TokenizedAssetManager_ClearTokenizedAsset_Test is TokenizedAssetManager
 	uint256 atrId = 42;
 
 	function test_shouldClearAsset() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 321, 123);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 321, 123);
 		_tokenizeAssetUnderId(safe, atrId, asset);
 
 		atr.clearTokenizedAsset(atrId);

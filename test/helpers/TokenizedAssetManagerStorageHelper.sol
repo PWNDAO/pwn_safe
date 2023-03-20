@@ -61,14 +61,14 @@ abstract contract TokenizedAssetManagerStorageHelper is Test {
 				// -> Set asset id index in `_keys._values` into `_keys._indexes` mapping (value in mapping is index + 1)
 				vm.store(atr, _tokenizedBalanceKeyIndexesSlotFor(owner, asset.assetAddress, asset.id), bytes32(tokenizedAssetsFromCollection + 1));
 				// -> Set asset balance to `_values` mapping under asset id
-				vm.store(atr, _tokenizedBalanceValuesSlotFor(owner, asset.assetAddress, asset.id), bytes32(asset.amount));
+				vm.store(atr, _tokenizedBalanceValuesSlotFor(owner, asset.assetAddress, asset.id), bytes32(MultiToken.getTransferAmount(asset)));
 			} else {
 				// -> `_keys._values` array length stays the same
 				// -> Asset id is present in `_keys._values` array
 				// -> Asset id has its index from `_keys._values` in `_keys._indexes` mapping
 				// -> Increase asset balance to `_values` mapping under asset id
 				uint256 tokenizedBalance = uint256(vm.load(atr, _tokenizedBalanceValuesSlotFor(owner, asset.assetAddress, asset.id)));
-				vm.store(atr, _tokenizedBalanceValuesSlotFor(owner, asset.assetAddress, asset.id), bytes32(tokenizedBalance + asset.amount));
+				vm.store(atr, _tokenizedBalanceValuesSlotFor(owner, asset.assetAddress, asset.id), bytes32(tokenizedBalance + MultiToken.getTransferAmount(asset)));
 			}
 
 		}

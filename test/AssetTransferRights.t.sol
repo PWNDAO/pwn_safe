@@ -53,15 +53,11 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 
 
 	function _mockToken(MultiToken.Category category) internal {
-		_mockToken(category, true);
-	}
-
-	function _mockToken(MultiToken.Category category, bool erc165) internal {
 		vm.clearMockedCalls();
 
 		_mockDependencyContracts();
 
-		if (erc165) {
+		if (category == MultiToken.Category.ERC721 || category == MultiToken.Category.ERC1155) {
 			vm.mockCall(
 				token,
 				abi.encodeWithSignature("supportsInterface(bytes4)", bytes4(0xffffffff)),
@@ -69,17 +65,12 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 			);
 			vm.mockCall(
 				token,
-				abi.encodeWithSignature("supportsInterface(bytes4)"),
+				abi.encodeWithSignature("supportsInterface(bytes4)", bytes4(0x01ffc9a7)),
 				abi.encode(true)
 			);
 		}
 
 		if (category == MultiToken.Category.ERC20) {
-			vm.mockCall(
-				token,
-				abi.encodeWithSignature("totalSupply()"),
-				abi.encode(1)
-			);
 			vm.mockCall(
 				token,
 				abi.encodeWithSignature("balanceOf(address)"),
@@ -96,11 +87,21 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 				abi.encodeWithSignature("ownerOf(uint256)"),
 				abi.encode(safe)
 			);
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC721).interfaceId),
+				abi.encode(true)
+			);
 		} else if (category == MultiToken.Category.ERC1155) {
 			vm.mockCall(
 				token,
 				abi.encodeWithSignature("balanceOf(address,uint256)"),
 				abi.encode(erc1155Amount)
+			);
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC1155).interfaceId),
+				abi.encode(true)
 			);
 		}
 	}
@@ -211,19 +212,15 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Caller is not a PWNSafe");
 		vm.prank(alice);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 	}
 
 	function test_shouldFail_whenZeroAddressAsset() external {
 		_mockToken(MultiToken.Category.ERC721);
 
-		vm.expectRevert("Attempting to tokenize zero address asset");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(0), 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(address(0), 42));
 	}
 
 	function test_shouldFail_whenATRToken() external {
@@ -231,9 +228,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Attempting to tokenize ATR token");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, address(atr), 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(address(atr), 42));
 	}
 
 	function test_shouldFail_whenUsingWhitelist_whenAssetIsNotWhitelisted() external {
@@ -246,9 +241,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Asset is not whitelisted");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 	}
 
 	function test_shouldPass_whenUsingWhitelist_whenAssetWhitelisted() external {
@@ -260,9 +253,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		);
 
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 	}
 
 	function test_shouldFail_whenNotAssetOwner() external {
@@ -275,9 +266,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Insufficient balance to tokenize");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 	}
 
 	function test_shouldFail_whenInvalidMultiTokenAsset() external {
@@ -285,9 +274,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 0)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1));
 	}
 	// <--- Basic checks
 
@@ -297,33 +284,27 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Insufficient balance to tokenize");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount + 1e18)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC20(token, erc20Amount + 1e18));
 	}
 
 	function test_shouldFail_whenERC20HasNotEnoughtUntokenizedBalance() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount - 20e18);
+		MultiToken.Asset memory asset = MultiToken.ERC20(token, erc20Amount - 20e18);
 		_tokenizeAssetUnderId(safe, 1, asset);
 		_mockToken(MultiToken.Category.ERC20);
 
 		vm.expectRevert("Insufficient balance to tokenize");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, 21e18)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC20(token, 21e18));
 	}
 
 	function test_shouldFail_whenERC721IsAlreadyTokenized() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1);
+		MultiToken.Asset memory asset = MultiToken.ERC721(token, 42);
 		_tokenizeAssetUnderId(safe, 1, asset);
 		_mockToken(MultiToken.Category.ERC721);
 
 		vm.expectRevert("Insufficient balance to tokenize");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 	}
 
 	function test_shouldFail_whenERC1155HasNotEnoughtBalance() external {
@@ -331,21 +312,17 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 
 		vm.expectRevert("Insufficient balance to tokenize");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount + 10)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC1155(token, 42, erc1155Amount + 10));
 	}
 
 	function test_shouldFail_whenERC1155HasNotEnoughtUntokenizedBalance() external {
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount - 10);
+		MultiToken.Asset memory asset = MultiToken.ERC1155(token, 42, erc1155Amount - 10);
 		_tokenizeAssetUnderId(safe, 1, asset);
 		_mockToken(MultiToken.Category.ERC1155);
 
 		vm.expectRevert("Insufficient balance to tokenize");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, 11)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC1155(token, 42, 11));
 	}
 	// <--- Insufficient balance
 
@@ -362,7 +339,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		vm.expectRevert("Some asset from collection has an approval");
 		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
+			MultiToken.ERC20(token, erc20Amount)
 		);
 	}
 
@@ -378,126 +355,58 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		vm.expectRevert("Asset has an approved address");
 		vm.prank(safe);
 		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
+			MultiToken.ERC721(token, 42)
 		);
 	}
 	// <--- Approvals
 
 	// ---> Asset category check
-	function test_shouldFail_whenERC20asERC721_whenWithERC165() external {
+	function test_shouldFail_whenERC20asERC721() external {
 		_mockToken(MultiToken.Category.ERC20);
 
-		vm.mockCall(
-			token,
-			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC721).interfaceId),
-			abi.encode(false)
-		);
-
-		vm.expectRevert("Invalid provided category");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 132, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 132));
 	}
 
-	function test_shouldFail_whenERC20asERC721_whenWithoutERC165() external {
-		_mockToken(MultiToken.Category.ERC20, false);
-
-		vm.expectRevert("Invalid provided category");
-		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 132, 1)
-		);
-	}
-
-	function test_shouldFail_whenERC20asERC1155_whenWithERC165() external {
+	function test_shouldFail_whenERC20asERC1155() external {
 		_mockToken(MultiToken.Category.ERC20);
 
-		vm.mockCall(
-			token,
-			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC1155).interfaceId),
-			abi.encode(false)
-		);
-
-		vm.expectRevert("Invalid provided category");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, token, 132, erc1155Amount)
-		);
-	}
-
-	function test_shouldFail_whenERC20asERC1155_whenWithoutERC165() external {
-		_mockToken(MultiToken.Category.ERC20, false);
-
-		vm.expectRevert("Invalid provided category");
-		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, token, 132, erc1155Amount)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC1155(token, 132, erc1155Amount));
 	}
 
 	function test_shouldFail_whenERC721asERC20() external {
 		_mockToken(MultiToken.Category.ERC721);
 
-		vm.mockCall(
-			token,
-			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC20).interfaceId),
-			abi.encode(false)
-		);
-
-		vm.expectRevert("Invalid provided category");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC20(token, erc20Amount));
 	}
 
 	function test_shouldFail_whenERC721asERC1155() external {
 		_mockToken(MultiToken.Category.ERC721);
 
-		vm.mockCall(
-			token,
-			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC1155).interfaceId),
-			abi.encode(false)
-		);
-
-		vm.expectRevert("Invalid provided category");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, token, 132, erc1155Amount)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC1155(token, 132, erc1155Amount));
 	}
 
 	function test_shouldFail_whenERC1155asERC20() external {
 		_mockToken(MultiToken.Category.ERC1155);
 
-		vm.mockCall(
-			token,
-			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC20).interfaceId),
-			abi.encode(false)
-		);
-
-		vm.expectRevert("Invalid provided category");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC20(token, erc20Amount));
 	}
 
 	function test_shouldFail_whenERC1155asERC721() external {
 		_mockToken(MultiToken.Category.ERC1155);
 
-		vm.mockCall(
-			token,
-			abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC721).interfaceId),
-			abi.encode(false)
-		);
-
-		vm.expectRevert("Invalid provided category");
+		vm.expectRevert("Asset is not valid");
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 132, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 132));
 	}
 	// <--- Asset category check
 
@@ -506,27 +415,21 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC20);
 
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC20, token, 0, erc20Amount)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC20(token, erc20Amount));
 	}
 
 	function test_shouldPass_whenERC721SufficientBalance() external {
 		_mockToken(MultiToken.Category.ERC721);
 
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 	}
 
 	function test_shouldPass_whenERC1155SufficientBalance() external {
 		_mockToken(MultiToken.Category.ERC1155);
 
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC1155(token, 42, erc1155Amount));
 	}
 
 	function test_shouldIncreaseATRTokenId() external {
@@ -535,9 +438,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		vm.store(address(atr), LAST_TOKEN_ID_SLOT, bytes32(lastAtrId));
 
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 
 		bytes32 atrId = vm.load(address(atr), LAST_TOKEN_ID_SLOT);
 		assertEq(uint256(atrId), lastAtrId + 1);
@@ -547,9 +448,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC721);
 
 		vm.prank(safe);
-		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		uint256 atrId = atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 
 		bytes32 assetSlot = _assetStructSlotFor(atrId);
 
@@ -564,7 +463,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		assertEq(uint256(assetId), 42);
 		// Amount
 		bytes32 assetAmount = vm.load(address(atr), bytes32(uint256(assetSlot) + 2));
-		assertEq(uint256(assetAmount), 1);
+		assertEq(uint256(assetAmount), 0);
 	}
 
 	function test_shouldStoreTokenizedAssetOwner() external {
@@ -573,9 +472,7 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC721);
 
 		vm.prank(safe);
-		atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 
 		bytes32 valuesSlot = _assetsInSafeFirstValueSlotFor(safe);
 		// Expecting one item -> first item (index 0) will be our ATR token
@@ -587,16 +484,14 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 		_mockToken(MultiToken.Category.ERC721);
 
 		vm.prank(safe);
-		uint256 atrId = atr.mintAssetTransferRightsToken(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1)
-		);
+		uint256 atrId = atr.mintAssetTransferRightsToken(MultiToken.ERC721(token, 42));
 
 		assertEq(atr.ownerOf(atrId), safe);
 	}
 
 	function test_shouldEmit_TransferViaATR() external {
 		_mockToken(MultiToken.Category.ERC721);
-		MultiToken.Asset memory asset = MultiToken.Asset(MultiToken.Category.ERC721, token, 42, 1);
+		MultiToken.Asset memory asset = MultiToken.ERC721(token, 42);
 
 		vm.expectEmit(true, true, true, true);
 		emit TransferViaATR(address(0), safe, 1, asset);
@@ -624,8 +519,8 @@ contract AssetTransferRights_MintAssetTransferRightsTokenBatch_Test is AssetTran
 		_mockToken(MultiToken.Category.ERC1155);
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount / 2);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 42, erc1155Amount / 2);
+		assets[0] = MultiToken.ERC1155(token, 42, erc1155Amount / 2);
+		assets[1] = MultiToken.ERC1155(token, 42, erc1155Amount / 2);
 
 		vm.prank(safe);
 		atr.mintAssetTransferRightsTokenBatch(assets);
@@ -645,7 +540,7 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 
 	uint256 tokenId = 42;
 	uint256 atrId = 5;
-	MultiToken.Asset asset = MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1);
+	MultiToken.Asset asset = MultiToken.ERC721(token, tokenId);
 
 	function setUp() override public {
 		super.setUp();
@@ -747,7 +642,7 @@ contract AssetTransferRights_BurnAssetTransferRightsToken_Test is AssetTransferR
 		vm.store(address(atr), isInvalidSlot, bytes32(uint256(1)));
 		// Store asset under invalid ATR token
 		_storeAssetUnderAtrId(
-			MultiToken.Asset(MultiToken.Category.ERC721, token, tokenId, 1),
+			MultiToken.ERC721(token, tokenId),
 			invalidAtrTokenId
 		);
 		// Mock other owner of the asset than safe
@@ -791,8 +686,8 @@ contract AssetTransferRights_BurnAssetTransferRightsTokenBatch_Test is AssetTran
 		atrIds[1] = 192;
 
 		MultiToken.Asset[] memory assets = new MultiToken.Asset[](2);
-		assets[0] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 31, erc1155Amount);
-		assets[1] = MultiToken.Asset(MultiToken.Category.ERC1155, token, 1, erc1155Amount);
+		assets[0] = MultiToken.ERC1155(token, 31, erc1155Amount);
+		assets[1] = MultiToken.ERC1155(token, 1, erc1155Amount);
 
 		_mockToken(MultiToken.Category.ERC1155);
 		_tokenizeAssetsUnderIds(safe, atrIds, assets);
@@ -828,7 +723,7 @@ contract AssetTransferRights_ClaimAssetFrom_Test is AssetTransferRightsTest {
 	uint256 atrId = 5;
 	uint256 atrId2 = 102;
 	uint256 tokenId = 42;
-	MultiToken.Asset asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+	MultiToken.Asset asset = MultiToken.ERC1155(token, tokenId, erc1155Amount / 2);
 
 	function setUp() override public {
 		super.setUp();
@@ -1063,7 +958,7 @@ contract AssetTransferRights_TransferAssetFrom_Test is AssetTransferRightsTest {
 	uint256 atrId = 5;
 	uint256 atrId2 = 102;
 	uint256 tokenId = 42;
-	MultiToken.Asset asset = MultiToken.Asset(MultiToken.Category.ERC1155, token, tokenId, erc1155Amount / 2);
+	MultiToken.Asset asset = MultiToken.ERC1155(token, tokenId, erc1155Amount / 2);
 
 	RecipientPermissionManager.RecipientPermission permission;
 	bytes32 permissionHash;

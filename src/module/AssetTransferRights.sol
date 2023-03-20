@@ -112,40 +112,18 @@ contract AssetTransferRights is
 		// Check that msg.sender is PWNSafe
 		require(safeValidator.isValidSafe(msg.sender) == true, "Caller is not a PWNSafe");
 
-		// Check that asset address is not zero address
-		require(asset.assetAddress != address(0), "Attempting to tokenize zero address asset");
-
 		// Check that asset address is not ATR contract address
 		require(asset.assetAddress != address(this), "Attempting to tokenize ATR token");
 
 		// Check that address is whitelisted
 		require(whitelist.canBeTokenized(asset.assetAddress) == true, "Asset is not whitelisted");
 
-		// Check that provided asset category is correct
-		if (asset.category == MultiToken.Category.ERC20) {
-
-			if (asset.assetAddress.supportsERC165()) {
-				require(asset.assetAddress.supportsERC165InterfaceUnchecked(type(IERC20).interfaceId), "Invalid provided category");
-
-			} else {
-
-				// Fallback check for ERC20 tokens not implementing ERC165
-				try IERC20(asset.assetAddress).totalSupply() returns (uint256) {
-				} catch { revert("Invalid provided category"); }
-
-			}
-
-		} else if (asset.category == MultiToken.Category.ERC721) {
-			require(asset.assetAddress.supportsInterface(type(IERC721).interfaceId), "Invalid provided category");
-
-		} else if (asset.category == MultiToken.Category.ERC1155) {
-			require(asset.assetAddress.supportsInterface(type(IERC1155).interfaceId), "Invalid provided category");
-
-		} else {
-			revert("Invalid provided category");
-		}
+		// Check that category is not CryptoKitties
+		// CryptoKitties are not supported because of missing `getApproved` function, which is necessary for ERC721-like assets.
+		require(asset.category != MultiToken.Category.CryptoKitties, "Invalid provided category");
 
 		// Check that given asset is valid
+		// -> 0 address, correct provided category, struct format
 		require(asset.isValid(), "Asset is not valid");
 
 		// Check that asset collection doesn't have approvals
@@ -210,7 +188,7 @@ contract AssetTransferRights is
 		if (isInvalid[atrTokenId] == false) {
 
 			// Check asset balance
-			require(asset.balanceOf(msg.sender) >= asset.amount, "Insufficient balance of a tokenize asset");
+			require(asset.balanceOf(msg.sender) >= asset.getTransferAmount(), "Insufficient balance of a tokenize asset");
 
 			// Update tokenized balance
 			require(_decreaseTokenizedBalance(atrTokenId, msg.sender, asset), "Tokenized asset is not in a safe");
