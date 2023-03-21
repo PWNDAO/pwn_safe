@@ -103,6 +103,12 @@ abstract contract AssetTransferRightsTest is TokenizedAssetManagerStorageHelper 
 				abi.encodeWithSignature("supportsInterface(bytes4)", type(IERC1155).interfaceId),
 				abi.encode(true)
 			);
+		} else if (category == MultiToken.Category.CryptoKitties) {
+			vm.mockCall(
+				token,
+				abi.encodeWithSignature("supportsInterface(bytes4)", bytes4(0x9a20483d)),
+				abi.encode(true)
+			);
 		}
 	}
 
@@ -361,6 +367,14 @@ contract AssetTransferRights_MintAssetTransferRightsToken_Test is AssetTransferR
 	// <--- Approvals
 
 	// ---> Asset category check
+	function test_shouldFail_whenCryptoKitties() external {
+		_mockToken(MultiToken.Category.CryptoKitties);
+
+		vm.expectRevert("Invalid provided category");
+		vm.prank(safe);
+		atr.mintAssetTransferRightsToken(MultiToken.CryptoKitties(token, 132));
+	}
+
 	function test_shouldFail_whenERC20asERC721() external {
 		_mockToken(MultiToken.Category.ERC20);
 

@@ -119,7 +119,7 @@ contract AssetTransferRights is
 		require(whitelist.canBeTokenized(asset.assetAddress) == true, "Asset is not whitelisted");
 
 		// Check that category is not CryptoKitties
-		// CryptoKitties are not supported because of missing `getApproved` function, which is necessary for ERC721-like assets.
+		// CryptoKitties are not supported because of an auction feature.
 		require(asset.category != MultiToken.Category.CryptoKitties, "Invalid provided category");
 
 		// Check that given asset is valid
