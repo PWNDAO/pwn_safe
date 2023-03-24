@@ -1,0 +1,10 @@
+{
+    "5": {
+        "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
+        "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
+        "atr": "0xb20a1745692e8312bd4a2A0092b887526e547F9D",
+        "atrGuard": "0xF4DAAbf38960DfbafE229d2AA7Aded7B10dCE22f",
+        "atrGuardProxy": "0xc390f85B5286DBA62C4f1AEC3f451b4267d594DA",
+        "factory": "0x408F179dBB365D6601083fb8fF01ff0E1C66AE28"
+    }
+}
