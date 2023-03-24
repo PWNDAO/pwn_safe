@@ -25,8 +25,8 @@ abstract contract UseCasesTest is Test {
 	using stdJson for string;
     using Strings for uint256;
 
-    Deployment deployment;
     uint256[] deployedChains;
+    Deployment deployment;
 
     // Properties need to be in alphabetical order
     struct Deployment {
@@ -128,28 +128,30 @@ abstract contract UseCasesTest is Test {
 	function _deployProtocol() private {
 		admin = makeAddr("admin");
 
+		// Deploy whitelist
 		vm.prank(admin);
 		whitelist = new Whitelist();
 
+		// Deploy fallback handler
 		fallbackHandler = new CompatibilityFallbackHandler(address(whitelist));
 
-		// 1. Deploy ATR contract
+		// Deploy ATR contract
 		vm.prank(admin);
 		atr = new AssetTransferRights(address(whitelist));
 
-		// 2. Deploy ATR guard logic
+		// Deploy ATR guard logic
 		AssetTransferRightsGuard guardLogic = new AssetTransferRightsGuard();
 
-		// 3. Deploye ATR Guard proxy with ATR Guard logic
+		// Deploye ATR Guard proxy with ATR Guard logic
 		AssetTransferRightsGuardProxy guardProxy = new AssetTransferRightsGuardProxy(
 			address(guardLogic), admin
 		);
 
-		// 4. Initialized ATR Guard proxy as ATR Guard
+		// Initialized ATR Guard proxy as ATR Guard
 		guard = AssetTransferRightsGuard(address(guardProxy));
 		guard.initialize(address(atr), address(whitelist));
 
-		// 5. Deploy PWNSafe factory
+		// Deploy PWNSafe factory
 		factory = new PWNSafeFactory(
 			address(gnosisSafeSingleton),
 			address(gnosisSafeFactory),
@@ -158,7 +160,7 @@ abstract contract UseCasesTest is Test {
 			address(guardProxy)
 		);
 
-		// 6. Initialize ATR contract
+		// Initialize ATR contract
 		atr.initialize(address(factory), address(guardProxy));
 	}
 

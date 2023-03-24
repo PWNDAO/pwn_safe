@@ -51,7 +51,7 @@ abstract contract PWNSafeScript is Script {
 
 
 /*
-Deploy PWNSafe contracts by executing commands:
+Deploy PWNSafe contracts via EOA by executing commands:
 
 source .env
 
@@ -147,7 +147,10 @@ contract Deploy is PWNSafeScript {
 }
 
 
+//Use this functions if deploying via Gnosis Safe. Get deployment bytecode and pass it into tx builder.
 contract DeployBytecode is PWNSafeScript {
+
+	string SELECTED_FORK = "goerli";
 
 	function _deployBytecode(bytes32 salt, bytes memory bytecode) private returns (address, bytes memory) {
 		vm.createSelectFork(SELECTED_FORK);
@@ -173,8 +176,6 @@ contract DeployBytecode is PWNSafeScript {
 		return (addr, deployBytecode);
 	}
 
-
-	string SELECTED_FORK = "goerli";
 
 	// forge script script/PWNSafe.s.sol:DeployBytecode --sig "whitelist()"
 	function whitelist() public returns (address, bytes memory) {
