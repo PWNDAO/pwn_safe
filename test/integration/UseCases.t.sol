@@ -23,21 +23,21 @@ import "@pwn-safe-test/helpers/token/T1155.sol";
 
 abstract contract UseCasesTest is Test {
 	using stdJson for string;
-    using Strings for uint256;
+	using Strings for uint256;
 
-    uint256[] deployedChains;
-    Deployment deployment;
+	uint256[] deployedChains;
+	Deployment deployment;
 
-    // Properties need to be in alphabetical order
-    struct Deployment {
-    	address admin;
-    	AssetTransferRights atr;
+	// Properties need to be in alphabetical order
+	struct Deployment {
+		address admin;
+		AssetTransferRights atr;
 		AssetTransferRightsGuard atrGuard;
 		AssetTransferRightsGuardProxy atrGuardProxy;
 		PWNSafeFactory factory;
 		CompatibilityFallbackHandler fallbackHandler;
 		Whitelist whitelist;
-    }
+	}
 
 	address constant erc1820Registry = address(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
@@ -60,23 +60,29 @@ abstract contract UseCasesTest is Test {
 	GnosisSafe safeOther;
 
 
-	constructor() {
+	function setUp() public virtual {
 		string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/deployments.json");
-        string memory json = vm.readFile(path);
-        bytes memory rawDeployedChains = json.parseRaw(".deployedChains");
+		string memory path = string.concat(root, "/deployments.json");
+		string memory json = vm.readFile(path);
+		bytes memory rawDeployedChains = json.parseRaw(".deployedChains");
 		deployedChains = abi.decode(rawDeployedChains, (uint256[]));
 
 		if (_contains(deployedChains, block.chainid)) {
-            bytes memory rawDeployment = json.parseRaw(string.concat(".chains.", block.chainid.toString()));
-            deployment = abi.decode(rawDeployment, (Deployment));
+			bytes memory rawDeployment = json.parseRaw(string.concat(".chains.", block.chainid.toString()));
+			deployment = abi.decode(rawDeployment, (Deployment));
 
-            gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
+			admin = deployment.admin;
+			whitelist = deployment.whitelist;
+			fallbackHandler = deployment.fallbackHandler;
+			atr = deployment.atr;
+			guard = AssetTransferRightsGuard(address(deployment.atrGuardProxy));
+			factory = deployment.factory;
+			gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
 			gnosisSafeFactory = GnosisSafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
 			signMessageLib = SignMessageLib(0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2);
 
-        } else if (block.chainid == 31337) {
-        	// Mock ERC1820 Registry
+		} else if (block.chainid == 31337) {
+			// Mock ERC1820 Registry
 			vm.etch(erc1820Registry, bytes("data"));
 			vm.mockCall(
 				erc1820Registry,
@@ -84,36 +90,9 @@ abstract contract UseCasesTest is Test {
 				abi.encode(address(0))
 			);
 
-			// Deploy Gnosis Safe contracts
-			gnosisSafeSingleton = new GnosisSafe();
-			gnosisSafeFactory = new GnosisSafeProxyFactory();
-			signMessageLib = new SignMessageLib();
-        } else {
-        	revert("Not deployed on selected chain yet");
-        }
-	}
-
-	function _contains(uint256[] storage array, uint256 value) private view returns (bool) {
-		for (uint256 i; i < array.length; ++i)
-			if (array[i] == value)
-				return true;
-
-		return false;
-	}
-
-	function setUp() public virtual {
-		// Goerli testnet
-		if (block.chainid == 5) {
-			admin = deployment.admin;
-			whitelist = deployment.whitelist;
-			fallbackHandler = deployment.fallbackHandler;
-			atr = deployment.atr;
-			guard = AssetTransferRightsGuard(address(deployment.atrGuardProxy));
-			factory = deployment.factory;
-		}
-		// Local devnet
-		else if (block.chainid == 31337) {
 			_deployProtocol();
+		} else {
+			revert("Not deployed on selected chain yet");
 		}
 
 		address[] memory owners = new address[](1);
@@ -123,6 +102,14 @@ abstract contract UseCasesTest is Test {
 
 		owners[0] = ownerOther;
 		safeOther = factory.deployProxy(owners, 1);
+	}
+
+	function _contains(uint256[] storage array, uint256 value) private view returns (bool) {
+		for (uint256 i; i < array.length; ++i)
+			if (array[i] == value)
+				return true;
+
+		return false;
 	}
 
 	function _deployProtocol() private {
@@ -162,6 +149,11 @@ abstract contract UseCasesTest is Test {
 
 		// Initialize ATR contract
 		atr.initialize(address(factory), address(guardProxy));
+
+		// Deploy Gnosis Safe contracts
+		gnosisSafeSingleton = new GnosisSafe();
+		gnosisSafeFactory = new GnosisSafeProxyFactory();
+		signMessageLib = new SignMessageLib();
 	}
 
 	function _executeTx(
