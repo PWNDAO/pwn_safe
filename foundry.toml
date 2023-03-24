@@ -8,3 +8,14 @@ remappings = [
     "@pwn-safe/=src/",
     "@pwn-safe-test/=test/"
 ]
+
+
+[rpc_endpoints]
+# Mainnets
+mainnet = "${ETHEREUM_URL}"
+polygon = "${POLYGON_URL}"
+
+# Testnets
+goerli = "${GOERLI_URL}"
+mumbai = "${MUMBAI_URL}"
+local = "${LOCAL_URL}"
