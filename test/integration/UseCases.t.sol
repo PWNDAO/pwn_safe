@@ -21,6 +21,8 @@ import "@pwn-safe-test/helpers/token/T721.sol";
 import "@pwn-safe-test/helpers/token/T1155.sol";
 
 
+// Run Use Cases fork test with `forge t --mp test/integration/UseCases.t.sol -f $RPC_URL`
+// PWN Safe deployed addresses have to be in deployments.json file
 abstract contract UseCasesTest is Test {
 	using stdJson for string;
 	using Strings for uint256;
@@ -115,6 +117,11 @@ abstract contract UseCasesTest is Test {
 	function _deployProtocol() private {
 		admin = makeAddr("admin");
 
+		// Deploy Gnosis Safe contracts
+		gnosisSafeSingleton = new GnosisSafe();
+		gnosisSafeFactory = new GnosisSafeProxyFactory();
+		signMessageLib = new SignMessageLib();
+
 		// Deploy whitelist
 		vm.prank(admin);
 		whitelist = new Whitelist();
@@ -149,11 +156,6 @@ abstract contract UseCasesTest is Test {
 
 		// Initialize ATR contract
 		atr.initialize(address(factory), address(guardProxy));
-
-		// Deploy Gnosis Safe contracts
-		gnosisSafeSingleton = new GnosisSafe();
-		gnosisSafeFactory = new GnosisSafeProxyFactory();
-		signMessageLib = new SignMessageLib();
 	}
 
 	function _executeTx(
