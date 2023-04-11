@@ -1,0 +1,11 @@
+MultiToken/=lib/MultiToken/src/
+ds-test/=lib/forge-std/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+safe-contracts/=lib/safe-contracts/contracts/
+
+@MT/=lib/MultiToken/src/
+@openzeppelin/=lib/openzeppelin-contracts/contracts/
+@pwn-safe-test/=test/
+@pwn-safe/=src/
+@safe/=lib/safe-contracts/contracts/

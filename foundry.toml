@@ -1,12 +1,5 @@
 [profile.default]
 solc_version = '0.8.15'
-remappings = [
-    "@safe/=lib/safe-contracts/contracts/",
-    "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
-
-    "@pwn-safe/=src/",
-    "@pwn-safe-test/=test/"
-]
 fs_permissions = [{ access = "read", path = "./deployments.json"}]
 
 
