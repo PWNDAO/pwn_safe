@@ -2,12 +2,9 @@
 pragma solidity 0.8.15;
 
 import "@openzeppelin/access/Ownable.sol";
-import "@openzeppelin/token/ERC20/IERC20.sol";
 import "@openzeppelin/token/ERC721/ERC721.sol";
 import "@openzeppelin/token/ERC721/IERC721.sol";
-import "@openzeppelin/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/proxy/utils/Initializable.sol";
-import "@openzeppelin/utils/introspection/ERC165Checker.sol";
 
 import "@safe/common/Enum.sol";
 import "@safe/GnosisSafe.sol";
@@ -35,7 +32,6 @@ contract AssetTransferRights is
 	ERC721
 {
 	using MultiToken for MultiToken.Asset;
-	using ERC165Checker for address;
 
 
 	/*----------------------------------------------------------*|
