@@ -6,7 +6,7 @@ import "@openzeppelin/interfaces/IERC721.sol";
 import "@pwn-safe-test/integration/BaseIntegrationTest.sol";
 
 
-abstract contract WhitelistedAssetsTest is BaseIntegrationTest {
+abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
 
     uint256 assetId = 1;
 
@@ -128,7 +128,7 @@ interface IWrappedPunkLike {
     function mint(uint256 punkIndex) external;
 }
 
-contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsTest {
+contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegrationTest {
 
     function setUp() public virtual override {
         vm.createSelectFork("mainnet");
@@ -176,7 +176,7 @@ contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsTest {
 |*  # POLYGON                                               *|
 |*----------------------------------------------------------*/
 
-contract PolygonWhitelistedAssetsIntegrationTest is WhitelistedAssetsTest {
+contract PolygonWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegrationTest {
 
     function setUp() public virtual override {
         vm.createSelectFork("polygon");
