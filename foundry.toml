@@ -1,10 +1,14 @@
 [profile.default]
 solc_version = '0.8.15'
+fs_permissions = [{ access = "read", path = "./deployments.json"}]
 
-remappings = [
-    "@safe/=lib/safe-contracts/contracts/",
-    "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
 
-    "@pwn-safe/=src/",
-    "@pwn-safe-test/=test/"
-]
+[rpc_endpoints]
+# Mainnets
+mainnet = "${ETHEREUM_URL}"
+polygon = "${POLYGON_URL}"
+
+# Testnets
+goerli = "${GOERLI_URL}"
+mumbai = "${MUMBAI_URL}"
+local = "${LOCAL_URL}"

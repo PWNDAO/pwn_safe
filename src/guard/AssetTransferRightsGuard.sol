@@ -259,13 +259,13 @@ contract AssetTransferRightsGuard is Guard, OperatorsContext, Initializable, IAs
 	function hasOperatorFor(address safeAddress, address assetAddress) override(OperatorsContext, IAssetTransferRightsGuard) public view returns (bool) {
 		// ERC777 defines `defaultOperators`
 		address implementer = IERC1820Registry(ERC1820_REGISTRY_ADDRESS).getInterfaceImplementer(assetAddress, keccak256("ERC777Token"));
-        if (implementer == assetAddress) {
-        	address[] memory defaultOperators = IERC777(assetAddress).defaultOperators();
+		if (implementer == assetAddress) {
+			address[] memory defaultOperators = IERC777(assetAddress).defaultOperators();
 
-        	for (uint256 i; i < defaultOperators.length; ++i)
-	            if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], safeAddress))
-	            	return true;
-        }
+			for (uint256 i; i < defaultOperators.length; ++i)
+				if (IERC777(assetAddress).isOperatorFor(defaultOperators[i], safeAddress))
+					return true;
+		}
 
 		return super.hasOperatorFor(safeAddress, assetAddress);
 	}
