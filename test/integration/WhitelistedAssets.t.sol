@@ -1,21 +1,47 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity 0.8.15;
 
+import "@openzeppelin/interfaces/IERC20.sol";
 import "@openzeppelin/interfaces/IERC721.sol";
+import "@openzeppelin/interfaces/IERC1155.sol";
+
+import "MultiToken/MultiToken.sol";
 
 import "@pwn-safe-test/integration/BaseIntegrationTest.sol";
 
 
 abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
+    using MultiToken for MultiToken.Asset;
 
-    uint256 assetId = 1;
+    // 20 helpers
+    function _test_whitelistedAssets20(address assetAddress, address assetOwner) internal {
+        _test_whitelistedAssets20({ assetAddress: assetAddress, assetAmount: 100e18, tax: 0, assetOwner: assetOwner });
+    }
 
-    // Test that ATR token can be minted with valid asset category
-    // Test that tokenized asset can be transferred via ATR transfer functions
-    // Test that ATR token can be burned
-    function _test_whitelistedAssets(address _asset) internal {
-        uint256 atrId = atr.lastTokenId() + 1; // nobody but this contract can mint ATR tokens on forked chain
-        IERC721 asset = IERC721(_asset);
+    function _test_whitelistedAssets20(address assetAddress, uint256 assetAmount, uint256 tax, address assetOwner) internal {
+        IERC20 asset = IERC20(assetAddress);
+
+        // transfer asset to safe
+        vm.prank(assetOwner);
+        asset.transfer(address(safe), assetAmount);
+
+        // if tax is not 0, whitelist asset owner to keep the amount untouched
+        assertTrue(asset.balanceOf(address(safe)) >= assetAmount);
+
+        _test_whitelistedAssets({ asset: MultiToken.ERC20(assetAddress, assetAmount), tax: tax });
+    }
+
+    function _decreaseByTax(uint256 amount, uint256 tax) internal pure returns (uint256) {
+        return amount * (1000 - tax) / 1000;
+    }
+
+    // 721 helpers
+    function _test_whitelistedAssets721(address assetAddress) internal {
+        _test_whitelistedAssets721({ assetAddress: assetAddress, assetId: 1 });
+    }
+
+    function _test_whitelistedAssets721(address assetAddress, uint256 assetId) internal {
+        IERC721 asset = IERC721(assetAddress);
         address assetOwner = asset.ownerOf(assetId);
 
         // transfer asset to safe
@@ -24,22 +50,56 @@ abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
 
         assertEq(asset.ownerOf(assetId), address(safe));
 
+        _test_whitelistedAssets(MultiToken.ERC721(assetAddress, 1));
+    }
+
+    // 1155 helpers
+    function _test_whitelistedAssets1155(address assetAddress, address assetOwner) internal {
+        _test_whitelistedAssets1155({ assetAddress: assetAddress, assetId: 1, assetAmount: 1, assetOwner: assetOwner });
+    }
+
+    function _test_whitelistedAssets1155(address assetAddress, uint256 assetId, uint256 assetAmount, address assetOwner) internal {
+        IERC1155 asset = IERC1155(assetAddress);
+
+        // transfer asset to safe
+        vm.prank(assetOwner);
+        asset.safeTransferFrom(assetOwner, address(safe), assetId, assetAmount, "");
+
+        assertTrue(asset.balanceOf(address(safe), assetId) >= assetAmount);
+
+        _test_whitelistedAssets(MultiToken.ERC1155(assetAddress, assetId, assetAmount));
+    }
+
+    // General test
+    function _test_whitelistedAssets(MultiToken.Asset memory asset) internal {
+        _test_whitelistedAssets(asset, 0);
+    }
+
+    // Test that ATR token can be minted with valid asset category
+    // Test that tokenized asset can be transferred via ATR transfer functions
+    // Test that ATR token can be burned
+    function _test_whitelistedAssets(MultiToken.Asset memory asset, uint256 tax) internal {
+        uint256 atrId = atr.lastTokenId() + 1; // nobody but this contract can mint ATR tokens on forked chain
+
+        // whitelist if not already whitelisted
+        if (whitelist.canBeTokenized(asset.assetAddress) == false) {
+            vm.prank(whitelist.owner());
+            whitelist.setIsWhitelisted(asset.assetAddress, true);
+        }
+
         // mint ATR token with valid asset category
         _executeTx({
             _safe: safe,
             to: address(atr),
-            data: abi.encodeWithSelector(
-                atr.mintAssetTransferRightsToken.selector,
-                MultiToken.ERC721(_asset, assetId)
-            )
+            data: abi.encodeWithSelector(atr.mintAssetTransferRightsToken.selector, asset)
         });
 
         assertEq(atr.ownerOf(atrId), address(safe));
-        assertEq(asset.ownerOf(assetId), address(safe));
+        assertTrue(asset.balanceOf(address(safe)) >= _decreaseByTax(asset.getTransferAmount(), tax));
 
         // transfer ATR token to alice
         _executeTx({
-            _safe: safe, 
+            _safe: safe,
             to: address(atr),
             data: abi.encodeWithSelector(
                 atr.transferFrom.selector,
@@ -48,14 +108,14 @@ abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
         });
 
         assertEq(atr.ownerOf(atrId), alice);
-        assertEq(asset.ownerOf(assetId), address(safe));
+        assertTrue(asset.balanceOf(address(safe)) >= _decreaseByTax(asset.getTransferAmount(), tax));
 
         // transfer via ATR token with valid recipient permission
         RecipientPermissionManager.RecipientPermission memory permission = RecipientPermissionManager.RecipientPermission({
-            assetCategory: MultiToken.Category.ERC721,
-            assetAddress: _asset,
-            assetId: assetId,
-            assetAmount: 0,
+            assetCategory: asset.category,
+            assetAddress: asset.assetAddress,
+            assetId: asset.id,
+            assetAmount: asset.amount,
             ignoreAssetIdAndAmount: false,
             recipient: address(safeOther),
             agent: alice,
@@ -65,7 +125,7 @@ abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
         });
 
         _executeTx({
-            _safe: safeOther, 
+            _safe: safeOther,
             to: address(atr),
             data: abi.encodeWithSelector(
                 atr.grantRecipientPermission.selector,
@@ -74,40 +134,62 @@ abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
         });
 
         vm.prank(alice);
-        atr.transferAssetFrom(payable(safe), atrId, false, permission, "");
+        atr.transferAssetFrom(payable(safe), atrId, tax > 0, permission, "");
 
-        assertEq(atr.ownerOf(atrId), alice);
-        assertEq(asset.ownerOf(assetId), address(safeOther));
+        assertTrue(asset.balanceOf(address(safeOther)) >= _decreaseByTax(asset.getTransferAmount(), tax));
 
-        // transfer ATR token to safe
-        vm.prank(alice);
-        atr.transferFrom(alice, address(safe), atrId);
+        // mint new ATR token if tax is not 0 and transfer it to safe
+        if (tax > 0) {
+            asset.amount = asset.balanceOf(address(safeOther));
+            _executeTx({
+                _safe: safeOther,
+                to: address(atr),
+                data: abi.encodeWithSelector(atr.mintAssetTransferRightsToken.selector, asset)
+            });
+            ++atrId;
+
+            _executeTx({
+                _safe: safeOther,
+                to: address(atr),
+                data: abi.encodeWithSelector(
+                    atr.transferFrom.selector,
+                    address(safeOther), address(safe), atrId
+                )
+            });
+        }
+        // else just transfer ATR token to safe
+        else {
+            vm.prank(alice);
+            atr.transferFrom(alice, address(safe), atrId);
+        }
 
         assertEq(atr.ownerOf(atrId), address(safe));
-        assertEq(asset.ownerOf(assetId), address(safeOther));
 
         // claim from other safe
         _executeTx({
-            _safe: safe, 
+            _safe: safe,
             to: address(atr),
             data: abi.encodeWithSelector(
                 atr.claimAssetFrom.selector,
-                address(safeOther), atrId, false
+                address(safeOther), atrId, tax > 0
             )
         });
 
-        assertEq(atr.ownerOf(atrId), address(safe));
-        assertEq(asset.ownerOf(assetId), address(safe));
+        // burn ATR token if tax is 0
+        if (tax == 0) {
+            assertEq(atr.ownerOf(atrId), address(safe));
 
-        // burn ATR token
-        _executeTx({
-            _safe: safe, 
-            to: address(atr),
-            data: abi.encodeWithSelector(
-                atr.burnAssetTransferRightsToken.selector,
-                atrId
-            )
-        });
+            _executeTx({
+                _safe: safe,
+                to: address(atr),
+                data: abi.encodeWithSelector(
+                    atr.burnAssetTransferRightsToken.selector,
+                    atrId
+                )
+            });
+        }
+
+        assertTrue(asset.balanceOf(address(safe)) >= _decreaseByTax(asset.getTransferAmount(), tax));
     }
 
 }
@@ -135,22 +217,27 @@ contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
         super.setUp();
     }
 
-    function test_Otherdeed() external { _test_whitelistedAssets(0x34d85c9CDeB23FA97cb08333b511ac86E1C4E258); }
-    function test_CloneX() external { _test_whitelistedAssets(0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B); }
-    function test_BAYC() external { _test_whitelistedAssets(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D); }
-    function test_MAYC() external { _test_whitelistedAssets(0x60E4d786628Fea6478F785A6d7e704777c86a7c6); }
-    function test_Nakamigos() external { _test_whitelistedAssets(0xd774557b647330C91Bf44cfEAB205095f7E6c367); }
-    function test_Meebits() external { _test_whitelistedAssets(0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7); }
-    function test_DeGods() external { _test_whitelistedAssets(0x8821BeE2ba0dF28761AffF119D66390D594CD280); }
-    function test_GenuineUndead() external { _test_whitelistedAssets(0x209e639a0EC166Ac7a1A4bA41968fa967dB30221); }
-    function test_Azukis() external { _test_whitelistedAssets(0xED5AF388653567Af2F388E6224dC7C4b3241C544); }
-    function test_BEANZ() external { _test_whitelistedAssets(0x306b1ea3ecdf94aB739F1910bbda052Ed4A9f949); }
-    function test_Doodles() external { _test_whitelistedAssets(0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e); }
-    function test_PudgyPenguins() external { _test_whitelistedAssets(0xBd3531dA5CF5857e7CfAA92426877b022e612cf8); }
-    function test_WrappedCryptoPunks() external { 
+    // 20
+    function test_CULT() external { _test_whitelistedAssets20({ assetAddress: 0xf0f9D895aCa5c8678f706FB8216fa22957685A13, assetAmount: 100e18, tax: 4, assetOwner: 0x2d77B594B9BBaED03221F7c63Af8C4307432daF1 }); }
+
+    // 721
+    function test_Otherdeed() external { _test_whitelistedAssets721(0x34d85c9CDeB23FA97cb08333b511ac86E1C4E258); }
+    function test_CloneX() external { _test_whitelistedAssets721(0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B); }
+    function test_BAYC() external { _test_whitelistedAssets721(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D); }
+    function test_MAYC() external { _test_whitelistedAssets721(0x60E4d786628Fea6478F785A6d7e704777c86a7c6); }
+    function test_Nakamigos() external { _test_whitelistedAssets721(0xd774557b647330C91Bf44cfEAB205095f7E6c367); }
+    function test_Meebits() external { _test_whitelistedAssets721(0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7); }
+    function test_DeGods() external { _test_whitelistedAssets721(0x8821BeE2ba0dF28761AffF119D66390D594CD280); }
+    function test_GenuineUndead() external { _test_whitelistedAssets721(0x209e639a0EC166Ac7a1A4bA41968fa967dB30221); }
+    function test_Azukis() external { _test_whitelistedAssets721(0xED5AF388653567Af2F388E6224dC7C4b3241C544); }
+    function test_BEANZ() external { _test_whitelistedAssets721(0x306b1ea3ecdf94aB739F1910bbda052Ed4A9f949); }
+    function test_Doodles() external { _test_whitelistedAssets721(0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e); }
+    function test_PudgyPenguins() external { _test_whitelistedAssets721(0xBd3531dA5CF5857e7CfAA92426877b022e612cf8); }
+    function test_WrappedCryptoPunks() external {
+        uint256 punkId = 1;
         IWrappedPunkLike wrappedPunk = IWrappedPunkLike(0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6);
         ICryptoPunksLike punks = ICryptoPunksLike(0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB);
-        address punkOwner = punks.punkIndexToAddress(assetId);
+        address punkOwner = punks.punkIndexToAddress(punkId);
         // if the punk owner is not wrapped punk contract, wrap the punk
         if (punkOwner != address(wrappedPunk)) {
             address proxy = wrappedPunk.proxyInfo(punkOwner);
@@ -159,15 +246,18 @@ contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
                 wrappedPunk.registerProxy();
                 proxy = wrappedPunk.proxyInfo(punkOwner);
             }
-            
-            vm.prank(punkOwner);
-            punks.transferPunk(proxy, assetId);
 
             vm.prank(punkOwner);
-            wrappedPunk.mint(assetId);
+            punks.transferPunk(proxy, punkId);
+
+            vm.prank(punkOwner);
+            wrappedPunk.mint(punkId);
         }
-        _test_whitelistedAssets(address(wrappedPunk)); 
+        _test_whitelistedAssets721(address(wrappedPunk));
     }
+
+    // 1155
+    function test_pwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0x19e3293196aee99BB3080f28B9D3b4ea7F232b8d, assetId: 18, assetAmount: 1, assetOwner: 0x20d801Dbee0505F9a77CFF40f5fed6Ff0f0ee9D6 }); }
 
 }
 
@@ -183,7 +273,14 @@ contract PolygonWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
         super.setUp();
     }
 
-    function test_y00ts() external { _test_whitelistedAssets(0x670fd103b1a08628e9557cD66B87DeD841115190); }
+    // 20
+
+    // 721
+    function test_y00ts() external { _test_whitelistedAssets721(0x670fd103b1a08628e9557cD66B87DeD841115190); }
+    function test_plaNFTs() external { _test_whitelistedAssets721(0xDBdb041842407c109F65b23eA86D99c1E0D94522); }
+    function test_syncSwapEraPioneer() external { _test_whitelistedAssets721(0x829C606D2ba4CDef61df2bBaC49718bD40024f02); }
+
+    // 1155
+    function test_pwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0xe52405604bF644349f57b36Ca6E85cf095faB8dA, assetId: 152, assetAmount: 1, assetOwner: 0x4cAd030bB05E59Fa23cCA62b417EEc22AEFF2f23 }); }
 
 }
-
