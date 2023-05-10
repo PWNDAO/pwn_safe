@@ -210,6 +210,12 @@ interface IWrappedPunkLike {
     function mint(uint256 punkIndex) external;
 }
 
+interface IERC5058Like {
+    function lockerOf(uint256 tokenId) external view returns (address locker);
+    function unlock(uint256 tokenId) external;
+    function isLocked(uint256 tokenId) external view returns (bool);
+}
+
 contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegrationTest {
 
     function setUp() public virtual override {
@@ -227,7 +233,16 @@ contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
     function test_MAYC() external { _test_whitelistedAssets721(0x60E4d786628Fea6478F785A6d7e704777c86a7c6); }
     function test_Nakamigos() external { _test_whitelistedAssets721(0xd774557b647330C91Bf44cfEAB205095f7E6c367); }
     function test_Meebits() external { _test_whitelistedAssets721(0x7Bd29408f11D2bFC23c34f18275bBf23bB716Bc7); }
-    function test_DeGods() external { _test_whitelistedAssets721(0x8821BeE2ba0dF28761AffF119D66390D594CD280); }
+    function test_DeGods() external {
+        address deGods = 0x8821BeE2ba0dF28761AffF119D66390D594CD280;
+        IERC5058Like lockableAsset = IERC5058Like(deGods);
+        uint256 assetId = 1;
+        if (lockableAsset.isLocked(assetId)) {
+            vm.prank(lockableAsset.lockerOf(assetId));
+            lockableAsset.unlock(assetId);
+        }
+        _test_whitelistedAssets721({ assetAddress: deGods, assetId: assetId });
+    }
     function test_GenuineUndead() external { _test_whitelistedAssets721(0x209e639a0EC166Ac7a1A4bA41968fa967dB30221); }
     function test_Azukis() external { _test_whitelistedAssets721(0xED5AF388653567Af2F388E6224dC7C4b3241C544); }
     function test_BEANZ() external { _test_whitelistedAssets721(0x306b1ea3ecdf94aB739F1910bbda052Ed4A9f949); }
@@ -278,7 +293,16 @@ contract PolygonWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
     // 20
 
     // 721
-    function test_y00ts() external { _test_whitelistedAssets721(0x670fd103b1a08628e9557cD66B87DeD841115190); }
+    function test_y00ts() external {
+        address y00ts = 0x670fd103b1a08628e9557cD66B87DeD841115190;
+        IERC5058Like lockableAsset = IERC5058Like(y00ts);
+        uint256 assetId = 1;
+        if (lockableAsset.isLocked(assetId)) {
+            vm.prank(lockableAsset.lockerOf(assetId));
+            lockableAsset.unlock(assetId);
+        }
+        _test_whitelistedAssets721({ assetAddress: y00ts, assetId: assetId });
+    }
     function test_PlaNFTs() external { _test_whitelistedAssets721(0xDBdb041842407c109F65b23eA86D99c1E0D94522); }
     function test_SyncSwapEraPioneer() external { _test_whitelistedAssets721(0x829C606D2ba4CDef61df2bBaC49718bD40024f02); }
     function test_ComethSpaceship() external { _test_whitelistedAssets721({ assetAddress: 0x85BC2E8Aaad5dBc347db49Ea45D95486279eD918, assetId: 7000686 }); }
