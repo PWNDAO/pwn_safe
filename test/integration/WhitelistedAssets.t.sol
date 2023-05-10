@@ -255,9 +255,11 @@ contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
         }
         _test_whitelistedAssets721(address(wrappedPunk));
     }
+    function test_CryptoPhunks() external { _test_whitelistedAssets721(0xf07468eAd8cf26c752C676E43C814FEe9c8CF402); }
+    function test_WassiesByWassies() external { _test_whitelistedAssets721(0x1D20A51F088492A0f1C57f047A9e30c9aB5C07Ea); }
 
     // 1155
-    function test_pwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0x19e3293196aee99BB3080f28B9D3b4ea7F232b8d, assetId: 18, assetAmount: 1, assetOwner: 0x20d801Dbee0505F9a77CFF40f5fed6Ff0f0ee9D6 }); }
+    function test_PwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0x19e3293196aee99BB3080f28B9D3b4ea7F232b8d, assetId: 18, assetAmount: 1, assetOwner: 0x20d801Dbee0505F9a77CFF40f5fed6Ff0f0ee9D6 }); }
 
 }
 
@@ -277,10 +279,11 @@ contract PolygonWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
 
     // 721
     function test_y00ts() external { _test_whitelistedAssets721(0x670fd103b1a08628e9557cD66B87DeD841115190); }
-    function test_plaNFTs() external { _test_whitelistedAssets721(0xDBdb041842407c109F65b23eA86D99c1E0D94522); }
-    function test_syncSwapEraPioneer() external { _test_whitelistedAssets721(0x829C606D2ba4CDef61df2bBaC49718bD40024f02); }
+    function test_PlaNFTs() external { _test_whitelistedAssets721(0xDBdb041842407c109F65b23eA86D99c1E0D94522); }
+    function test_SyncSwapEraPioneer() external { _test_whitelistedAssets721(0x829C606D2ba4CDef61df2bBaC49718bD40024f02); }
+    function test_ComethSpaceship() external { _test_whitelistedAssets721({ assetAddress: 0x85BC2E8Aaad5dBc347db49Ea45D95486279eD918, assetId: 7000686 }); }
 
     // 1155
-    function test_pwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0xe52405604bF644349f57b36Ca6E85cf095faB8dA, assetId: 152, assetAmount: 1, assetOwner: 0x4cAd030bB05E59Fa23cCA62b417EEc22AEFF2f23 }); }
+    function test_PwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0xe52405604bF644349f57b36Ca6E85cf095faB8dA, assetId: 152, assetAmount: 1, assetOwner: 0x4cAd030bB05E59Fa23cCA62b417EEc22AEFF2f23 }); }
 
 }
