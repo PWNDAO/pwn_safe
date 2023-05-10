@@ -50,7 +50,7 @@ abstract contract WhitelistedAssetsIntegrationTest is BaseIntegrationTest {
 
         assertEq(asset.ownerOf(assetId), address(safe));
 
-        _test_whitelistedAssets(MultiToken.ERC721(assetAddress, 1));
+        _test_whitelistedAssets(MultiToken.ERC721(assetAddress, assetId));
     }
 
     // 1155 helpers
