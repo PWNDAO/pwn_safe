@@ -33,6 +33,9 @@ abstract contract BaseIntegrationTest is Test {
         AssetTransferRightsGuardProxy atrGuardProxy;
         PWNSafeFactory factory;
         CompatibilityFallbackHandler fallbackHandler;
+        GnosisSafeProxyFactory gnosisSafeFactory;
+        GnosisSafe gnosisSafeSingleton;
+        SignMessageLib signMessageLib;
         Whitelist whitelist;
     }
 
@@ -74,9 +77,9 @@ abstract contract BaseIntegrationTest is Test {
             atr = deployment.atr;
             guard = AssetTransferRightsGuard(address(deployment.atrGuardProxy));
             factory = deployment.factory;
-            gnosisSafeSingleton = GnosisSafe(payable(0x3E5c63644E683549055b9Be8653de26E0B4CD36E));
-            gnosisSafeFactory = GnosisSafeProxyFactory(0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2);
-            signMessageLib = SignMessageLib(0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2);
+            gnosisSafeSingleton = deployment.gnosisSafeSingleton;
+            gnosisSafeFactory = deployment.gnosisSafeFactory;
+            signMessageLib = deployment.signMessageLib;
         } else if (block.chainid == 31337) {
             // Mock ERC1820 Registry
             vm.etch(erc1820Registry, bytes("data"));

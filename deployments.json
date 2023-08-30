@@ -1,18 +1,10 @@
 {
-    "deployedChains": [
-        1, 137, 5, 80001
-    ],
+    "deployedChains": [1, 5, 25, 137, 5000, 8453, 80001],
     "chains": {
         "1": {
-            "admin": "0x61a77B19b7F4dB82222625D7a969698894d77473",
-            "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
-            "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
-            "atr": "0xb20a1745692e8312bd4a2A0092b887526e547F9D",
-            "atrGuard": "0xF4DAAbf38960DfbafE229d2AA7Aded7B10dCE22f",
-            "atrGuardProxy": "0xc390f85B5286DBA62C4f1AEC3f451b4267d594DA",
-            "factory": "0x408F179dBB365D6601083fb8fF01ff0E1C66AE28"
-        },
-        "137": {
+            "gnosisSafeSingleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+            "gnosisSafeFactory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+            "signMessageLib": "0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2",
             "admin": "0x61a77B19b7F4dB82222625D7a969698894d77473",
             "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
             "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
@@ -22,6 +14,9 @@
             "factory": "0x408F179dBB365D6601083fb8fF01ff0E1C66AE28"
         },
         "5": {
+            "gnosisSafeSingleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+            "gnosisSafeFactory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+            "signMessageLib": "0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2",
             "admin": "0x61a77B19b7F4dB82222625D7a969698894d77473",
             "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
             "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
@@ -30,7 +25,58 @@
             "atrGuardProxy": "0xc390f85B5286DBA62C4f1AEC3f451b4267d594DA",
             "factory": "0x408F179dBB365D6601083fb8fF01ff0E1C66AE28"
         },
+        "25": {
+            "gnosisSafeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+            "gnosisSafeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+            "signMessageLib": "0x98FFBBF51bb33A056B08ddf711f289936AafF717",
+            "admin": "0xa7106a1C2498EaeF4AC1B594a6544c841623B327",
+            "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
+            "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
+            "atr": "0x2Af429Ab631Cdd2e9de396F8C838d7ad231E73EB",
+            "atrGuard": "0x812C064F243Cb65a2bF90508a3a8a43d3B3995a7",
+            "atrGuardProxy": "0x7Fef14F22fAC06336097b6C35faCA6359A77eb14",
+            "factory": "0xF475aB5843d6688ffFfDAA38e7DEFeAFAc9d9284"
+        },
+        "137": {
+            "gnosisSafeSingleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+            "gnosisSafeFactory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+            "signMessageLib": "0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2",
+            "admin": "0x61a77B19b7F4dB82222625D7a969698894d77473",
+            "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
+            "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
+            "atr": "0xb20a1745692e8312bd4a2A0092b887526e547F9D",
+            "atrGuard": "0xF4DAAbf38960DfbafE229d2AA7Aded7B10dCE22f",
+            "atrGuardProxy": "0xc390f85B5286DBA62C4f1AEC3f451b4267d594DA",
+            "factory": "0x408F179dBB365D6601083fb8fF01ff0E1C66AE28"
+        },
+        "5000": {
+            "gnosisSafeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+            "gnosisSafeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+            "signMessageLib": "0x98FFBBF51bb33A056B08ddf711f289936AafF717",
+            "admin": "0xa7106a1C2498EaeF4AC1B594a6544c841623B327",
+            "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
+            "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
+            "atr": "0x2Af429Ab631Cdd2e9de396F8C838d7ad231E73EB",
+            "atrGuard": "0x812C064F243Cb65a2bF90508a3a8a43d3B3995a7",
+            "atrGuardProxy": "0x7Fef14F22fAC06336097b6C35faCA6359A77eb14",
+            "factory": "0xF475aB5843d6688ffFfDAA38e7DEFeAFAc9d9284"
+        },
+        "8453": {
+            "gnosisSafeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+            "gnosisSafeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+            "signMessageLib": "0x98FFBBF51bb33A056B08ddf711f289936AafF717",
+            "admin": "0xa7106a1C2498EaeF4AC1B594a6544c841623B327",
+            "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
+            "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
+            "atr": "0x2Af429Ab631Cdd2e9de396F8C838d7ad231E73EB",
+            "atrGuard": "0x812C064F243Cb65a2bF90508a3a8a43d3B3995a7",
+            "atrGuardProxy": "0x7Fef14F22fAC06336097b6C35faCA6359A77eb14",
+            "factory": "0xF475aB5843d6688ffFfDAA38e7DEFeAFAc9d9284"
+        },
         "80001": {
+            "gnosisSafeSingleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
+            "gnosisSafeFactory": "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+            "signMessageLib": "0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2",
             "admin": "0x27e3E42E96cE78C34572b70381A400DA5B6E984C",
             "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
             "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
