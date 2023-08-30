@@ -13,12 +13,12 @@ import "@pwn-safe/factory/PWNSafeFactory.sol";
 abstract contract PWNSafeFactoryTest is Test {
 
     PWNSafeFactory factory;
-    address singleton = address(0x01);
-    address gsProxyFactory = address(0x02);
-    address fallbackHandler = address(0x03);
-    address module = address(0x04);
-    address guard = address(0x05);
-    address safe = address(0x2afe);
+    address singleton = makeAddr("singleton");
+    address gsProxyFactory = makeAddr("gsProxyFactory");
+    address fallbackHandler = makeAddr("fallbackHandler");
+    address module = makeAddr("module");
+    address guard = makeAddr("guard");
+    address safe = makeAddr("safe");
 
     event PWNSafeDeployed(address indexed safe);
 
@@ -30,6 +30,9 @@ abstract contract PWNSafeFactoryTest is Test {
             module,
             guard
         );
+
+        vm.etch(gsProxyFactory, bytes("data"));
+        vm.etch(safe, bytes("data"));
 
         vm.mockCall(
             gsProxyFactory,
@@ -117,12 +120,6 @@ contract PWNSafeFactory_Constructor_Test is PWNSafeFactoryTest {
 contract PWNSafeFactory_DeployProxy_Test is PWNSafeFactoryTest {
 
     uint256 threshold = 2;
-
-    constructor() {
-        vm.etch(gsProxyFactory, bytes("data"));
-        vm.etch(safe, bytes("data"));
-    }
-
 
     function _owners() internal pure returns (address[] memory owners) {
         owners = new address[](3);
