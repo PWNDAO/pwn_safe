@@ -22,7 +22,7 @@ contract DeployedProtocolIntegrationTest is BaseIntegrationTest {
 
         // atr owner is admin address
         assertEq(atr.owner(), admin);
-        
+
         // atr is initialized
         bytes32 atrInitializedSlotValue = vm.load(address(atr), bytes32(0));
         bytes32 atrInitialized = atrInitializedSlotValue << 88 >> 248; // offset 20, size 1 (bytes)
@@ -35,8 +35,13 @@ contract DeployedProtocolIntegrationTest is BaseIntegrationTest {
     }
 
 
-    function test_deployedProtocol_ethereum() external { _test_deployedProtocol("mainnet"); }
+    function test_deployedProtocol_ethereum() external { _test_deployedProtocol("ethereum"); }
     function test_deployedProtocol_polygon() external { _test_deployedProtocol("polygon"); }
+    function test_deployedProtocol_base() external { _test_deployedProtocol("base"); }
+    // Need to deploy ERC1820 registry on Cronos first
+    // function test_deployedProtocol_cronos() external { _test_deployedProtocol("cronos"); }
+    function test_deployedProtocol_mantle() external { _test_deployedProtocol("mantle"); }
+
     function test_deployedProtocol_goerli() external { _test_deployedProtocol("goerli"); }
     function test_deployedProtocol_mumbai() external { _test_deployedProtocol("mumbai"); }
 

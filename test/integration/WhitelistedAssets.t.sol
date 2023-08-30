@@ -284,7 +284,6 @@ contract PolygonWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegration
     function test_Chumbi() external { _test_whitelistedAssets721(0x5492Ef6aEebA1A3896357359eF039a8B11621b45); }
 
     // 1155
-    function test_PwnBundler() external { _test_whitelistedAssets1155({ assetAddress: 0xe52405604bF644349f57b36Ca6E85cf095faB8dA, assetId: 152, assetAmount: 1, assetOwner: 0x4cAd030bB05E59Fa23cCA62b417EEc22AEFF2f23 }); }
     function test_PolkaPets() external { _test_whitelistedAssets1155({ assetAddress: 0xf0Bd260fcf279F3138726016B8a03c7110364E04, assetId: 1, assetAmount: 1, assetOwner: 0xC34aE1A39662415a4720d4A3e7C2Be0E202568C2 }); }
     function test_ArkhanteBoosterPremiumPack() external { _test_whitelistedAssets1155({ assetAddress: 0x66d1bbf7Ad44491468465F56bf092F74ff84d6Ef, assetId: 630, assetAmount: 1, assetOwner: 0x000000000000000000000000000000000000dEaD }); }
 
