@@ -1,5 +1,5 @@
 {
-    "deployedChains": [1, 5, 25, 137, 5000, 8453, 80001],
+    "deployedChains": [1, 5, 10, 25, 137, 5000, 8453, 80001],
     "chains": {
         "1": {
             "gnosisSafeSingleton": "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
@@ -24,6 +24,18 @@
             "atrGuard": "0xF4DAAbf38960DfbafE229d2AA7Aded7B10dCE22f",
             "atrGuardProxy": "0xc390f85B5286DBA62C4f1AEC3f451b4267d594DA",
             "factory": "0x408F179dBB365D6601083fb8fF01ff0E1C66AE28"
+        },
+        "10": {
+            "gnosisSafeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+            "gnosisSafeFactory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+            "signMessageLib": "0x98FFBBF51bb33A056B08ddf711f289936AafF717",
+            "admin": "0xa7106a1C2498EaeF4AC1B594a6544c841623B327",
+            "whitelist": "0x79EC459C3bA4c64f00353caBF5fa179e059e2e1e",
+            "fallbackHandler": "0x23456e5a1D93b8C30f75fD60936DC21c0649480D",
+            "atr": "0x2Af429Ab631Cdd2e9de396F8C838d7ad231E73EB",
+            "atrGuard": "0x812C064F243Cb65a2bF90508a3a8a43d3B3995a7",
+            "atrGuardProxy": "0x7Fef14F22fAC06336097b6C35faCA6359A77eb14",
+            "factory": "0xF475aB5843d6688ffFfDAA38e7DEFeAFAc9d9284"
         },
         "25": {
             "gnosisSafeSingleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",

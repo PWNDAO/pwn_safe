@@ -213,7 +213,7 @@ interface IWrappedPunkLike {
 contract MainnetWhitelistedAssetsIntegrationTest is WhitelistedAssetsIntegrationTest {
 
     function setUp() public virtual override {
-        vm.createSelectFork("mainnet");
+        vm.createSelectFork("ethereum");
         super.setUp();
     }
 

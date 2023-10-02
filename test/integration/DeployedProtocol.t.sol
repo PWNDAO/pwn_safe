@@ -37,6 +37,7 @@ contract DeployedProtocolIntegrationTest is BaseIntegrationTest {
 
     function test_deployedProtocol_ethereum() external { _test_deployedProtocol("ethereum"); }
     function test_deployedProtocol_polygon() external { _test_deployedProtocol("polygon"); }
+    function test_deployedProtocol_optimism() external { _test_deployedProtocol("optimism"); }
     function test_deployedProtocol_base() external { _test_deployedProtocol("base"); }
     // Need to deploy ERC1820 registry on Cronos first
     // function test_deployedProtocol_cronos() external { _test_deployedProtocol("cronos"); }

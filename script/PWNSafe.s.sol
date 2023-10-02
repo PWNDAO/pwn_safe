@@ -43,7 +43,7 @@ library PWNDeployerSalt {
 }
 
 abstract contract PWNSafeScript is Script {
-    // Base, Cronos, Mantle
+    // Optimism, Base, Cronos, Mantle
     address constant internal PWN_DEPLOYER_OWNER = 0x1B4B37738De3bb9E6a7a4f99aFe4C145734c071d;
     address constant internal PWN_DEPLOYER = 0x706c9F2dd328E2C01483eCF705D2D9708F4aB727;
     address constant internal GNOSIS_SAFE_SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
