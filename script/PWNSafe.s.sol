@@ -12,14 +12,6 @@ import "@pwn-safe/module/AssetTransferRights.sol";
 import "@pwn-safe/Whitelist.sol";
 
 
-/**
- * Deployment flow:
- * - deploy PWN Safe contracts
- * - initialize ATR and ATRGuardProxy
- * - set ATR token metadata
- * - enable + setup whitelist
- */
-
 interface IPWNDeployer {
     function deploy(bytes32 salt, bytes memory bytecode) external returns (address);
     function deployAndTransferOwnership(bytes32 salt, address owner, bytes memory bytecode) external returns (address);
@@ -43,7 +35,7 @@ library PWNDeployerSalt {
 }
 
 abstract contract PWNSafeScript is Script {
-    // Optimism, Base, Cronos, Mantle
+    // Optimism, Base, Cronos, Mantle, Sepolia
     address constant internal PWN_DEPLOYER_OWNER = 0x1B4B37738De3bb9E6a7a4f99aFe4C145734c071d;
     address constant internal PWN_DEPLOYER = 0x706c9F2dd328E2C01483eCF705D2D9708F4aB727;
     address constant internal GNOSIS_SAFE_SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
@@ -68,7 +60,7 @@ interface GnosisSafeLike {
 
 library GnosisSafeUtils {
 
-    function _gnosisSafeTx(GnosisSafeLike safe, address to, bytes memory data) internal returns (bool) {
+    function execTransaction(GnosisSafeLike safe, address to, bytes memory data) internal returns (bool) {
         uint256 ownerValue = uint256(uint160(msg.sender));
         return GnosisSafeLike(safe).execTransaction({
             to: to,
@@ -87,27 +79,11 @@ library GnosisSafeUtils {
 }
 
 
-/*
-Deploy PWNSafe contracts via EOA by executing commands:
-
-source .env
-
-forge script script/PWNSafe.s.sol:Deploy \
---rpc-url $RPC_URL \
---private-key $PRIVATE_KEY \
---with-gas-price $(cast --to-wei 10 gwei) \
---verify --etherscan-api-key $ETHERSCAN_API_KEY \
---broadcast
-
-forge verify-contract --watch --chain-id X \
---constructor-args $(cast abi-encode "constructor()") \
-0x0 PWN.... -e $ETHERSCAN_API_KEY
-*/
 contract Deploy is PWNSafeScript {
     using GnosisSafeUtils for GnosisSafeLike;
 
     function _deployAndTransferOwnership(bytes32 salt, address owner, bytes memory bytecode) internal returns (address) {
-        bool success = GnosisSafeLike(PWN_DEPLOYER_OWNER)._gnosisSafeTx({
+        bool success = GnosisSafeLike(PWN_DEPLOYER_OWNER).execTransaction({
             to: PWN_DEPLOYER,
             data: abi.encodeWithSelector(
                 IPWNDeployer.deployAndTransferOwnership.selector, salt, owner, bytecode
@@ -118,7 +94,7 @@ contract Deploy is PWNSafeScript {
     }
 
     function _deploy(bytes32 salt, bytes memory bytecode) internal returns (address) {
-        bool success = GnosisSafeLike(PWN_DEPLOYER_OWNER)._gnosisSafeTx({
+        bool success = GnosisSafeLike(PWN_DEPLOYER_OWNER).execTransaction({
             to: PWN_DEPLOYER,
             data: abi.encodeWithSelector(
                 IPWNDeployer.deploy.selector, salt, bytecode
@@ -129,6 +105,18 @@ contract Deploy is PWNSafeScript {
     }
 
 
+/*
+forge script script/PWNSafe.s.sol:Deploy \
+--rpc-url $RPC_URL \
+--private-key $PRIVATE_KEY \
+--with-gas-price $(cast --to-wei 15 gwei) \
+--verify --etherscan-api-key $ETHERSCAN_API_KEY \
+--broadcast
+
+forge verify-contract --watch --chain-id X \
+--constructor-args $(cast abi-encode "constructor()") \
+0x0 PWN.... -e $ETHERSCAN_API_KEY
+*/
     function run() external {
         vm.startBroadcast();
 
@@ -195,6 +183,56 @@ contract Deploy is PWNSafeScript {
         // 8. Initialize ATR contract
         AssetTransferRights(atr).initialize(factory, guardProxy);
         console2.log("ATR module initialized");
+
+        vm.stopBroadcast();
+    }
+
+}
+
+
+contract Setup is PWNSafeScript {
+    using GnosisSafeUtils for GnosisSafeLike;
+
+/*
+forge script script/PWNSafe.s.sol:Setup \
+--rpc-url $RPC_URL \
+--private-key $PRIVATE_KEY \
+--with-gas-price $(cast --to-wei 15 gwei) \
+--broadcast
+*/
+    function run() external {
+        vm.startBroadcast();
+
+        // CONFIG ---------------------
+        address atr = address(0);
+        address whitelist = address(0);
+        address sigMessageLib = address(0);
+        string memory metadata = "TBD";
+        // ----------------------------
+
+        // 1. Setup ATR token metadata
+        bool success = GnosisSafeLike(ADMIN).execTransaction({
+            to: atr,
+            data: abi.encodeWithSelector(AssetTransferRights.setMetadataUri.selector, metadata)
+        });
+        require(success, "Metadata set failed");
+        console2.log("ATR metadata set to:", metadata);
+
+        // 2. Enable whitelist
+        GnosisSafeLike(ADMIN).execTransaction({
+            to: whitelist,
+            data: abi.encodeWithSelector(Whitelist.setUseWhitelist.selector, true)
+        });
+        require(success, "Whitelist enable failed");
+        console2.log("Whitelist enabled");
+
+        // 3. Whitelist SignMessageLib
+        GnosisSafeLike(ADMIN).execTransaction({
+            to: whitelist,
+            data: abi.encodeWithSelector(Whitelist.setIsWhitelistedLib.selector, sigMessageLib, true)
+        });
+        require(success, "SignMessageLib whitelist failed");
+        console2.log("SignMessageLib whitelisted");
 
         vm.stopBroadcast();
     }
