@@ -36,11 +36,18 @@ library PWNDeployerSalt {
 
 abstract contract PWNSafeScript is Script {
     // Optimism, Base, Cronos, Mantle, Sepolia
-    address constant internal PWN_DEPLOYER_OWNER = 0x1B4B37738De3bb9E6a7a4f99aFe4C145734c071d;
+    // address constant internal PWN_DEPLOYER_OWNER = 0x1B4B37738De3bb9E6a7a4f99aFe4C145734c071d;
+    // address constant internal PWN_DEPLOYER = 0x706c9F2dd328E2C01483eCF705D2D9708F4aB727;
+    // address constant internal GNOSIS_SAFE_SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
+    // address constant internal GNOSIS_SAFE_FACTORY = 0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC;
+    // address constant internal ADMIN = 0xa7106a1C2498EaeF4AC1B594a6544c841623B327;
+
+    // Arbitrum
+    address constant internal PWN_DEPLOYER_OWNER = 0x42Cad20c964067f8e8b5c3E13fd0aa3C20a964C4;
     address constant internal PWN_DEPLOYER = 0x706c9F2dd328E2C01483eCF705D2D9708F4aB727;
-    address constant internal GNOSIS_SAFE_SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
-    address constant internal GNOSIS_SAFE_FACTORY = 0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC;
-    address constant internal ADMIN = 0xa7106a1C2498EaeF4AC1B594a6544c841623B327;
+    address constant internal GNOSIS_SAFE_SINGLETON = 0x3E5c63644E683549055b9Be8653de26E0B4CD36E;
+    address constant internal GNOSIS_SAFE_FACTORY = 0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2;
+    address constant internal ADMIN = 0x61a77B19b7F4dB82222625D7a969698894d77473;
 }
 
 interface GnosisSafeLike {
