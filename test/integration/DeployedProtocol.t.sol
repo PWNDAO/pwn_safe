@@ -43,6 +43,8 @@ contract DeployedProtocolIntegrationTest is BaseIntegrationTest {
     // Need to deploy ERC1820 registry on Cronos first
     // function test_deployedProtocol_cronos() external { _test_deployedProtocol("cronos"); }
     function test_deployedProtocol_mantle() external { _test_deployedProtocol("mantle"); }
+    function test_deployedProtocol_bsc() external { _test_deployedProtocol("bsc"); }
+    function test_deployedProtocol_linea() external { _test_deployedProtocol("linea"); }
 
     function test_deployedProtocol_sepolia() external { _test_deployedProtocol("sepolia"); }
     function test_deployedProtocol_goerli() external { _test_deployedProtocol("goerli"); }

@@ -13,7 +13,7 @@ import "@pwn-safe-test/helpers/token/T1155.sol";
 // Run Use Cases fork test with `forge t --mp test/integration/UseCases.t.sol -f $RPC_URL`
 // PWN Safe deployed addresses have to be in deployments.json file
 abstract contract UseCasesTest is BaseIntegrationTest {
-    
+
 }
 
 
